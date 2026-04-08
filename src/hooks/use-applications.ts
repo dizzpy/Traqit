@@ -1,0 +1,70 @@
+import useSWR, { mutate as globalMutate } from "swr";
+import type { Application, ApplicationStatus } from "@/types";
+
+const fetcher = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error("Fetch error");
+    return r.json();
+  });
+
+interface UseApplicationsOptions {
+  status?: ApplicationStatus | ApplicationStatus[];
+  page?: number;
+  limit?: number;
+}
+
+export function useApplications(opts: UseApplicationsOptions = {}) {
+  const params = new URLSearchParams();
+  if (opts.status) {
+    const statuses = Array.isArray(opts.status) ? opts.status : [opts.status];
+    params.set("status", statuses.join(","));
+  }
+  if (opts.page) params.set("page", String(opts.page));
+  if (opts.limit) params.set("limit", String(opts.limit));
+
+  const url = `/api/applications?${params.toString()}`;
+  const { data, error, isLoading } = useSWR<{ data: Application[]; total: number }>(url, fetcher);
+
+  return {
+    applications: data?.data ?? [],
+    total: data?.total ?? 0,
+    isLoading,
+    error,
+    mutate: () => globalMutate((key: string) => typeof key === "string" && key.startsWith("/api/applications")),
+  };
+}
+
+export function useApplication(id: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<{ data: Application }>(
+    id ? `/api/applications/${id}` : null,
+    fetcher
+  );
+  return { application: data?.data ?? null, isLoading, error, mutate };
+}
+
+export async function createApplication(body: Record<string, unknown>) {
+  const res = await fetch("/api/applications", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error?.message ?? "Failed to create");
+  return json.data as Application;
+}
+
+export async function updateApplication(id: string, body: Record<string, unknown>) {
+  const res = await fetch(`/api/applications/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error?.message ?? "Failed to update");
+  return json.data as Application;
+}
+
+export async function deleteApplication(id: string) {
+  const res = await fetch(`/api/applications/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete");
+}

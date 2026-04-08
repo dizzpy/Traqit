@@ -3,7 +3,17 @@
     "allow": [
       "Bash(yes '')",
       "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git --no-turbopack)",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npx prisma:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"const h = require\\(''@hugeicons/react''\\); const keys = Object.keys\\(h\\); console.log\\(keys.slice\\(0,10\\)\\); console.log\\(''total:'', keys.length\\);\")",
+      "Bash(node -e \"const h = require\\(''@hugeicons/core-free-icons''\\); const keys = Object.keys\\(h\\); console.log\\(keys.filter\\(k => /home|search|plus|x|check|chart|list|clock|settings|brief|menu|external|link|trash|mail|phone|arrow|grid|chevron|github|linkedin|eye|file|user|zap|git|filter|sun|moon|drag|minus/i.test\\(k\\)\\).slice\\(0, 60\\)\\)\")",
+      "Bash(node -e \"const h = require\\(''@hugeicons/core-free-icons''\\); const keys = Object.keys\\(h\\); console.log\\(keys.slice\\(0, 30\\)\\); console.log\\(''total:'', keys.length\\);\")",
+      "Bash(npm uninstall:*)",
+      "Bash(npm run:*)",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__list_tables"
     ]
   }
 }

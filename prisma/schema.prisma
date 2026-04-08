@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── PROFILES ───────────────────────────────────────────────────────────────
+model Profile {
+  id                String             @id @default(cuid())
+  name              String             @unique
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  applications      Application[]
+  customSources     Source[]
+  customTypes       JobType[]
+  pipelineTemplates PipelineTemplate[]
+}
+
+// ─── APPLICATIONS ────────────────────────────────────────────────────────────
+model Application {
+  id                String            @id @default(cuid())
+  profileId         String
+  profile           Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  companyName       String
+  companyUrl        String?
+  position          String
+  jobPostUrl        String?
+
+  jobType           String
+  workMode          String
+  appliedVia        String
+
+  salaryMin         Float?
+  salaryMax         Float?
+  currency          String            @default("LKR")
+  location          String?
+
+  status            ApplicationStatus @default(SAVED)
+
+  appliedDate       DateTime?
+  firstResponseDate DateTime?
+  deadline          DateTime?
+
+  notes             String?
+
+  stages            PipelineStage[]
+  contacts          Contact[]
+  documents         Document[]
+  activityLog       Activity[]
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([profileId])
+  @@index([profileId, status])
+  @@index([profileId, appliedDate])
+}
+
+enum ApplicationStatus {
+  SAVED
+  APPLIED
+  IN_PROGRESS
+  OFFER
+  ACCEPTED
+  REJECTED
+  GHOSTED
+  WITHDRAWN
+}
+
+// ─── PIPELINE STAGES ─────────────────────────────────────────────────────────
+model PipelineStage {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  name          String
+  order         Int
+  status        StageStatus @default(UPCOMING)
+  scheduledDate DateTime?
+  completedDate DateTime?
+  notes         String?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([applicationId])
+  @@unique([applicationId, order])
+}
+
+enum StageStatus {
+  UPCOMING
+  COMPLETED
+  PASSED
+  FAILED
+  SKIPPED
+}
+
+// ─── CONTACTS ────────────────────────────────────────────────────────────────
+model Contact {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  name          String
+  role          String
+  email         String?
+  phone         String?
+  linkedinUrl   String?
+  stageName     String?
+  notes         String?
+
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId])
+}
+
+// ─── DOCUMENTS ───────────────────────────────────────────────────────────────
+model Document {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  name          String
+  url           String
+  type          String
+
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId])
+}
+
+// ─── ACTIVITY LOG ────────────────────────────────────────────────────────────
+model Activity {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  type          String
+  description   String
+  metadata      Json?
+
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId])
+  @@index([applicationId, createdAt])
+}
+
+// ─── CUSTOM PRESETS ──────────────────────────────────────────────────────────
+model Source {
+  id         String   @id @default(cuid())
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name       String
+  usageCount Int      @default(0)
+
+  @@unique([profileId, name])
+}
+
+model JobType {
+  id         String   @id @default(cuid())
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name       String
+  usageCount Int      @default(0)
+
+  @@unique([profileId, name])
+}
+
+// ─── PIPELINE TEMPLATES ──────────────────────────────────────────────────────
+model PipelineTemplate {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name      String
+  stages    Json
+  isDefault Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, name])
+}

@@ -1,26 +1,133 @@
 @import "tailwindcss";
 
+/* ── CSS design tokens ───────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface-elevated: #1c1c1c;
+  --surface-hover: #262626;
+
+  /* Borders */
+  --border: #2a2a2a;
+  --border-hover: #3a3a3a;
+
+  /* Font families
+     --font-gs / --font-satoshi are injected at runtime by next/font/local via layout.tsx.
+     The string fallbacks here activate only if those vars are missing (e.g. SSR edge cases). */
+  --font-family-sans: var(--font-gs, "General Sans", system-ui, sans-serif);
+  --font-family-display: var(--font-satoshi, "Satoshi", system-ui, sans-serif);
+
+  /* Font sizes (base = 16px, so 1rem = 16px) */
+  --font-2xs: 0.6875rem; /* 11px — timestamps, helper hints */
+  --font-xs: 0.75rem; /* 12px — labels, captions, badges */
+  --font-sm: 0.875rem; /* 14px — buttons, inputs, body text */
+  --font-md: 1rem; /* 16px — card titles, section heads */
+  --font-lg: 1.125rem; /* 18px — page sub-headings */
+  --font-xl: 1.25rem; /* 20px — page headings */
+  --font-2xl: 1.5rem; /* 24px — display / hero */
+
+  /* Text */
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1a1;
+  --text-muted: #6b6b6b;
+
+  /* Accent */
+  --accent: #6c5ce7;
+  --accent-hover: #5a4bd6;
+  --accent-foreground: #ffffff;
+
+  /* Semantic */
+  --success: #22c55e;
+  --warning: #eab308;
+  --danger: #ef4444;
+  --info: #3b82f6;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #f7f7f7;
+  --surface-elevated: #efefef;
+  --surface-hover: #e8e8e8;
+  --border: #e5e5e5;
+  --border-hover: #d4d4d4;
+  --text-primary: #0a0a0a;
+  --text-secondary: #525252;
+  --text-muted: #9c9c9c;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base styles ─────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
 }
 
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  height: 100%;
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-family-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-family-display);
+}
+
+/* ── Tailwind theme overrides ────────────────────────────────────── */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  --font-sans: var(--font-family-sans);
+  --font-display: var(--font-family-display);
+
+  --text-2xs: var(--font-2xs);
+  --text-xs: var(--font-xs);
+  --text-sm: var(--font-sm);
+  --text-md: var(--font-md);
+  --text-base: var(--font-md);
+  --text-lg: var(--font-lg);
+  --text-xl: var(--font-xl);
+  --text-2xl: var(--font-2xl);
+
+  --radius-btn: 12px;
+  --radius-input: 12px;
+  --radius-card: 12px;
+  --radius-modal: 12px;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
 }
