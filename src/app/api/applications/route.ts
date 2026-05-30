@@ -6,12 +6,13 @@ import { apiError } from "@/lib/utils";
 
 const createSchema = z.object({
   companyName: z.string().min(1).max(100),
-  companyUrl: z.string().url().optional().nullable(),
-  position: z.string().min(1).max(100),
-  jobPostUrl: z.string().url().optional().nullable(),
-  jobType: z.string().min(1),
-  workMode: z.enum(["on-site", "remote", "hybrid", "no-data"]),
-  appliedVia: z.string().min(1),
+  companyUrl: z.string().optional().nullable(),
+  // position/jobType/appliedVia can be filled in later (Notion-style quick add).
+  position: z.string().max(100).optional().default(""),
+  jobPostUrl: z.string().optional().nullable(),
+  jobType: z.string().optional().default(""),
+  workMode: z.enum(["on-site", "remote", "hybrid", "no-data"]).default("no-data"),
+  appliedVia: z.string().optional().default(""),
   salaryMin: z.number().optional().nullable(),
   salaryMax: z.number().optional().nullable(),
   currency: z.string().default("LKR"),

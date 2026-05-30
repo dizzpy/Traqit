@@ -1,19 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, Add01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import { DatePicker } from "@/components/ui/date-picker";
+import { toast } from "sonner";
 import { CURRENCIES, DEFAULT_JOB_TYPES, DEFAULT_SOURCES } from "@/lib/constants";
-import { MOCK_PIPELINE_TEMPLATES } from "@/lib/mock-data";
+import { createApplication } from "@/hooks/use-applications";
+import { useTemplates } from "@/hooks/use-presets";
 import type { WorkMode } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface AddApplicationPanelProps {
   onClose: () => void;
+  /** Called after a successful create so the list can revalidate. */
+  onCreated: () => void;
 }
 
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
@@ -30,8 +34,10 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-[11px] text-[var(--status-rejected-fg)]">{message}</p>;
 }
 
-export function AddApplicationPanel({ onClose }: AddApplicationPanelProps) {
+export function AddApplicationPanel({ onClose, onCreated }: AddApplicationPanelProps) {
   const today = new Date().toISOString().split("T")[0];
+  const { templates } = useTemplates();
+  const [submitting, setSubmitting] = useState(false);
 
   const [companyName, setCompanyName] = useState("");
   const [position, setPosition] = useState("");
@@ -59,11 +65,33 @@ export function AddApplicationPanel({ onClose }: AddApplicationPanelProps) {
     return Object.keys(e).length === 0;
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate()) return;
-    // Static — no API call in Sprint 1
-    onClose();
+    if (!validate() || submitting) return;
+    setSubmitting(true);
+    try {
+      await createApplication({
+        companyName: companyName.trim(),
+        position: position.trim(),
+        companyUrl: companyUrl.trim() || null,
+        jobPostUrl: jobPostUrl.trim() || null,
+        jobType: jobType.trim(),
+        workMode,
+        appliedVia: appliedVia.trim(),
+        salaryMin: salaryMin ? Number(salaryMin) : null,
+        salaryMax: salaryMax ? Number(salaryMax) : null,
+        currency,
+        location: location.trim() || null,
+        appliedDate: appliedDate || null,
+        notes: notes.trim() || null,
+        templateId: templateId || null,
+      });
+      onCreated();
+      onClose();
+    } catch {
+      toast.error("Couldn't create application");
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -71,7 +99,7 @@ export function AddApplicationPanel({ onClose }: AddApplicationPanelProps) {
       <SheetContent
         side="right"
         showCloseButton={false}
-        className="w-full sm:max-w-3xl bg-surface border-l border-border p-0 flex flex-col gap-0 overflow-hidden"
+        className="w-full sm:max-w-[46rem] bg-surface border-l border-border p-0 flex flex-col gap-0 overflow-hidden"
       >
         <SheetHeader className="px-6 py-5 border-b border-border shrink-0">
           <div className="flex items-center justify-between gap-4">
@@ -190,38 +218,37 @@ export function AddApplicationPanel({ onClose }: AddApplicationPanelProps) {
               <PillToggle value={workMode} onChange={setWorkMode} />
             </div>
 
-            {/* Salary */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label>Salary min</Label>
-                <input
-                  type="number"
-                  value={salaryMin}
-                  onChange={(e) => setSalaryMin(e.target.value)}
-                  placeholder="35000"
-                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Salary max</Label>
-                <input
-                  type="number"
-                  value={salaryMax}
-                  onChange={(e) => setSalaryMax(e.target.value)}
-                  placeholder="55000"
-                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Currency</Label>
+            {/* Salary range — single combined control */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Salary range</Label>
+              <div className="flex items-stretch rounded-input border border-border bg-surface-elevated overflow-hidden transition-colors duration-150 focus-within:border-border-hover">
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
+                  className="h-9 shrink-0 bg-surface-hover/40 border-r border-border pl-3 pr-2 text-sm font-medium text-text-secondary outline-none cursor-pointer"
                 >
                   {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={salaryMin}
+                  onChange={(e) => setSalaryMin(e.target.value)}
+                  placeholder="35,000"
+                  className="h-9 w-full min-w-0 flex-1 bg-transparent px-3 text-sm text-text-primary placeholder:text-text-muted outline-none"
+                />
+                <span className="flex items-center px-1 text-text-muted select-none">–</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={salaryMax}
+                  onChange={(e) => setSalaryMax(e.target.value)}
+                  placeholder="55,000"
+                  className="h-9 w-full min-w-0 flex-1 bg-transparent px-3 text-sm text-text-primary placeholder:text-text-muted outline-none"
+                />
+                <span className="flex items-center pl-1 pr-3 text-xs text-text-muted select-none">/mo</span>
               </div>
+              <p className="text-[11px] text-text-muted">Leave blank if undisclosed</p>
             </div>
 
             {/* Location + applied date */}
@@ -250,8 +277,8 @@ export function AddApplicationPanel({ onClose }: AddApplicationPanelProps) {
                 className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
               >
                 <option value="">No template — build from scratch</option>
-                {MOCK_PIPELINE_TEMPLATES.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.stages.join(" → ")})</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name} ({(t.stages as string[]).join(" → ")})</option>
                 ))}
               </select>
             </div>
@@ -271,11 +298,16 @@ export function AddApplicationPanel({ onClose }: AddApplicationPanelProps) {
 
           {/* Footer */}
           <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+            <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" size="sm">
-              Add application
+            <Button type="submit" size="sm" disabled={submitting} className="h-9 px-5 text-sm font-semibold shadow-sm shadow-accent/25">
+              {submitting ? (
+                <span className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              ) : (
+                <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
+              )}
+              {submitting ? "Adding…" : "Add application"}
             </Button>
           </div>
         </form>

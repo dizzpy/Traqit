@@ -27,14 +27,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // If authenticated but no profile selected, redirect to profile picker
-  // (skip for API routes — they handle this themselves)
+  // If authenticated but no profile selected, send back to login (which
+  // creates/selects the profile and sets the cookie). No separate picker page.
   if (!pathname.startsWith("/api")) {
     const profileId = req.cookies.get(PROFILE_COOKIE)?.value;
-    if (!profileId && pathname !== "/select-profile") {
-      const profileUrl = req.nextUrl.clone();
-      profileUrl.pathname = "/select-profile";
-      return NextResponse.redirect(profileUrl);
+    if (!profileId && pathname !== "/login") {
+      const loginUrl = req.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      return NextResponse.redirect(loginUrl);
     }
   }
 

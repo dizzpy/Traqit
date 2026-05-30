@@ -89,7 +89,7 @@ export function OptionPicker({
       <PopoverTrigger
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "text-left rounded-md px-2 py-0.5 -mx-2 transition-colors duration-150 hover:bg-surface-hover cursor-pointer focus-visible:bg-surface-hover",
+          "text-left cursor-pointer outline-none rounded-md transition-opacity duration-150 hover:opacity-75",
           className
         )}
       >

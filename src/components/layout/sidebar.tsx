@@ -52,24 +52,36 @@ export function Sidebar() {
     <aside
       className={cn(
         "relative z-30 shrink-0 h-screen bg-surface border-r border-border flex flex-col",
-        "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
-        collapsed ? "w-[64px]" : "w-[220px]"
+        "transition-[width] duration-300 ease-in-out",
+        collapsed ? "w-16" : "w-55"
       )}
     >
-      {/* Cute little bump on the divider — click to collapse / expand */}
+      {/* Cute little bump on the divider — two rounded segments that bend into a
+          soft curve on hover, pointing the way the sidebar will move. */}
       <button
         onClick={toggle}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="group/bump absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2 z-40 flex h-12 w-4 items-center justify-center"
+        className="group/bump absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2 z-40 flex h-12 w-4 flex-col items-center justify-center"
       >
-        <span className="h-8 w-1 rounded-full bg-border transition-all duration-200 group-hover/bump:h-10 group-hover/bump:bg-accent" />
+        <span
+          className={cn(
+            "h-3.5 w-1 rounded-full bg-border origin-bottom transition-all duration-200 ease-out group-hover/bump:bg-accent",
+            collapsed ? "group-hover/bump:-rotate-[18deg]" : "group-hover/bump:rotate-[18deg]"
+          )}
+        />
+        <span
+          className={cn(
+            "h-3.5 w-1 -mt-px rounded-full bg-border origin-top transition-all duration-200 ease-out group-hover/bump:bg-accent",
+            collapsed ? "group-hover/bump:rotate-[18deg]" : "group-hover/bump:-rotate-[18deg]"
+          )}
+        />
       </button>
 
       {/* Logo + collapse toggle */}
       <div
         className={cn(
-          "h-[61px] px-3 border-b border-border flex items-center",
+          "h-15.25 px-3 border-b border-border flex items-center",
           collapsed ? "justify-center" : "justify-between"
         )}
       >

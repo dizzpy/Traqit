@@ -13,9 +13,9 @@ const include = {
 
 const updateSchema = z.object({
   companyName: z.string().min(1).max(100).optional(),
-  companyUrl: z.string().url().optional().nullable(),
-  position: z.string().min(1).max(100).optional(),
-  jobPostUrl: z.string().url().optional().nullable(),
+  companyUrl: z.string().optional().nullable(),
+  position: z.string().max(100).optional(),
+  jobPostUrl: z.string().optional().nullable(),
   jobType: z.string().optional(),
   workMode: z.enum(["on-site", "remote", "hybrid", "no-data"]).optional(),
   appliedVia: z.string().optional(),

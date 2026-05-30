@@ -1,11 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
+import { mutate as globalMutate } from "swr";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Add01Icon,
-  Notification01Icon,
-  NotificationOff01Icon,
   DragDropVerticalIcon,
   FlowSquareIcon,
   CheckmarkCircle01Icon,
@@ -13,10 +26,12 @@ import {
   AlertCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { STAGE_PRESETS, STAGE_STATUS_LABELS } from "@/lib/constants";
-import { MOCK_PIPELINE_TEMPLATES } from "@/lib/mock-data";
+import { useTemplates } from "@/hooks/use-presets";
+import { createStage, updateStage, deleteStage, reorderStages } from "@/hooks/use-stages";
 import type { Application, PipelineStage, StageStatus } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -24,24 +39,14 @@ interface PipelineBuilderProps {
   application: Application;
 }
 
-type StageWithNotify = PipelineStage & { notify?: boolean };
+const STATUS_CYCLE: StageStatus[] = ["UPCOMING", "COMPLETED", "PASSED", "FAILED", "SKIPPED"];
 
 const STATUS_DOT: Record<StageStatus, React.ReactNode> = {
-  UPCOMING: (
-    <span className="w-3 h-3 rounded-full border-2 border-border bg-transparent inline-block" />
-  ),
-  COMPLETED: (
-    <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} className="text-[var(--status-offer-fg)]" strokeWidth={1.5} />
-  ),
-  PASSED: (
-    <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} className="text-accent-soft-fg" strokeWidth={1.5} />
-  ),
-  FAILED: (
-    <HugeiconsIcon icon={Cancel01Icon} size={14} className="text-[var(--status-rejected-fg)]" strokeWidth={1.5} />
-  ),
-  SKIPPED: (
-    <HugeiconsIcon icon={AlertCircleIcon} size={14} className="text-text-muted" strokeWidth={1.5} />
-  ),
+  UPCOMING: <span className="w-3 h-3 rounded-full border-2 border-border bg-transparent inline-block" />,
+  COMPLETED: <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} className="text-[var(--status-offer-fg)]" strokeWidth={1.5} />,
+  PASSED: <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} className="text-accent-soft-fg" strokeWidth={1.5} />,
+  FAILED: <HugeiconsIcon icon={Cancel01Icon} size={14} className="text-[var(--status-rejected-fg)]" strokeWidth={1.5} />,
+  SKIPPED: <HugeiconsIcon icon={AlertCircleIcon} size={14} className="text-text-muted" strokeWidth={1.5} />,
 };
 
 const STATUS_LABEL_COLORS: Record<StageStatus, string> = {
@@ -52,40 +57,125 @@ const STATUS_LABEL_COLORS: Record<StageStatus, string> = {
   SKIPPED: "text-text-muted",
 };
 
+// Revalidate every applications key so the list + detail reflect stage changes.
+const revalidateApps = () =>
+  globalMutate((key) => typeof key === "string" && key.startsWith("/api/applications"));
+
 export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
-  const [stages, setStages] = useState<StageWithNotify[]>(
-    app.stages.map((s) => ({ ...s, notify: false }))
-  );
+  const { templates } = useTemplates();
+  const [stages, setStages] = useState<PipelineStage[]>(app.stages);
   const [customInput, setCustomInput] = useState("");
   const [showCustom, setShowCustom] = useState(false);
 
-  function addStage(name: string) {
-    const newStage: StageWithNotify = {
-      id: `mock-${Date.now()}`,
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function tempStage(name: string, order: number): PipelineStage {
+    const now = new Date().toISOString();
+    return {
+      id: `temp-${now}-${order}`,
       applicationId: app.id,
       name,
-      order: stages.length,
+      order,
       status: "UPCOMING",
       scheduledDate: null,
       completedDate: null,
       notes: null,
-      notify: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
-    setStages((prev) => [...prev, newStage]);
+  }
+
+  async function addStage(name: string) {
     setShowCustom(false);
     setCustomInput("");
+    const temp = tempStage(name, stages.length + 1);
+    setStages((prev) => [...prev, temp]);
+    try {
+      const real = await createStage(app.id, { name, order: temp.order });
+      setStages((prev) => prev.map((s) => (s.id === temp.id ? real : s)));
+      revalidateApps();
+    } catch {
+      setStages((prev) => prev.filter((s) => s.id !== temp.id));
+      toast.error("Couldn't add stage");
+    }
   }
 
-  function toggleNotify(id: string) {
-    setStages((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, notify: !s.notify } : s))
-    );
-  }
-
-  function removeStage(id: string) {
+  async function removeStage(id: string) {
+    const snapshot = stages;
     setStages((prev) => prev.filter((s) => s.id !== id));
+    try {
+      await deleteStage(app.id, id);
+      revalidateApps();
+    } catch {
+      setStages(snapshot);
+      toast.error("Couldn't remove stage");
+    }
+  }
+
+  async function cycleStatus(stage: PipelineStage) {
+    const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(stage.status) + 1) % STATUS_CYCLE.length];
+    const snapshot = stages;
+    setStages((prev) => prev.map((s) => (s.id === stage.id ? { ...s, status: next } : s)));
+    try {
+      await updateStage(app.id, stage.id, { status: next });
+      revalidateApps();
+    } catch {
+      setStages(snapshot);
+      toast.error("Couldn't update stage");
+    }
+  }
+
+  async function setStageDate(stage: PipelineStage, date: string) {
+    const value = date || null;
+    const snapshot = stages;
+    setStages((prev) => prev.map((s) => (s.id === stage.id ? { ...s, scheduledDate: value } : s)));
+    try {
+      await updateStage(app.id, stage.id, { scheduledDate: value });
+      revalidateApps();
+    } catch {
+      setStages(snapshot);
+      toast.error("Couldn't set date");
+    }
+  }
+
+  async function applyTemplate(stageNames: string[]) {
+    if (!stageNames.length) return;
+    const snapshot = stages;
+    setStages(stageNames.map((name, i) => tempStage(name, i + 1)));
+    try {
+      // Replace the existing pipeline with the template's stages.
+      await Promise.all(
+        snapshot.filter((s) => !s.id.startsWith("temp-")).map((s) => deleteStage(app.id, s.id))
+      );
+      const created: PipelineStage[] = [];
+      for (let i = 0; i < stageNames.length; i++) {
+        created.push(await createStage(app.id, { name: stageNames[i], order: i + 1 }));
+      }
+      setStages(created);
+      revalidateApps();
+    } catch {
+      setStages(snapshot);
+      toast.error("Couldn't apply template");
+    }
+  }
+
+  async function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    if (stages.some((s) => s.id.startsWith("temp-"))) return; // wait for pending creates
+    const oldIndex = stages.findIndex((s) => s.id === active.id);
+    const newIndex = stages.findIndex((s) => s.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const snapshot = stages;
+    const next = arrayMove(stages, oldIndex, newIndex).map((s, i) => ({ ...s, order: i + 1 }));
+    setStages(next);
+    try {
+      await reorderStages(app.id, next.map((s) => s.id));
+      revalidateApps();
+    } catch {
+      setStages(snapshot);
+      toast.error("Couldn't reorder stages");
+    }
   }
 
   return (
@@ -93,38 +183,19 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
       {/* Template actions */}
       <div className="flex items-center gap-2">
         <select
-          className="flex-1 bg-surface-elevated border border-border rounded-input px-3 py-1.5 text-xs text-text-secondary focus:outline-none focus:border-accent transition-colors duration-150"
+          className="flex-1 bg-surface-elevated border border-border rounded-input px-3 py-1.5 text-xs text-text-secondary focus:outline-none focus:border-border-hover transition-colors duration-150"
           defaultValue=""
           onChange={(e) => {
-            const tmpl = MOCK_PIPELINE_TEMPLATES.find((t) => t.id === e.target.value);
-            if (tmpl) {
-              setStages(
-                tmpl.stages.map((name, i) => ({
-                  id: `tmpl-${Date.now()}-${i}`,
-                  applicationId: app.id,
-                  name,
-                  order: i,
-                  status: "UPCOMING",
-                  scheduledDate: null,
-                  completedDate: null,
-                  notes: null,
-                  notify: false,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                }))
-              );
-              e.target.value = "";
-            }
+            const tmpl = templates.find((t) => t.id === e.target.value);
+            if (tmpl) applyTemplate(tmpl.stages as string[]);
+            e.target.value = "";
           }}
         >
           <option value="" disabled>Apply a template…</option>
-          {MOCK_PIPELINE_TEMPLATES.map((t) => (
+          {templates.map((t) => (
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
         </select>
-        <Button variant="ghost" size="sm" className="text-xs text-text-muted whitespace-nowrap">
-          Save as template
-        </Button>
       </div>
 
       {/* Stage palette */}
@@ -173,113 +244,115 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
       </div>
 
       {/* Stage sequence */}
-      <div className="flex flex-col">
-        {stages.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <div className="w-10 h-10 rounded-full bg-surface-elevated flex items-center justify-center">
-              <HugeiconsIcon icon={FlowSquareIcon} size={18} className="text-text-muted" strokeWidth={1.5} />
-            </div>
-            <p className="text-sm font-medium text-text-primary">No stages yet</p>
-            <p className="text-xs text-text-muted max-w-xs">
-              Tap a stage above to add it, or apply a template to pre-fill a common sequence.
-            </p>
+      {stages.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-8 text-center">
+          <div className="w-10 h-10 rounded-full bg-surface-elevated flex items-center justify-center">
+            <HugeiconsIcon icon={FlowSquareIcon} size={18} className="text-text-muted" strokeWidth={1.5} />
           </div>
-        ) : (
-          stages.map((stage, index) => (
-            <div key={stage.id} className="flex gap-3">
-              {/* Rail column */}
-              <div className="flex flex-col items-center" style={{ width: 20 }}>
-                <div className="mt-3.5 flex items-center justify-center">{STATUS_DOT[stage.status]}</div>
-                {index < stages.length - 1 && (
-                  <div className="flex-1 w-px bg-border mt-1 mb-0 min-h-[20px]" />
-                )}
-              </div>
-
-              {/* Stage card */}
-              <div
-                className={cn(
-                  "flex-1 bg-surface-elevated border border-border rounded-card p-3 mb-2 group transition-colors duration-150 hover:border-border-hover",
-                  stage.status === "COMPLETED" || stage.status === "PASSED"
-                    ? "opacity-80"
-                    : ""
-                )}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {/* Drag handle (visual only in Sprint 1) */}
-                    <HugeiconsIcon
-                      icon={DragDropVerticalIcon}
-                      size={14}
-                      className="text-text-muted opacity-0 group-hover:opacity-100 cursor-grab transition-opacity duration-150 shrink-0"
-                      strokeWidth={1.5}
-                    />
-                    <span className="text-sm font-medium text-text-primary truncate">{stage.name}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={cn("text-xs font-medium", STATUS_LABEL_COLORS[stage.status])}>
-                      {STAGE_STATUS_LABELS[stage.status]}
-                    </span>
-
-                    {/* Bell toggle */}
-                    <button
-                      onClick={() => toggleNotify(stage.id)}
-                      title={stage.notify ? "Remove reminder" : "Set reminder"}
-                      className={cn(
-                        "transition-colors duration-150",
-                        stage.notify ? "text-accent" : "text-text-muted hover:text-accent"
-                      )}
-                    >
-                      <HugeiconsIcon
-                        icon={stage.notify ? Notification01Icon : NotificationOff01Icon}
-                        size={14}
-                        strokeWidth={1.5}
-                      />
-                    </button>
-
-                    {/* Remove */}
-                    <button
-                      onClick={() => removeStage(stage.id)}
-                      className="text-text-muted hover:text-[var(--status-rejected-fg)] transition-colors duration-150 opacity-0 group-hover:opacity-100"
-                    >
-                      <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={1.5} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Date / notes row */}
-                {(stage.scheduledDate || stage.notes) && (
-                  <div className="mt-2 flex flex-col gap-1">
-                    {stage.scheduledDate && (
-                      <p className="text-[11px] text-text-muted">
-                        {format(new Date(stage.scheduledDate), "MMM d, yyyy")}
-                        {stage.scheduledDate.includes("T") && stage.scheduledDate.split("T")[1] !== "00:00:00Z"
-                          ? ` · ${format(new Date(stage.scheduledDate), "h:mm a")}`
-                          : ""}
-                      </p>
-                    )}
-                    {stage.notes && (
-                      <p className="text-[11px] text-text-secondary italic">{stage.notes}</p>
-                    )}
-                  </div>
-                )}
-              </div>
+          <p className="text-sm font-medium text-text-primary">No stages yet</p>
+          <p className="text-xs text-text-muted max-w-xs">
+            Tap a stage above to add it, or apply a template to pre-fill a common sequence.
+          </p>
+        </div>
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={stages.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+            <div className="flex flex-col">
+              {stages.map((stage, index) => (
+                <StageCard
+                  key={stage.id}
+                  stage={stage}
+                  isLast={index === stages.length - 1}
+                  onCycleStatus={() => cycleStatus(stage)}
+                  onSetDate={(d) => setStageDate(stage, d)}
+                  onRemove={() => removeStage(stage.id)}
+                />
+              ))}
             </div>
-          ))
+          </SortableContext>
+        </DndContext>
+      )}
+    </div>
+  );
+}
+
+interface StageCardProps {
+  stage: PipelineStage;
+  isLast: boolean;
+  onCycleStatus: () => void;
+  onSetDate: (date: string) => void;
+  onRemove: () => void;
+}
+
+function StageCard({ stage, isLast, onCycleStatus, onSetDate, onRemove }: StageCardProps) {
+  const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging } =
+    useSortable({ id: stage.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn("flex gap-3", isDragging && "relative z-10 opacity-90")}
+    >
+      {/* Rail column */}
+      <div className="flex flex-col items-center" style={{ width: 20 }}>
+        <button
+          onClick={onCycleStatus}
+          title={`Status: ${STAGE_STATUS_LABELS[stage.status]} (click to change)`}
+          className="mt-3.5 flex items-center justify-center hover:scale-110 transition-transform duration-150"
+        >
+          {STATUS_DOT[stage.status]}
+        </button>
+        {!isLast && <div className="flex-1 w-px bg-border mt-1 mb-0 min-h-[20px]" />}
+      </div>
+
+      {/* Stage card */}
+      <div
+        className={cn(
+          "flex-1 bg-surface-elevated border border-border rounded-card p-3 mb-2 group transition-colors duration-150 hover:border-border-hover",
+          stage.status === "COMPLETED" || stage.status === "PASSED" ? "opacity-80" : ""
         )}
-
-        {/* Drag-here affordance */}
-        {stages.length > 0 && (
-          <div className="flex gap-3">
-            <div className="flex flex-col items-center" style={{ width: 20 }}>
-              <span className="w-2 h-2 rounded-full border border-dashed border-border mt-3.5" />
-            </div>
-            <div className="flex-1 border border-dashed border-border rounded-card px-3 py-2 mb-2 text-xs text-text-muted flex items-center gap-2">
-              <HugeiconsIcon icon={Add01Icon} size={12} strokeWidth={1.5} />
-              Drag a stage here, or tap one above
-            </div>
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              ref={setActivatorNodeRef}
+              {...attributes}
+              {...listeners}
+              aria-label="Drag to reorder"
+              className="text-text-muted opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity duration-150 shrink-0 touch-none"
+            >
+              <HugeiconsIcon icon={DragDropVerticalIcon} size={14} strokeWidth={1.5} />
+            </button>
+            <span className="text-sm font-medium text-text-primary truncate">{stage.name}</span>
           </div>
-        )}
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={onCycleStatus}
+              className={cn("text-xs font-medium hover:underline", STATUS_LABEL_COLORS[stage.status])}
+            >
+              {STAGE_STATUS_LABELS[stage.status]}
+            </button>
+            <button
+              onClick={onRemove}
+              className="text-text-muted hover:text-[var(--status-rejected-fg)] transition-colors duration-150 opacity-0 group-hover:opacity-100"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={1.5} />
+            </button>
+          </div>
+        </div>
+
+        {/* Date row */}
+        <div className="mt-2">
+          <DatePicker
+            value={stage.scheduledDate?.slice(0, 10) ?? ""}
+            onChange={onSetDate}
+            placeholder="Schedule date"
+            className="h-7 text-xs"
+          />
+          {stage.notes && <p className="mt-1 text-[11px] text-text-secondary italic">{stage.notes}</p>}
+        </div>
       </div>
     </div>
   );

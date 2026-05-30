@@ -12,7 +12,6 @@ import {
   closestCorners,
   DragOverlay,
 } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
 import { KanbanColumn } from "./kanban-column";
 import { ApplicationCard } from "./application-card";
 import { KANBAN_COLUMNS } from "@/lib/constants";
@@ -85,20 +84,33 @@ export function KanbanBoard({ applications, onCardClick }: KanbanBoardProps) {
     if (!over) return;
 
     const activeId = active.id as string;
-    const activeApp = localApps.find((a) => a.id === activeId);
-    if (!activeApp) return;
-
+    const moved = localApps.find((a) => a.id === activeId);
     const original = applications.find((a) => a.id === activeId);
-    if (!original) return;
+    if (!moved || !original || moved.status === original.status) return;
 
-    if (activeApp.status !== original.status) {
-      try {
-        await updateApplication(activeId, { status: activeApp.status });
-        await mutate((key: string) => typeof key === "string" && key.startsWith("/api/applications"));
-      } catch {
-        // Revert on error
-        setLocalApps(applications);
-      }
+    const newStatus = moved.status;
+
+    // UI first: optimistically patch the shared SWR cache so the page + board
+    // agree instantly (no refetch flicker / snap-back). Guard non-list keys.
+    mutate(
+      (key) => typeof key === "string" && key.startsWith("/api/applications"),
+      (cur: { data?: unknown } | undefined) => {
+        if (!cur || !Array.isArray(cur.data)) return cur;
+        return {
+          ...cur,
+          data: (cur.data as Application[]).map((a) =>
+            a.id === activeId ? { ...a, status: newStatus } : a
+          ),
+        };
+      },
+      { revalidate: false }
+    );
+
+    // DB later: persist, and only revalidate (rollback) if it fails.
+    try {
+      await updateApplication(activeId, { status: newStatus });
+    } catch {
+      mutate((key) => typeof key === "string" && key.startsWith("/api/applications"));
     }
   }
 

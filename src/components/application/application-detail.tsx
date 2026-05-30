@@ -19,20 +19,19 @@ import {
   Calendar03Icon,
   Coins01Icon,
   Location01Icon,
-  MoreVerticalIcon,
   Delete02Icon,
+  Edit02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { StatusBadge, WorkModeBadge } from "@/components/ui/badge";
 import { EditableCell } from "./editable-cell";
 import { OptionPicker } from "./option-picker";
 import { tagBadgeClass } from "@/lib/tag-colors";
 import { PipelineBuilder } from "./pipeline-builder";
-import { useTypeOptions, setTypeOptions, useSourceOptions, setSourceOptions } from "@/lib/tag-options-store";
+import { useJobTypes, useSources, addJobType, addSource } from "@/hooks/use-presets";
 import { STATUS_LABELS, STATUS_BG, WORK_MODE_LABELS, WORK_MODE_COLORS } from "@/lib/constants";
 import type { Application, ApplicationStatus, WorkMode } from "@/types";
 import { cn } from "@/lib/utils";
@@ -74,16 +73,28 @@ function PropertyRow({ icon, label, children }: { icon: typeof UserIcon; label: 
 
 export function ApplicationDetail({ application: app, initialTab = "pipeline", onUpdate, onDelete, onClose }: ApplicationDetailProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const typeOptions = useTypeOptions();
-  const sourceOptions = useSourceOptions();
+  const [editingLinks, setEditingLinks] = useState(false);
+  const { jobTypes, mutate: mutateTypes } = useJobTypes();
+  const { sources, mutate: mutateSources } = useSources();
+  const typeOptions = jobTypes.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) }));
+  const sourceOptions = sources.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) }));
   const update = (patch: Partial<Application>) => onUpdate?.(patch);
+
+  async function selectType(value: string) {
+    update({ jobType: value });
+    if (value && !jobTypes.includes(value)) { await addJobType(value); mutateTypes(); }
+  }
+  async function selectSource(value: string) {
+    update({ appliedVia: value });
+    if (value && !sources.includes(value)) { await addSource(value); mutateSources(); }
+  }
 
   return (
     <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
       <SheetContent
         side="right"
         showCloseButton={false}
-        className="w-full sm:max-w-3xl bg-surface border-l border-border p-0 flex flex-col gap-0 overflow-hidden"
+        className="w-full sm:max-w-[48rem] bg-surface border-l border-border p-0 flex flex-col gap-0 overflow-hidden"
       >
         {/* Header — editable title */}
         <SheetHeader className="px-6 pt-5 pb-3 border-b border-border shrink-0">
@@ -103,35 +114,79 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
                   onCommit={(v) => update({ companyName: v })}
                 />
               </SheetTitle>
-              {app.companyUrl && (
-                <a
-                  href={app.companyUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors duration-150 mt-1"
-                >
-                  Visit site <HugeiconsIcon icon={ArrowUpRight01Icon} size={11} strokeWidth={1.5} />
-                </a>
+              {/* Links — view mode */}
+              {!editingLinks && (
+                <div className="flex items-center gap-3 mt-1">
+                  {app.companyUrl && (
+                    <a
+                      href={app.companyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors duration-150"
+                    >
+                      Visit site <HugeiconsIcon icon={ArrowUpRight01Icon} size={11} strokeWidth={1.5} />
+                    </a>
+                  )}
+                  {app.jobPostUrl && (
+                    <a
+                      href={app.jobPostUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors duration-150"
+                    >
+                      <HugeiconsIcon icon={Link01Icon} size={11} strokeWidth={1.5} /> Job post
+                    </a>
+                  )}
+                  {!app.companyUrl && !app.jobPostUrl && (
+                    <button
+                      onClick={() => setEditingLinks(true)}
+                      className="text-xs text-text-muted hover:text-accent transition-colors duration-150"
+                    >
+                      + Add links
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Links — edit mode */}
+              {editingLinks && (
+                <div className="flex flex-col gap-2 mt-2">
+                  <input
+                    value={app.companyUrl ?? ""}
+                    onChange={(e) => update({ companyUrl: e.target.value || null })}
+                    placeholder="Company URL — https://company.com"
+                    className="h-8 w-full rounded-input bg-surface-elevated border border-border px-2.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-border-hover"
+                  />
+                  <input
+                    value={app.jobPostUrl ?? ""}
+                    onChange={(e) => update({ jobPostUrl: e.target.value || null })}
+                    placeholder="Job posting link — https://jobs.company.com/…"
+                    className="h-8 w-full rounded-input bg-surface-elevated border border-border px-2.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-border-hover"
+                  />
+                </div>
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0 mt-1">
+              <button
+                onClick={() => setEditingLinks((v) => !v)}
+                title={editingLinks ? "Done editing links" : "Edit links"}
+                className={cn(
+                  "transition-colors duration-150 rounded-md p-1.5 hover:bg-surface-hover",
+                  editingLinks ? "text-accent bg-surface-hover" : "text-text-muted hover:text-text-primary"
+                )}
+              >
+                <HugeiconsIcon icon={Edit02Icon} size={17} strokeWidth={1.5} />
+              </button>
               {onDelete && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="text-text-muted hover:text-text-primary transition-colors duration-150 rounded-md p-1 hover:bg-surface-hover">
-                    <HugeiconsIcon icon={MoreVerticalIcon} size={18} strokeWidth={1.5} />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem
-                      onClick={onDelete}
-                      className="text-[var(--status-rejected-fg)] focus:text-[var(--status-rejected-fg)]"
-                    >
-                      <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.5} />
-                      Delete application
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <button
+                  onClick={onDelete}
+                  title="Delete application"
+                  className="text-text-muted hover:text-[var(--status-rejected-fg)] transition-colors duration-150 rounded-md p-1.5 hover:bg-surface-hover"
+                >
+                  <HugeiconsIcon icon={Delete02Icon} size={17} strokeWidth={1.5} />
+                </button>
               )}
-              <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors duration-150 rounded-md p-1 hover:bg-surface-hover">
+              <button onClick={onClose} title="Close" className="text-text-muted hover:text-text-primary transition-colors duration-150 rounded-md p-1.5 hover:bg-surface-hover">
                 <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.5} />
               </button>
             </div>
@@ -151,7 +206,7 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
           </PropertyRow>
 
           <PropertyRow icon={Tag01Icon} label="Type">
-            <OptionPicker value={app.jobType} options={typeOptions} allowCreate onOptionsChange={setTypeOptions} onSelect={(v) => update({ jobType: v })}>
+            <OptionPicker value={app.jobType} options={typeOptions} allowCreate onSelect={selectType}>
               {app.jobType ? (
                 <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", tagBadgeClass(app.jobType))}>{app.jobType}</span>
               ) : <span className="text-text-muted">Add type</span>}
@@ -165,7 +220,7 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
           </PropertyRow>
 
           <PropertyRow icon={Link01Icon} label="Applied via">
-            <OptionPicker value={app.appliedVia} options={sourceOptions} allowCreate onOptionsChange={setSourceOptions} onSelect={(v) => update({ appliedVia: v })}>
+            <OptionPicker value={app.appliedVia} options={sourceOptions} allowCreate onSelect={selectSource}>
               {app.appliedVia ? <span className="text-text-secondary">{app.appliedVia}</span> : <span className="text-text-muted">Add source</span>}
             </OptionPicker>
           </PropertyRow>

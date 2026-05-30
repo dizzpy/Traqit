@@ -48,10 +48,16 @@ import { EditableCell } from "@/components/application/editable-cell";
 import { OptionPicker } from "@/components/application/option-picker";
 import { tagBadgeClass } from "@/lib/tag-colors";
 import { ApplicationDetail } from "@/components/application/application-detail";
+import { KanbanBoard } from "@/components/board/kanban-board";
 import { AddApplicationPanel } from "@/components/application/add-application-modal";
 import { SaveJobModal } from "@/components/application/save-job-modal";
-import { MOCK_APPLICATIONS } from "@/lib/mock-data";
-import { useTypeOptions, setTypeOptions, useSourceOptions, setSourceOptions } from "@/lib/tag-options-store";
+import {
+  useApplications,
+  createApplication,
+  updateApplication,
+  deleteApplication,
+} from "@/hooks/use-applications";
+import { useJobTypes, useSources, addJobType, addSource } from "@/hooks/use-presets";
 import {
   STATUS_LABELS,
   STATUS_BG,
@@ -126,8 +132,6 @@ function formatSalary(app: Application): string {
   return `${fmt(app.salaryMin ?? app.salaryMax ?? 0)} ${app.currency}`;
 }
 
-let mockSeq = 100;
-
 interface RowProps {
   app: Application;
   selected: boolean;
@@ -137,6 +141,8 @@ interface RowProps {
   onDelete: (id: string) => void;
   onPreview: (id: string, tab?: string) => void;
   onUpdate: (id: string, patch: Partial<Application>) => void;
+  onSelectType: (id: string, value: string) => void;
+  onSelectSource: (id: string, value: string) => void;
 }
 
 function ApplicationRow({
@@ -148,6 +154,8 @@ function ApplicationRow({
   onDelete,
   onPreview,
   onUpdate,
+  onSelectType,
+  onSelectSource,
 }: RowProps) {
   const {
     setNodeRef,
@@ -167,7 +175,11 @@ function ApplicationRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "group/row border-b border-border transition-colors duration-150 relative",
+        "group/row transition-colors duration-150 relative",
+        // Inset row divider: only the content cells (not the control/delete
+        // columns) carry the bottom border, so the line starts at Company and
+        // ends at Location instead of spanning the whole screen.
+        "[&>td:not(:first-child):not(:last-child)]:border-b [&>td:not(:first-child):not(:last-child)]:border-border",
         ghosted ? "opacity-60" : "hover:bg-surface-hover/40",
         isDragging && "z-20 bg-surface-elevated shadow-lg opacity-90"
       )}
@@ -200,10 +212,11 @@ function ApplicationRow({
       </td>
 
       {/* Company — click name to preview */}
-      <td className="px-4 py-1.5 whitespace-nowrap">
+      <td className="px-4 py-1.5 whitespace-nowrap max-w-[200px]">
         <button
           onClick={() => onPreview(app.id)}
-          className="text-sm font-medium text-text-primary hover:text-accent transition-colors duration-150 rounded-md px-2 py-1 -mx-2 hover:bg-surface-hover"
+          title={app.companyName}
+          className="block max-w-full truncate text-left text-sm font-medium text-text-primary hover:text-accent transition-colors duration-150 rounded-md px-2 py-1 -mx-2 hover:bg-surface-hover"
         >
           {app.companyName}
         </button>
@@ -224,8 +237,7 @@ function ApplicationRow({
           value={app.jobType}
           options={typeOptions}
           allowCreate
-          onOptionsChange={setTypeOptions}
-          onSelect={(v) => onUpdate(app.id, { jobType: v })}
+          onSelect={(v) => onSelectType(app.id, v)}
         >
           {app.jobType ? (
             <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", tagBadgeClass(app.jobType))}>
@@ -249,10 +261,11 @@ function ApplicationRow({
       </td>
 
       {/* Current stage — opens pipeline preview */}
-      <td className="px-4 py-1.5 whitespace-nowrap">
+      <td className="px-4 py-1.5 whitespace-nowrap max-w-[160px]">
         <button
           onClick={() => onPreview(app.id, "pipeline")}
-          className="text-xs text-text-secondary bg-surface-elevated border border-border px-2 py-0.5 rounded-md hover:border-accent hover:text-accent transition-colors duration-150"
+          title={currentStageLabel(app)}
+          className="block max-w-full truncate text-xs text-text-secondary bg-surface-elevated border border-border px-2 py-0.5 rounded-md hover:border-accent hover:text-accent transition-colors duration-150"
         >
           {currentStageLabel(app)}
         </button>
@@ -270,16 +283,15 @@ function ApplicationRow({
       </td>
 
       {/* Via */}
-      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted">
+      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted max-w-[150px]">
         <OptionPicker
           value={app.appliedVia}
           options={sourceOptions}
           allowCreate
-          onOptionsChange={setSourceOptions}
-          onSelect={(v) => onUpdate(app.id, { appliedVia: v })}
+          onSelect={(v) => onSelectSource(app.id, v)}
         >
           {app.appliedVia ? (
-            <span className="text-xs text-text-secondary">{app.appliedVia}</span>
+            <span className="block max-w-[130px] truncate text-xs text-text-secondary" title={app.appliedVia}>{app.appliedVia}</span>
           ) : (
             <span className="text-text-muted">Add source</span>
           )}
@@ -304,7 +316,7 @@ function ApplicationRow({
       </td>
 
       {/* Salary (edits max) */}
-      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted">
+      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted max-w-[130px]">
         <EditableCell
           value={app.salaryMax != null ? String(app.salaryMax) : ""}
           type="number"
@@ -318,7 +330,7 @@ function ApplicationRow({
       </td>
 
       {/* Location */}
-      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted">
+      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted max-w-[150px]">
         <EditableCell
           value={app.location ?? ""}
           placeholder="Add location"
@@ -346,10 +358,18 @@ function ApplicationsPageInner() {
   const searchParams = useSearchParams();
   const view = searchParams.get("view") ?? "list";
 
-  const typeOptions = useTypeOptions();
-  const sourceOptions = useSourceOptions();
+  const { jobTypes, mutate: mutateTypes } = useJobTypes();
+  const { sources, mutate: mutateSources } = useSources();
+  const typeOptions = useMemo(
+    () => jobTypes.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) })),
+    [jobTypes]
+  );
+  const sourceOptions = useMemo(
+    () => sources.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) })),
+    [sources]
+  );
 
-  const [apps, setApps] = useState<Application[]>(MOCK_APPLICATIONS);
+  const { applications: apps, isLoading, mutate } = useApplications();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<string>("pipeline");
   const [showAdd, setShowAdd] = useState(false);
@@ -358,7 +378,9 @@ function ApplicationsPageInner() {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("appliedDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [manualOrder, setManualOrder] = useState(false);
+  // Manual drag order is a view-only overlay of ids (no server "order" column).
+  const [orderedIds, setOrderedIds] = useState<string[] | null>(null);
+  const manualOrder = orderedIds !== null;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // inline add-row state
@@ -371,17 +393,43 @@ function ApplicationsPageInner() {
 
   const selectedApp = apps.find((a) => a.id === selectedId) ?? null;
 
-  function updateApp(id: string, patch: Partial<Application>) {
-    setApps((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  // Optimistically transform the cached applications list without revalidating.
+  function patchCache(updater: (list: Application[]) => Application[]) {
+    mutate(
+      (cur) => (cur ? { ...cur, data: updater(cur.data) } : cur),
+      { revalidate: false }
+    );
   }
 
-  function commitInlineAdd() {
+  async function updateApp(id: string, patch: Partial<Application>) {
+    patchCache((list) => list.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+    try {
+      await updateApplication(id, patch as Record<string, unknown>);
+    } catch {
+      toast.error("Couldn't save changes");
+      mutate(); // revalidate → rolls back to server truth
+    }
+  }
+
+  // Persist the app field AND save the value as a reusable preset if it's new.
+  async function selectType(id: string, value: string) {
+    updateApp(id, { jobType: value });
+    if (value && !jobTypes.includes(value)) { await addJobType(value); mutateTypes(); }
+  }
+  async function selectSource(id: string, value: string) {
+    updateApp(id, { appliedVia: value });
+    if (value && !sources.includes(value)) { await addSource(value); mutateSources(); }
+  }
+
+  async function commitInlineAdd() {
     const name = newCompany.trim();
     if (!name) { setAddingInline(false); return; }
-    const id = `app-new-${mockSeq++}`;
+    setNewCompany("");
+    setAddingInline(false);
+
     const now = new Date().toISOString();
-    const fresh: Application = {
-      id, profileId: "mock-profile-001",
+    const temp: Application = {
+      id: `temp-${now}`, profileId: "",
       companyName: name, companyUrl: null,
       position: "", jobPostUrl: null,
       jobType: "", workMode: "no-data", appliedVia: "",
@@ -391,9 +439,14 @@ function ApplicationsPageInner() {
       stages: [], contacts: [], documents: [], activityLog: [],
       createdAt: now, updatedAt: now,
     };
-    setApps((prev) => [...prev, fresh]);
-    setNewCompany("");
-    setAddingInline(false);
+    patchCache((list) => [...list, temp]); // optimistic row
+    try {
+      await createApplication({ companyName: name, status: "APPLIED", appliedDate: temp.appliedDate });
+    } catch {
+      toast.error("Couldn't add application");
+    } finally {
+      mutate(); // replace temp with the real record
+    }
   }
 
   const filtered = useMemo(() => {
@@ -401,14 +454,18 @@ function ApplicationsPageInner() {
     if (filterStatus !== "ALL") list = list.filter((a) => a.status === filterStatus);
     const q = query.trim().toLowerCase();
     if (q) list = list.filter((a) => a.companyName.toLowerCase().includes(q));
-    if (manualOrder) return [...list]; // preserve manual (drag) order
+    if (orderedIds) {
+      // Manual (drag) order overlay — sort by the saved id sequence.
+      const rank = new Map(orderedIds.map((id, i) => [id, i]));
+      return [...list].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+    }
     return [...list].sort((a, b) => {
       let av: string, bv: string;
       if (sortKey === "appliedDate") { av = a.appliedDate ?? a.createdAt; bv = b.appliedDate ?? b.createdAt; }
       else { av = String(a[sortKey] ?? ""); bv = String(b[sortKey] ?? ""); }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
     });
-  }, [apps, filterStatus, query, sortKey, sortDir, manualOrder]);
+  }, [apps, filterStatus, query, sortKey, sortDir, orderedIds]);
 
   const visibleIds = filtered.map((a) => a.id);
   const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -416,7 +473,7 @@ function ApplicationsPageInner() {
 
   function toggleSort(key?: SortKey) {
     if (!key) return;
-    setManualOrder(false);
+    setOrderedIds(null); // leaving manual order
     if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("asc"); }
   }
@@ -424,17 +481,15 @@ function ApplicationsPageInner() {
   function handleDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    setManualOrder(true);
-    setApps((prev) => {
-      const visible = filtered.map((a) => a.id);
-      const oldIndex = visible.indexOf(String(active.id));
-      const newIndex = visible.indexOf(String(over.id));
-      if (oldIndex < 0 || newIndex < 0) return prev;
-      const newVisible = arrayMove(visible, oldIndex, newIndex);
-      const byId = new Map(prev.map((a) => [a.id, a]));
-      const hidden = prev.filter((a) => !visible.includes(a.id));
-      return [...newVisible.map((id) => byId.get(id)!), ...hidden];
-    });
+    // Reorder is a local view convenience (no server order column): persist the
+    // new full id sequence as the manual-order overlay.
+    const visible = filtered.map((a) => a.id);
+    const oldIndex = visible.indexOf(String(active.id));
+    const newIndex = visible.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reorderedVisible = arrayMove(visible, oldIndex, newIndex);
+    const hidden = apps.map((a) => a.id).filter((id) => !visible.includes(id));
+    setOrderedIds([...reorderedVisible, ...hidden]);
   }
 
   function toggleSelect(id: string) {
@@ -454,20 +509,33 @@ function ApplicationsPageInner() {
     });
   }
 
-  function deleteOne(id: string) {
+  async function deleteOne(id: string) {
     const name = apps.find((a) => a.id === id)?.companyName;
-    setApps((prev) => prev.filter((a) => a.id !== id));
+    patchCache((list) => list.filter((a) => a.id !== id));
     setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     if (selectedId === id) setSelectedId(null);
-    toast(`Deleted ${name || "application"}`);
+    try {
+      await deleteApplication(id);
+      toast(`Deleted ${name || "application"}`);
+    } catch {
+      toast.error("Couldn't delete");
+      mutate();
+    }
   }
 
-  function deleteSelected() {
-    const count = selectedIds.size;
-    setApps((prev) => prev.filter((a) => !selectedIds.has(a.id)));
+  async function deleteSelected() {
+    const ids = [...selectedIds];
+    const count = ids.length;
+    patchCache((list) => list.filter((a) => !selectedIds.has(a.id)));
     if (selectedId && selectedIds.has(selectedId)) setSelectedId(null);
     setSelectedIds(new Set());
-    toast(`Deleted ${count} application${count > 1 ? "s" : ""}`);
+    try {
+      await Promise.all(ids.map((id) => deleteApplication(id)));
+      toast(`Deleted ${count} application${count > 1 ? "s" : ""}`);
+    } catch {
+      toast.error("Couldn't delete some applications");
+      mutate();
+    }
   }
 
   function setView(v: string) {
@@ -498,9 +566,13 @@ function ApplicationsPageInner() {
             <HugeiconsIcon icon={BookmarkIcon} size={14} strokeWidth={1.5} />
             Save job
           </Button>
-          <Button size="sm" onClick={() => setShowAdd(true)}>
-            <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2} />
-            Add
+          <Button
+            size="sm"
+            onClick={() => setShowAdd(true)}
+            className="h-9 px-4 text-sm font-semibold shadow-sm shadow-accent/25 hover:shadow-accent/30"
+          >
+            <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
+            Add application
           </Button>
         </div>
       </div>
@@ -596,12 +668,16 @@ function ApplicationsPageInner() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* List / Board */}
       <div className="flex-1 overflow-auto">
+        {view === "board" ? (
+          <KanbanBoard applications={filtered} onCardClick={(a) => openPreview(a.id)} />
+        ) : (
+        <>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <table className="w-full text-left border-collapse" style={{ minWidth: 960 }}>
             <thead>
-              <tr className="group/head border-b border-border bg-bg sticky top-0 z-10">
+              <tr className="group/head bg-bg sticky top-0 z-10 [&>th:not(:first-child):not(:last-child)]:border-b [&>th:not(:first-child):not(:last-child)]:border-border">
                 {/* Select all */}
                 <th className="pl-3 pr-1 w-[54px]">
                   <div className="flex items-center gap-0.5">
@@ -653,12 +729,14 @@ function ApplicationsPageInner() {
                     onDelete={deleteOne}
                     onPreview={openPreview}
                     onUpdate={updateApp}
+                    onSelectType={selectType}
+                    onSelectSource={selectSource}
                   />
                 ))}
               </SortableContext>
 
               {/* Notion-style inline add row */}
-              <tr className="border-b border-border">
+              <tr>
                 <td />
                 <td colSpan={COLUMNS.length + 1} className="px-4 py-1.5">
                   {addingInline ? (
@@ -689,7 +767,14 @@ function ApplicationsPageInner() {
           </table>
         </DndContext>
 
-        {filtered.length === 0 && !addingInline && (
+        {isLoading && apps.length === 0 && (
+          <div className="flex flex-col items-center justify-center gap-3 text-center px-6 py-16">
+            <span className="inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin" />
+            <p className="text-xs text-text-muted">Loading your applications…</p>
+          </div>
+        )}
+
+        {!isLoading && filtered.length === 0 && !addingInline && (
           <div className="flex flex-col items-center justify-center gap-3 text-center px-6 py-16">
             <p className="text-sm font-medium text-text-primary">
               {query ? "No matching companies" : "No applications here"}
@@ -699,6 +784,8 @@ function ApplicationsPageInner() {
             </p>
           </div>
         )}
+        </>
+        )}
       </div>
 
       {/* Panels */}
@@ -707,17 +794,12 @@ function ApplicationsPageInner() {
           application={selectedApp}
           initialTab={selectedTab}
           onUpdate={(patch) => updateApp(selectedApp.id, patch)}
-          onDelete={() => {
-            const name = selectedApp.companyName;
-            setApps((prev) => prev.filter((a) => a.id !== selectedApp.id));
-            setSelectedId(null);
-            toast(`Deleted ${name || "application"}`);
-          }}
+          onDelete={() => deleteOne(selectedApp.id)}
           onClose={() => setSelectedId(null)}
         />
       )}
-      {showAdd && <AddApplicationPanel onClose={() => setShowAdd(false)} />}
-      {showSave && <SaveJobModal onClose={() => setShowSave(false)} />}
+      {showAdd && <AddApplicationPanel onClose={() => setShowAdd(false)} onCreated={() => mutate()} />}
+      {showSave && <SaveJobModal onClose={() => setShowSave(false)} onCreated={() => mutate()} />}
     </div>
   );
 }

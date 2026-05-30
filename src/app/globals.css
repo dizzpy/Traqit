@@ -271,16 +271,12 @@ h1, h2, h3, h4 {
     outline: none;
   }
 
-  /* Soft violet focus ring, only on actually focusable controls. */
-  a:focus-visible,
-  button:focus-visible,
+  /* Calm, minimal focus — no loud violet glow box. Bordered inputs get a soft
+     border tint; borderless controls show nothing extra. */
   input:focus-visible,
   textarea:focus-visible,
-  select:focus-visible,
-  [tabindex]:focus-visible,
-  [role="button"]:focus-visible {
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
-    border-color: var(--accent);
+  select:focus-visible {
+    border-color: var(--border-hover);
   }
 
   body {
