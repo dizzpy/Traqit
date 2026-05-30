@@ -99,7 +99,7 @@ export function AddApplicationPanel({ onClose, onCreated }: AddApplicationPanelP
       <SheetContent
         side="right"
         showCloseButton={false}
-        className="w-full sm:max-w-[46rem] bg-surface border-l border-border p-0 flex flex-col gap-0 overflow-hidden"
+        className="w-full sm:max-w-none data-[side=right]:sm:max-w-[40rem] bg-surface border-l border-border p-0 flex flex-col gap-0 overflow-hidden"
       >
         <SheetHeader className="px-6 py-5 border-b border-border shrink-0">
           <div className="flex items-center justify-between gap-4">
