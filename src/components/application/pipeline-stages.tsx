@@ -12,6 +12,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { STAGE_PRESETS, STAGE_STATUS_LABELS } from "@/lib/constants";
 import type { PipelineStage, StageStatus } from "@/types";
 
@@ -118,11 +119,11 @@ export function PipelineStages({ applicationId, stages, onUpdate }: PipelineStag
                       <option key={s} value={s}>{STAGE_STATUS_LABELS[s]}</option>
                     ))}
                   </select>
-                  <input
-                    type="date"
-                    defaultValue={stage.scheduledDate?.slice(0, 10) ?? ""}
-                    onBlur={(e) => e.target.value && updateStage(stage.id, { scheduledDate: e.target.value })}
-                    className="w-full text-xs rounded-input bg-surface border border-border px-2 py-1.5 text-text-primary focus:outline-none"
+                  <DatePicker
+                    value={stage.scheduledDate?.slice(0, 10) ?? ""}
+                    onChange={(v) => v && updateStage(stage.id, { scheduledDate: v })}
+                    placeholder="Schedule date"
+                    className="h-8 bg-surface text-xs"
                   />
                   <textarea
                     defaultValue={stage.notes ?? ""}

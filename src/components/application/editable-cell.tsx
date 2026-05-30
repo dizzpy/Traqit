@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface EditableCellProps {
   value: string;
@@ -54,6 +55,28 @@ export function EditableCell({
     setDraft(value);
   }
 
+  // Date cells get the custom themed calendar popover instead of a native input.
+  if (type === "date") {
+    return (
+      <div className={cn("relative", align === "right" && "text-right", className)}>
+        <DatePicker
+          value={value}
+          onChange={(v) => { if (v !== value) onCommit(v); }}
+        >
+          <button
+            type="button"
+            className={cn(
+              "block w-full rounded-md px-2 py-0.5 -mx-2 transition-colors duration-150 hover:bg-surface-hover cursor-pointer truncate",
+              align === "right" ? "text-right" : "text-left"
+            )}
+          >
+            {display ?? (value ? value : <span className="text-text-muted">{placeholder}</span>)}
+          </button>
+        </DatePicker>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("relative", align === "right" && "text-right", className)}>
       {/* Resting display defines the cell size; hidden (not removed) while editing. */}
@@ -73,7 +96,7 @@ export function EditableCell({
         <>
           <input
             ref={inputRef}
-            type={type === "number" ? "number" : type === "date" ? "date" : "text"}
+            type={type === "number" ? "number" : "text"}
             value={draft}
             list={suggestions ? listId.current : undefined}
             onChange={(e) => setDraft(e.target.value)}

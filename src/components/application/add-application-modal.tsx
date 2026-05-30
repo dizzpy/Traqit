@@ -6,6 +6,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { PillToggle } from "@/components/ui/pill-toggle";
+import { DatePicker } from "@/components/ui/date-picker";
 import { CURRENCIES, DEFAULT_JOB_TYPES, DEFAULT_SOURCES } from "@/lib/constants";
 import { MOCK_PIPELINE_TEMPLATES } from "@/lib/mock-data";
 import type { WorkMode } from "@/types";
@@ -236,12 +237,7 @@ export function AddApplicationPanel({ onClose }: AddApplicationPanelProps) {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Applied date</Label>
-                <input
-                  type="date"
-                  value={appliedDate}
-                  onChange={(e) => setAppliedDate(e.target.value)}
-                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
-                />
+                <DatePicker value={appliedDate} onChange={setAppliedDate} />
               </div>
             </div>
 

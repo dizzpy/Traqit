@@ -6,6 +6,7 @@ import { BookmarkIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 
 interface SaveJobModalProps {
@@ -119,12 +120,9 @@ export function SaveJobModal({ onClose }: SaveJobModalProps) {
           <div className="flex flex-col gap-1.5">
             <Label>Application deadline</Label>
             <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="flex-1 h-9 rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
-              />
+              <div className="flex-1">
+                <DatePicker value={deadline} onChange={setDeadline} placeholder="Pick a deadline" />
+              </div>
               {badge && (
                 <span className={cn("text-xs px-2 py-1 rounded-full font-medium", badge.className)}>
                   {badge.label}
