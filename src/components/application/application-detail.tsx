@@ -1,299 +1,314 @@
 "use client";
 
 import { useState } from "react";
+import { format } from "date-fns";
 import {
   Cancel01Icon,
-  Share01Icon,
-  Delete01Icon,
+  ArrowUpRight01Icon,
+  UserIcon,
   Mail01Icon,
-  CallIcon,
+  Call02Icon,
   Linkedin01Icon,
+  FileAttachmentIcon,
+  Clock01Icon,
+  Briefcase01Icon,
+  Tag01Icon,
+  Home01Icon,
+  Loading03Icon,
+  Link01Icon,
+  Calendar03Icon,
+  Coins01Icon,
+  Location01Icon,
+  MoreVerticalIcon,
+  Delete02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { StatusBadge, WorkModeBadge } from "@/components/ui/badge";
-import { PipelineStages } from "./pipeline-stages";
-import { formatDate, formatRelativeDate } from "@/lib/utils";
-import { updateApplication, deleteApplication, useApplication } from "@/hooks/use-applications";
-import type { ApplicationStatus } from "@/types";
-import { STATUS_LABELS, CONTACT_ROLES, DOCUMENT_TYPES } from "@/lib/constants";
-import { mutate } from "swr";
+import { EditableCell } from "./editable-cell";
+import { OptionPicker } from "./option-picker";
+import { tagBadgeClass } from "@/lib/tag-colors";
+import { PipelineBuilder } from "./pipeline-builder";
+import { useTypeOptions, setTypeOptions, useSourceOptions, setSourceOptions } from "@/lib/tag-options-store";
+import { STATUS_LABELS, STATUS_BG, WORK_MODE_LABELS, WORK_MODE_COLORS } from "@/lib/constants";
+import type { Application, ApplicationStatus, WorkMode } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface ApplicationDetailProps {
-  applicationId: string | null;
+  application: Application;
+  initialTab?: string;
+  onUpdate?: (patch: Partial<Application>) => void;
+  onDelete?: () => void;
   onClose: () => void;
 }
 
-type Tab = "overview" | "pipeline" | "contacts" | "documents" | "activity";
+const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as ApplicationStatus[]).map((s) => ({
+  value: s, label: STATUS_LABELS[s], className: STATUS_BG[s],
+}));
+const WORKMODE_OPTIONS = (Object.keys(WORK_MODE_LABELS) as WorkMode[]).map((m) => ({
+  value: m, label: WORK_MODE_LABELS[m], className: WORK_MODE_COLORS[m],
+}));
 
-export function ApplicationDetail({ applicationId, onClose }: ApplicationDetailProps) {
-  const { application: app, mutate: mutateApp } = useApplication(applicationId);
-  const [tab, setTab] = useState<Tab>("overview");
-  const [addingContact, setAddingContact] = useState(false);
-  const [addingDocument, setAddingDocument] = useState(false);
-  const [contactForm, setContactForm] = useState({
-    name: "", role: "Recruiter", email: "", phone: "", linkedinUrl: "", stageName: "", notes: "",
-  });
-  const [docForm, setDocForm] = useState({ name: "", url: "", type: "cv" });
+function formatSalary(app: Application): string {
+  if (!app.salaryMin && !app.salaryMax) return "";
+  const fmt = (n: number) => (app.currency === "LKR" ? `${(n / 1000).toFixed(0)}k` : n.toLocaleString());
+  if (app.salaryMin && app.salaryMax && app.salaryMin !== app.salaryMax)
+    return `${fmt(app.salaryMin)}–${fmt(app.salaryMax)} ${app.currency}`;
+  return `${fmt(app.salaryMin ?? app.salaryMax ?? 0)} ${app.currency}`;
+}
 
-  async function handleStatusChange(status: ApplicationStatus) {
-    if (!app) return;
-    await updateApplication(app.id, { status });
-    mutateApp();
-    await mutate((k: string) => typeof k === "string" && k.startsWith("/api/applications"));
-  }
+function PropertyRow({ icon, label, children }: { icon: typeof UserIcon; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 min-h-8">
+      <div className="flex items-center gap-2 w-32 shrink-0 text-text-muted text-xs pt-1.5">
+        <HugeiconsIcon icon={icon} size={14} strokeWidth={1.5} />
+        {label}
+      </div>
+      <div className="flex-1 min-w-0 text-sm py-1">{children}</div>
+    </div>
+  );
+}
 
-  async function handleDelete() {
-    if (!app || !confirm("Delete this application?")) return;
-    await deleteApplication(app.id);
-    await mutate((k: string) => typeof k === "string" && k.startsWith("/api/applications"));
-    onClose();
-  }
-
-  async function handleAddContact(e: React.FormEvent) {
-    e.preventDefault();
-    if (!app) return;
-    await fetch(`/api/applications/${app.id}/contacts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(contactForm),
-    });
-    mutateApp();
-    setAddingContact(false);
-    setContactForm({ name: "", role: "Recruiter", email: "", phone: "", linkedinUrl: "", stageName: "", notes: "" });
-  }
-
-  async function handleAddDocument(e: React.FormEvent) {
-    e.preventDefault();
-    if (!app) return;
-    await fetch(`/api/applications/${app.id}/documents`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(docForm),
-    });
-    mutateApp();
-    setAddingDocument(false);
-    setDocForm({ name: "", url: "", type: "cv" });
-  }
-
-  const TABS: { key: Tab; label: string }[] = [
-    { key: "overview",  label: "Overview" },
-    { key: "pipeline",  label: `Pipeline (${app?.stages.length ?? 0})` },
-    { key: "contacts",  label: `Contacts (${app?.contacts.length ?? 0})` },
-    { key: "documents", label: `Docs (${app?.documents.length ?? 0})` },
-    { key: "activity",  label: "Activity" },
-  ];
+export function ApplicationDetail({ application: app, initialTab = "pipeline", onUpdate, onDelete, onClose }: ApplicationDetailProps) {
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const typeOptions = useTypeOptions();
+  const sourceOptions = useSourceOptions();
+  const update = (patch: Partial<Application>) => onUpdate?.(patch);
 
   return (
-    <Modal open={!!applicationId} onClose={onClose} size="xl">
-      {!app ? (
-        <div className="p-8 text-center text-text-muted">Loading...</div>
-      ) : (
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-start justify-between px-6 py-4 border-b border-border">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-base font-semibold text-text-primary">{app.companyName}</h2>
-                {app.companyUrl && (
-                  <a href={app.companyUrl} target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-text-secondary">
-                    <HugeiconsIcon icon={Share01Icon} size={13} strokeWidth={1.5} />
-                  </a>
-                )}
-              </div>
-              <p className="text-sm text-text-secondary">{app.position}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={app.status}
-                onChange={(e) => handleStatusChange(e.target.value as ApplicationStatus)}
-                className="text-xs rounded-input bg-surface-elevated border border-border px-2 py-1.5 text-text-primary focus:outline-none"
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="w-full sm:max-w-3xl bg-surface border-l border-border p-0 flex flex-col gap-0 overflow-hidden"
+      >
+        {/* Header — editable title */}
+        <SheetHeader className="px-6 pt-5 pb-3 border-b border-border shrink-0">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <SheetTitle
+                render={
+                  <div
+                    className="text-lg font-semibold text-text-primary leading-tight -ml-2"
+                    style={{ fontFamily: "var(--font-family-display)" }}
+                  />
+                }
               >
-                {(Object.keys(STATUS_LABELS) as ApplicationStatus[]).map((s) => (
-                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                ))}
-              </select>
-              <Button variant="danger" size="sm" onClick={handleDelete}>
-                <HugeiconsIcon icon={Delete01Icon} size={13} strokeWidth={1.5} />
-              </Button>
-              <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors">
+                <EditableCell
+                  value={app.companyName}
+                  placeholder="Company name"
+                  onCommit={(v) => update({ companyName: v })}
+                />
+              </SheetTitle>
+              {app.companyUrl && (
+                <a
+                  href={app.companyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors duration-150 mt-1"
+                >
+                  Visit site <HugeiconsIcon icon={ArrowUpRight01Icon} size={11} strokeWidth={1.5} />
+                </a>
+              )}
+            </div>
+            <div className="flex items-center gap-1 shrink-0 mt-1">
+              {onDelete && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="text-text-muted hover:text-text-primary transition-colors duration-150 rounded-md p-1 hover:bg-surface-hover">
+                    <HugeiconsIcon icon={MoreVerticalIcon} size={18} strokeWidth={1.5} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      onClick={onDelete}
+                      className="text-[var(--status-rejected-fg)] focus:text-[var(--status-rejected-fg)]"
+                    >
+                      <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.5} />
+                      Delete application
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors duration-150 rounded-md p-1 hover:bg-surface-hover">
                 <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.5} />
               </button>
             </div>
           </div>
+        </SheetHeader>
 
-          {/* Tabs */}
-          <div className="flex border-b border-border px-6">
-            {TABS.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${
-                  tab === key
-                    ? "border-accent text-text-primary"
-                    : "border-transparent text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+        {/* Editable properties (Notion-style peek) */}
+        <div className="px-6 py-4 border-b border-border shrink-0 flex flex-col gap-0.5">
+          <PropertyRow icon={Briefcase01Icon} label="Position">
+            <EditableCell value={app.position} placeholder="Add position" onCommit={(v) => update({ position: v })} />
+          </PropertyRow>
 
-          {/* Tab content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {tab === "overview" && (
-              <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <InfoRow label="Status"><StatusBadge status={app.status} /></InfoRow>
-                  <InfoRow label="Work mode"><WorkModeBadge mode={app.workMode as import("@/types").WorkMode} /></InfoRow>
-                  <InfoRow label="Job type"><span className="text-sm text-text-primary">{app.jobType}</span></InfoRow>
-                  <InfoRow label="Applied via"><span className="text-sm text-text-primary">{app.appliedVia}</span></InfoRow>
-                  <InfoRow label="Applied date"><span className="text-sm text-text-primary">{formatDate(app.appliedDate)}</span></InfoRow>
-                  <InfoRow label="Location"><span className="text-sm text-text-primary">{app.location || "—"}</span></InfoRow>
-                  {(app.salaryMin || app.salaryMax) && (
-                    <InfoRow label="Salary">
-                      <span className="text-sm text-text-primary">
-                        {app.currency} {app.salaryMin?.toLocaleString() ?? "?"} — {app.salaryMax?.toLocaleString() ?? "?"}/mo
-                      </span>
-                    </InfoRow>
-                  )}
-                  {app.jobPostUrl && (
-                    <InfoRow label="Job post">
-                      <a href={app.jobPostUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline flex items-center gap-1">
-                        View listing <HugeiconsIcon icon={Share01Icon} size={11} strokeWidth={1.5} />
-                      </a>
-                    </InfoRow>
-                  )}
-                </div>
-                {app.notes && (
-                  <div className="bg-surface-elevated border border-border rounded-card p-3">
-                    <p className="text-xs font-medium text-text-muted mb-1">Notes</p>
-                    <p className="text-sm text-text-secondary whitespace-pre-wrap">{app.notes}</p>
-                  </div>
+          <PropertyRow icon={Loading03Icon} label="Status">
+            <OptionPicker value={app.status} options={STATUS_OPTIONS} onSelect={(v) => update({ status: v as ApplicationStatus })}>
+              <StatusBadge status={app.status} />
+            </OptionPicker>
+          </PropertyRow>
+
+          <PropertyRow icon={Tag01Icon} label="Type">
+            <OptionPicker value={app.jobType} options={typeOptions} allowCreate onOptionsChange={setTypeOptions} onSelect={(v) => update({ jobType: v })}>
+              {app.jobType ? (
+                <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", tagBadgeClass(app.jobType))}>{app.jobType}</span>
+              ) : <span className="text-text-muted">Add type</span>}
+            </OptionPicker>
+          </PropertyRow>
+
+          <PropertyRow icon={Home01Icon} label="Work mode">
+            <OptionPicker value={app.workMode} options={WORKMODE_OPTIONS} onSelect={(v) => update({ workMode: v as WorkMode })}>
+              <WorkModeBadge mode={app.workMode} />
+            </OptionPicker>
+          </PropertyRow>
+
+          <PropertyRow icon={Link01Icon} label="Applied via">
+            <OptionPicker value={app.appliedVia} options={sourceOptions} allowCreate onOptionsChange={setSourceOptions} onSelect={(v) => update({ appliedVia: v })}>
+              {app.appliedVia ? <span className="text-text-secondary">{app.appliedVia}</span> : <span className="text-text-muted">Add source</span>}
+            </OptionPicker>
+          </PropertyRow>
+
+          <PropertyRow icon={Coins01Icon} label="Salary">
+            <EditableCell
+              value={app.salaryMax != null ? String(app.salaryMax) : ""}
+              type="number"
+              placeholder="Add salary"
+              display={formatSalary(app) ? <span className="text-text-secondary">{formatSalary(app)}</span> : undefined}
+              onCommit={(v) => { const n = v ? Number(v) : null; update({ salaryMax: n, salaryMin: app.salaryMin ?? n }); }}
+            />
+          </PropertyRow>
+
+          <PropertyRow icon={Calendar03Icon} label="Applied date">
+            <EditableCell
+              value={app.appliedDate ?? ""}
+              type="date"
+              placeholder="Set date"
+              display={app.appliedDate ? <span className="text-text-secondary">{format(new Date(app.appliedDate), "MMM d, yyyy")}</span> : undefined}
+              onCommit={(v) => update({ appliedDate: v || null })}
+            />
+          </PropertyRow>
+
+          <PropertyRow icon={Location01Icon} label="Location">
+            <EditableCell value={app.location ?? ""} placeholder="Add location" onCommit={(v) => update({ location: v || null })} />
+          </PropertyRow>
+        </div>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
+          <TabsList className="shrink-0 px-6 pt-0 pb-0 h-auto bg-transparent border-b border-border rounded-none justify-start gap-0">
+            {["pipeline", "contacts", "documents", "activity"].map((tab) => (
+              <TabsTrigger
+                key={tab}
+                value={tab}
+                className={cn(
+                  "px-4 py-3 text-xs font-medium capitalize rounded-none border-b-2 -mb-px transition-colors duration-150 bg-transparent",
+                  "data-[state=active]:border-accent data-[state=active]:text-text-primary data-[state=active]:bg-transparent",
+                  "data-[state=inactive]:border-transparent data-[state=inactive]:text-text-muted hover:text-text-secondary"
                 )}
-              </div>
-            )}
+              >
+                {tab}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-            {tab === "pipeline" && (
-              <PipelineStages
-                applicationId={app.id}
-                stages={app.stages}
-                onUpdate={mutateApp}
-              />
-            )}
+          <TabsContent value="pipeline" className="flex-1 overflow-y-auto p-6 mt-0">
+            <PipelineBuilder application={app} />
+          </TabsContent>
 
-            {tab === "contacts" && (
+          <TabsContent value="contacts" className="flex-1 overflow-y-auto p-6 mt-0">
+            {app.contacts.length === 0 ? (
+              <EmptyState message="No contacts yet" hint="Add the recruiter or hiring manager to keep track of who you're talking to." />
+            ) : (
               <div className="flex flex-col gap-3">
                 {app.contacts.map((c) => (
-                  <div key={c.id} className="bg-surface-elevated border border-border rounded-card p-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-text-primary">{c.name}</span>
-                      <span className="text-xs text-text-muted">{c.role}</span>
+                  <div key={c.id} className="bg-surface-elevated border border-border rounded-card p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">{c.name}</p>
+                        <p className="text-xs text-text-muted mt-0.5">{c.role}{c.stageName ? ` · ${c.stageName}` : ""}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
+                        <HugeiconsIcon icon={UserIcon} size={14} className="text-accent-soft-fg" strokeWidth={1.5} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex flex-wrap gap-3 mt-2">
                       {c.email && (
-                        <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary">
-                          <HugeiconsIcon icon={Mail01Icon} size={11} strokeWidth={1.5} />{c.email}
+                        <a href={`mailto:${c.email}`} className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors">
+                          <HugeiconsIcon icon={Mail01Icon} size={12} strokeWidth={1.5} />{c.email}
                         </a>
                       )}
                       {c.phone && (
-                        <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary">
-                          <HugeiconsIcon icon={CallIcon} size={11} strokeWidth={1.5} />{c.phone}
+                        <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors">
+                          <HugeiconsIcon icon={Call02Icon} size={12} strokeWidth={1.5} />{c.phone}
                         </a>
                       )}
                       {c.linkedinUrl && (
-                        <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-accent">
-                          <HugeiconsIcon icon={Linkedin01Icon} size={11} strokeWidth={1.5} />LinkedIn
+                        <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors">
+                          <HugeiconsIcon icon={Linkedin01Icon} size={12} strokeWidth={1.5} />LinkedIn
                         </a>
                       )}
                     </div>
-                    {c.notes && <p className="text-xs text-text-muted mt-1">{c.notes}</p>}
+                    {c.notes && <p className="text-xs text-text-muted mt-2 border-t border-border pt-2">{c.notes}</p>}
                   </div>
                 ))}
-                {!addingContact ? (
-                  <Button variant="outline" size="sm" onClick={() => setAddingContact(true)}>
-                    + Add contact
-                  </Button>
-                ) : (
-                  <form onSubmit={handleAddContact} className="bg-surface-elevated border border-border rounded-card p-3 flex flex-col gap-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input required value={contactForm.name} onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))} placeholder="Name *" className="h-8 rounded-input bg-surface border border-border px-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none" />
-                      <select value={contactForm.role} onChange={(e) => setContactForm((f) => ({ ...f, role: e.target.value }))} className="h-8 rounded-input bg-surface border border-border px-2 text-sm text-text-primary focus:outline-none">
-                        {CONTACT_ROLES.map((r) => <option key={r}>{r}</option>)}
-                      </select>
-                      <input type="email" value={contactForm.email} onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email" className="h-8 rounded-input bg-surface border border-border px-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none" />
-                      <input value={contactForm.phone} onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Phone" className="h-8 rounded-input bg-surface border border-border px-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none" />
-                      <input type="url" value={contactForm.linkedinUrl} onChange={(e) => setContactForm((f) => ({ ...f, linkedinUrl: e.target.value }))} placeholder="LinkedIn URL" className="h-8 rounded-input bg-surface border border-border px-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none col-span-2" />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="submit" variant="cta" size="sm">Add</Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setAddingContact(false)}>Cancel</Button>
-                    </div>
-                  </form>
-                )}
               </div>
             )}
+          </TabsContent>
 
-            {tab === "documents" && (
-              <div className="flex flex-col gap-3">
+          <TabsContent value="documents" className="flex-1 overflow-y-auto p-6 mt-0">
+            {app.documents.length === 0 ? (
+              <EmptyState message="No documents yet" hint="Link the CV or cover letter you sent to this company." />
+            ) : (
+              <div className="flex flex-col gap-2">
                 {app.documents.map((d) => (
-                  <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between bg-surface-elevated border border-border rounded-card p-3 hover:border-border-hover transition-colors">
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">{d.name}</p>
+                  <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-surface-elevated border border-border rounded-card p-3 hover:border-accent transition-colors duration-150">
+                    <div className="w-8 h-8 rounded-lg bg-accent-soft flex items-center justify-center shrink-0">
+                      <HugeiconsIcon icon={FileAttachmentIcon} size={14} className="text-accent-soft-fg" strokeWidth={1.5} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate">{d.name}</p>
                       <p className="text-xs text-text-muted capitalize">{d.type.replace("-", " ")}</p>
                     </div>
-                    <HugeiconsIcon icon={Share01Icon} size={13} strokeWidth={1.5} className="text-text-muted" />
+                    <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} className="text-text-muted ml-auto shrink-0" strokeWidth={1.5} />
                   </a>
                 ))}
-                {!addingDocument ? (
-                  <Button variant="outline" size="sm" onClick={() => setAddingDocument(true)}>
-                    + Add document
-                  </Button>
-                ) : (
-                  <form onSubmit={handleAddDocument} className="bg-surface-elevated border border-border rounded-card p-3 flex flex-col gap-2">
-                    <input required value={docForm.name} onChange={(e) => setDocForm((f) => ({ ...f, name: e.target.value }))} placeholder="Document name *" className="h-8 rounded-input bg-surface border border-border px-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none" />
-                    <input required type="url" value={docForm.url} onChange={(e) => setDocForm((f) => ({ ...f, url: e.target.value }))} placeholder="URL (Google Drive, GitHub...) *" className="h-8 rounded-input bg-surface border border-border px-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none" />
-                    <select value={docForm.type} onChange={(e) => setDocForm((f) => ({ ...f, type: e.target.value }))} className="h-8 rounded-input bg-surface border border-border px-2 text-sm text-text-primary focus:outline-none">
-                      {DOCUMENT_TYPES.map((t) => <option key={t} value={t}>{t.replace("-", " ")}</option>)}
-                    </select>
-                    <div className="flex gap-2">
-                      <Button type="submit" variant="cta" size="sm">Add</Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setAddingDocument(false)}>Cancel</Button>
-                    </div>
-                  </form>
-                )}
               </div>
             )}
+          </TabsContent>
 
-            {tab === "activity" && (
+          <TabsContent value="activity" className="flex-1 overflow-y-auto p-6 mt-0">
+            {app.activityLog.length === 0 ? (
+              <EmptyState message="No activity yet" hint="Activity is recorded automatically as you update this application." />
+            ) : (
               <div className="flex flex-col gap-0">
-                {app.activityLog.length === 0 && (
-                  <p className="text-sm text-text-muted">No activity yet.</p>
-                )}
-                {app.activityLog.map((a) => (
-                  <div key={a.id} className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
-                    <div className="w-1.5 h-1.5 rounded-full bg-border mt-2 shrink-0" />
-                    <div>
-                      <p className="text-sm text-text-secondary">{a.description}</p>
-                      <p className="text-xs text-text-muted mt-0.5">{formatRelativeDate(a.createdAt)}</p>
+                {[...app.activityLog].reverse().map((entry, i) => (
+                  <div key={entry.id} className="flex gap-3 relative">
+                    {i < app.activityLog.length - 1 && <div className="absolute left-[14px] top-6 bottom-0 w-px bg-border" />}
+                    <div className="w-7 h-7 rounded-full bg-surface-elevated border border-border flex items-center justify-center shrink-0 mt-0.5 z-10">
+                      <HugeiconsIcon icon={Clock01Icon} size={12} className="text-text-muted" strokeWidth={1.5} />
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <p className="text-xs text-text-secondary">{entry.description}</p>
+                      <p className="text-[11px] text-text-muted mt-0.5">{format(new Date(entry.createdAt), "MMM d, yyyy · h:mm a")}</p>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        </div>
-      )}
-    </Modal>
+          </TabsContent>
+        </Tabs>
+      </SheetContent>
+    </Sheet>
   );
 }
 
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+function EmptyState({ message, hint }: { message: string; hint: string }) {
   return (
-    <div className="flex flex-col gap-1">
-      <p className="text-xs text-text-muted">{label}</p>
-      {children}
+    <div className="flex flex-col items-center justify-center h-40 text-center gap-2">
+      <p className="text-sm font-medium text-text-primary">{message}</p>
+      <p className="text-xs text-text-muted max-w-xs">{hint}</p>
     </div>
   );
 }

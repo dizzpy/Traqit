@@ -177,7 +177,7 @@ export function PipelineStages({ applicationId, stages, onUpdate }: PipelineStag
               autoFocus
               className="flex-1 h-8 text-xs rounded-input bg-surface border border-border px-2 text-text-primary placeholder:text-text-muted focus:outline-none"
             />
-            <Button size="sm" variant="cta" onClick={() => addStage(newStageName, addingAfter)} disabled={loading || !newStageName.trim()}>
+            <Button size="sm" variant="default" onClick={() => addStage(newStageName, addingAfter)} disabled={loading || !newStageName.trim()}>
               Add
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setAddingAfter(null)}>

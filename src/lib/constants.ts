@@ -23,19 +23,19 @@ export const STATUS_COLORS: Record<ApplicationStatus, string> = {
 };
 
 export const STATUS_BG: Record<ApplicationStatus, string> = {
-  SAVED: "bg-surface-elevated text-text-muted",
-  APPLIED: "bg-info/10 text-info",
-  IN_PROGRESS: "bg-warning/10 text-warning",
-  OFFER: "bg-success/10 text-success",
-  ACCEPTED: "bg-success/20 text-success",
-  REJECTED: "bg-danger/10 text-danger",
-  GHOSTED: "bg-surface-elevated text-text-muted",
-  WITHDRAWN: "bg-surface-elevated text-text-muted",
+  SAVED: "bg-[var(--status-saved-bg)] text-[var(--status-saved-fg)] border border-dashed border-border",
+  APPLIED: "bg-[var(--status-applied-bg)] text-[var(--status-applied-fg)]",
+  IN_PROGRESS: "bg-[var(--status-progress-bg)] text-[var(--status-progress-fg)]",
+  OFFER: "bg-[var(--status-offer-bg)] text-[var(--status-offer-fg)]",
+  ACCEPTED: "bg-[var(--status-accepted-bg)] text-[var(--status-accepted-fg)]",
+  REJECTED: "bg-[var(--status-rejected-bg)] text-[var(--status-rejected-fg)]",
+  GHOSTED: "text-[var(--status-ghosted-fg)] opacity-60",
+  WITHDRAWN: "bg-[var(--status-applied-bg)] text-[var(--status-applied-fg)]",
 };
 
 export const STAGE_STATUS_LABELS: Record<StageStatus, string> = {
   UPCOMING: "Upcoming",
-  COMPLETED: "Completed",
+  COMPLETED: "Done",
   PASSED: "Passed",
   FAILED: "Failed",
   SKIPPED: "Skipped",
@@ -103,14 +103,15 @@ export const DEFAULT_PIPELINE_TEMPLATES = [
 ];
 
 export const STAGE_PRESETS = [
-  "OA",
+  "Call",
   "Phone Screen",
-  "Technical Round",
+  "Assessment",
+  "Technical",
   "System Design",
-  "HR Round",
-  "Take-home",
+  "HR",
+  "CEO",
   "Behavioral",
-  "Team Match",
+  "Offer",
 ];
 
 export const CONTACT_ROLES = [

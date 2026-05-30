@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
+import { ArrowRight02Icon, Briefcase01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +46,7 @@ export default function LoginPage() {
         setPopup(message);
         return;
       }
-      router.push("/board");
+      router.push("/applications");
       router.refresh();
     } catch {
       const message = "Something went wrong. Try again.";
@@ -60,39 +60,28 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center p-4">
       {popup && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-surface-elevated border border-border-hover text-text-primary text-sm px-4 py-2 rounded-card shadow-lg">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-surface-elevated border border-border-hover text-text-primary text-xs px-4 py-2 rounded-card shadow-lg">
           {popup}
         </div>
       )}
 
-      {/* Subtle background glow */}
-      <div
-        className="pointer-events-none fixed inset-0 overflow-hidden"
-        aria-hidden
-      >
-        <div
-          className="absolute -top-32 left-1/2 -translate-x-1/2 w-120 h-120 rounded-full opacity-[0.07]"
-          style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
-        />
-      </div>
-
-      <div className="w-full max-w-sm relative">
-        {/* Brand mark */}
-
-
-        <div className="mb-6 text-center">
-          <h1 className="text-xl font-semibold text-text-primary mb-1.5 font-display">
-            Sign in
+      <div className="w-full max-w-sm">
+        {/* Brand */}
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-accent mb-4">
+            <HugeiconsIcon icon={Briefcase01Icon} size={18} className="text-white" strokeWidth={1.5} />
+          </div>
+          <h1 className="text-xl font-semibold text-text-primary mb-1.5" style={{ fontFamily: "var(--font-family-display)" }}>
+            InternTracker
           </h1>
-          <p className="text-sm text-text-secondary leading-relaxed">
-            Sign in with your name and password.
+          <p className="text-sm text-text-secondary">
+            Sign in with your name and the shared password.
           </p>
         </div>
 
-
         {/* Card */}
-        <div>
-          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3">
+        <div className="bg-surface border border-border rounded-[var(--radius-modal)] p-6">
+          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <Input
               label="Your name"
               value={profileName}
@@ -109,31 +98,34 @@ export default function LoginPage() {
             />
 
             {error && (
-              <p className="text-xs text-danger bg-danger/10 border border-danger/20 rounded-input px-3 py-2">
+              <p className="text-xs text-[var(--status-rejected-fg)] bg-[var(--status-rejected-bg)] border border-[var(--status-rejected-fg)]/20 rounded-input px-3 py-2">
                 {error}
               </p>
             )}
 
             <Button
               type="submit"
-              variant="cta"
               disabled={loading}
-              className="w-full mt-3"
+              className="w-full h-10 mt-1"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Signing in…
                 </span>
               ) : (
                 <>
                   Continue
-                  <HugeiconsIcon icon={ArrowRight02Icon} size={16} strokeWidth={1.5} />
+                  <HugeiconsIcon icon={ArrowRight02Icon} size={15} strokeWidth={1.5} />
                 </>
               )}
             </Button>
           </form>
         </div>
+
+        <p className="text-center text-xs text-text-muted mt-6">
+          InternTracker · for SE interns in SL
+        </p>
       </div>
     </div>
   );

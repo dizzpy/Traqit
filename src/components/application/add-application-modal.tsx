@@ -1,260 +1,289 @@
 "use client";
 
 import { useState } from "react";
-import { Modal } from "@/components/ui/modal";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
 import { PillToggle } from "@/components/ui/pill-toggle";
-import { SearchableSelect } from "@/components/ui/searchable-select";
-import { useSources, useJobTypes, useTemplates, addSource, addJobType } from "@/hooks/use-presets";
-import { createApplication } from "@/hooks/use-applications";
-import { CURRENCIES } from "@/lib/constants";
+import { CURRENCIES, DEFAULT_JOB_TYPES, DEFAULT_SOURCES } from "@/lib/constants";
+import { MOCK_PIPELINE_TEMPLATES } from "@/lib/mock-data";
 import type { WorkMode } from "@/types";
-import { mutate } from "swr";
+import { cn } from "@/lib/utils";
 
-interface AddApplicationModalProps {
-  open: boolean;
+interface AddApplicationPanelProps {
   onClose: () => void;
 }
 
-export function AddApplicationModal({ open, onClose }: AddApplicationModalProps) {
-  const { sources, mutate: mutateSources } = useSources();
-  const { jobTypes, mutate: mutateJobTypes } = useJobTypes();
-  const { templates } = useTemplates();
+function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="text-xs font-medium text-text-secondary">
+      {children}
+      {required && <span className="text-[var(--status-rejected-fg)] ml-0.5">*</span>}
+    </label>
+  );
+}
 
-  const [saveForLater, setSaveForLater] = useState(false);
-  const [loading, setLoading] = useState(false);
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-[11px] text-[var(--status-rejected-fg)]">{message}</p>;
+}
+
+export function AddApplicationPanel({ onClose }: AddApplicationPanelProps) {
+  const today = new Date().toISOString().split("T")[0];
+
+  const [companyName, setCompanyName] = useState("");
+  const [position, setPosition] = useState("");
+  const [companyUrl, setCompanyUrl] = useState("");
+  const [jobPostUrl, setJobPostUrl] = useState("");
+  const [jobType, setJobType] = useState("");
+  const [workMode, setWorkMode] = useState<WorkMode>("no-data");
+  const [appliedVia, setAppliedVia] = useState("");
+  const [salaryMin, setSalaryMin] = useState("");
+  const [salaryMax, setSalaryMax] = useState("");
+  const [currency, setCurrency] = useState("LKR");
+  const [location, setLocation] = useState("");
+  const [appliedDate, setAppliedDate] = useState(today);
+  const [templateId, setTemplateId] = useState("");
+  const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [form, setForm] = useState({
-    companyName: "",
-    companyUrl: "",
-    position: "",
-    jobPostUrl: "",
-    jobType: "",
-    workMode: "no-data" as WorkMode,
-    appliedVia: "",
-    salaryMin: "",
-    salaryMax: "",
-    currency: "LKR",
-    location: "",
-    appliedDate: new Date().toISOString().slice(0, 10),
-    deadline: "",
-    notes: "",
-    templateId: "",
-  });
-
-  function set(key: string, value: string | WorkMode) {
-    setForm((f) => ({ ...f, [key]: value }));
-    setErrors((e) => ({ ...e, [key]: "" }));
-  }
-
   function validate() {
-    const errs: Record<string, string> = {};
-    if (!form.companyName.trim()) errs.companyName = "Required";
-    if (!form.position.trim()) errs.position = "Required";
-    if (!saveForLater) {
-      if (!form.appliedVia) errs.appliedVia = "Required";
-      if (!form.jobType) errs.jobType = "Required";
-    }
-    if (form.salaryMin && form.salaryMax && Number(form.salaryMin) > Number(form.salaryMax)) {
-      errs.salaryMin = "Min must be ≤ max";
-    }
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+    const e: Record<string, string> = {};
+    if (!companyName.trim()) e.companyName = "Company name is required";
+    if (!position.trim()) e.position = "Position is required";
+    if (!jobType.trim()) e.jobType = "Job type is required";
+    if (!appliedVia.trim()) e.appliedVia = "Applied via is required";
+    setErrors(e);
+    return Object.keys(e).length === 0;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
-    setLoading(true);
-    try {
-      await createApplication({
-        companyName: form.companyName,
-        companyUrl: form.companyUrl || null,
-        position: form.position,
-        jobPostUrl: form.jobPostUrl || null,
-        jobType: form.jobType || "Intern",
-        workMode: form.workMode,
-        appliedVia: form.appliedVia || "Direct Mail",
-        salaryMin: form.salaryMin ? Number(form.salaryMin) : null,
-        salaryMax: form.salaryMax ? Number(form.salaryMax) : null,
-        currency: form.currency,
-        location: form.location || null,
-        status: saveForLater ? "SAVED" : "APPLIED",
-        appliedDate: saveForLater ? null : form.appliedDate,
-        deadline: form.deadline || null,
-        notes: form.notes || null,
-        templateId: form.templateId || null,
-      });
-      await mutate((key: string) => typeof key === "string" && key.startsWith("/api/applications"));
-      onClose();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleAddSource(name: string) {
-    await addSource(name);
-    mutateSources();
-  }
-
-  async function handleAddJobType(name: string) {
-    await addJobType(name);
-    mutateJobTypes();
+    // Static — no API call in Sprint 1
+    onClose();
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Application" size="lg">
-      <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
-        {/* Save for later toggle */}
-        <label className="flex items-center gap-3 cursor-pointer">
-          <div
-            onClick={() => setSaveForLater(!saveForLater)}
-            className={`w-9 h-5 rounded-full transition-colors duration-150 relative cursor-pointer ${saveForLater ? "bg-accent" : "bg-surface-elevated border border-border"}`}
-          >
-            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-150 ${saveForLater ? "translate-x-4" : "translate-x-0.5"}`} />
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="w-full sm:max-w-3xl bg-surface border-l border-border p-0 flex flex-col gap-0 overflow-hidden"
+      >
+        <SheetHeader className="px-6 py-5 border-b border-border shrink-0">
+          <div className="flex items-center justify-between gap-4">
+            <SheetTitle
+              className="text-base font-semibold text-text-primary"
+              style={{ fontFamily: "var(--font-family-display)" }}
+            >
+              Add application
+            </SheetTitle>
+            <button
+              onClick={onClose}
+              className="text-text-muted hover:text-text-primary transition-colors duration-150"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.5} />
+            </button>
           </div>
-          <span className="text-sm text-text-secondary">Save for later (wishlist)</span>
-        </label>
+        </SheetHeader>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Company name *"
-            value={form.companyName}
-            onChange={(e) => set("companyName", e.target.value)}
-            placeholder="Acme Corp"
-            error={errors.companyName}
-          />
-          <Input
-            label="Position *"
-            value={form.position}
-            onChange={(e) => set("position", e.target.value)}
-            placeholder="Flutter Developer Intern"
-            error={errors.position}
-          />
-          <Input
-            label="Company URL"
-            type="url"
-            value={form.companyUrl}
-            onChange={(e) => set("companyUrl", e.target.value)}
-            placeholder="https://..."
-          />
-          <Input
-            label="Job post URL"
-            type="url"
-            value={form.jobPostUrl}
-            onChange={(e) => set("jobPostUrl", e.target.value)}
-            placeholder="https://..."
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+          <div className="px-6 py-5 flex flex-col gap-4">
+            {/* Company + position */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label required>Company name</Label>
+                <input
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="e.g. Sysco LABS"
+                  className={cn(
+                    "h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover",
+                    errors.companyName && "border-[var(--status-rejected-fg)]"
+                  )}
+                />
+                <FieldError message={errors.companyName} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label required>Position</Label>
+                <input
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                  placeholder="e.g. SE Intern"
+                  className={cn(
+                    "h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover",
+                    errors.position && "border-[var(--status-rejected-fg)]"
+                  )}
+                />
+                <FieldError message={errors.position} />
+              </div>
+            </div>
 
-        {!saveForLater && (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              <SearchableSelect
-                label="Job type *"
-                value={form.jobType}
-                onChange={(v) => set("jobType", v)}
-                options={jobTypes}
-                onCreateNew={handleAddJobType}
-                error={errors.jobType}
-              />
-              <SearchableSelect
-                label="Applied via *"
-                value={form.appliedVia}
-                onChange={(v) => set("appliedVia", v)}
-                options={sources}
-                onCreateNew={handleAddSource}
-                error={errors.appliedVia}
+            {/* URLs */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Company URL</Label>
+                <input
+                  type="url"
+                  value={companyUrl}
+                  onChange={(e) => setCompanyUrl(e.target.value)}
+                  placeholder="https://company.com"
+                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Job post URL</Label>
+                <input
+                  type="url"
+                  value={jobPostUrl}
+                  onChange={(e) => setJobPostUrl(e.target.value)}
+                  placeholder="https://jobs.company.com/…"
+                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover"
+                />
+              </div>
+            </div>
+
+            {/* Job type + Applied via */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label required>Job type</Label>
+                <input
+                  list="job-types-list"
+                  value={jobType}
+                  onChange={(e) => setJobType(e.target.value)}
+                  placeholder="Select or type…"
+                  className={cn(
+                    "h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover",
+                    errors.jobType && "border-[var(--status-rejected-fg)]"
+                  )}
+                />
+                <datalist id="job-types-list">
+                  {DEFAULT_JOB_TYPES.map((t) => <option key={t} value={t} />)}
+                </datalist>
+                <FieldError message={errors.jobType} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label required>Applied via</Label>
+                <input
+                  list="sources-list"
+                  value={appliedVia}
+                  onChange={(e) => setAppliedVia(e.target.value)}
+                  placeholder="Select or type…"
+                  className={cn(
+                    "h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover",
+                    errors.appliedVia && "border-[var(--status-rejected-fg)]"
+                  )}
+                />
+                <datalist id="sources-list">
+                  {DEFAULT_SOURCES.map((s) => <option key={s} value={s} />)}
+                </datalist>
+                <FieldError message={errors.appliedVia} />
+              </div>
+            </div>
+
+            {/* Work mode */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Work mode</Label>
+              <PillToggle value={workMode} onChange={setWorkMode} />
+            </div>
+
+            {/* Salary */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Salary min</Label>
+                <input
+                  type="number"
+                  value={salaryMin}
+                  onChange={(e) => setSalaryMin(e.target.value)}
+                  placeholder="35000"
+                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Salary max</Label>
+                <input
+                  type="number"
+                  value={salaryMax}
+                  onChange={(e) => setSalaryMax(e.target.value)}
+                  placeholder="55000"
+                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Currency</Label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
+                >
+                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Location + applied date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Location</Label>
+                <input
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Colombo 03"
+                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Applied date</Label>
+                <input
+                  type="date"
+                  value={appliedDate}
+                  onChange={(e) => setAppliedDate(e.target.value)}
+                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
+                />
+              </div>
+            </div>
+
+            {/* Pipeline template */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Pipeline template</Label>
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+                className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
+              >
+                <option value="">No template — build from scratch</option>
+                {MOCK_PIPELINE_TEMPLATES.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name} ({t.stages.join(" → ")})</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Notes */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Notes</Label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any notes about this application…"
+                rows={2}
+                className="w-full rounded-card bg-surface-elevated border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover resize-none"
               />
             </div>
-          </>
-        )}
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-text-secondary">Work mode</label>
-          <PillToggle value={form.workMode} onChange={(v) => set("workMode", v)} />
-        </div>
-
-        {!saveForLater ? (
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Pipeline template"
-              value={form.templateId}
-              onChange={(e) => set("templateId", e.target.value)}
-              options={[
-                { value: "", label: "No template" },
-                ...templates.map((t) => ({ value: t.id, label: t.name })),
-              ]}
-            />
-            <Input
-              label="Applied date"
-              type="date"
-              value={form.appliedDate}
-              onChange={(e) => set("appliedDate", e.target.value)}
-            />
           </div>
-        ) : (
-          <Input
-            label="Deadline (when posting expires)"
-            type="date"
-            value={form.deadline}
-            onChange={(e) => set("deadline", e.target.value)}
-          />
-        )}
 
-        <div className="grid grid-cols-3 gap-4">
-          <Input
-            label="Salary min"
-            type="number"
-            value={form.salaryMin}
-            onChange={(e) => set("salaryMin", e.target.value)}
-            placeholder="40000"
-            error={errors.salaryMin}
-          />
-          <Input
-            label="Salary max"
-            type="number"
-            value={form.salaryMax}
-            onChange={(e) => set("salaryMax", e.target.value)}
-            placeholder="60000"
-          />
-          <Select
-            label="Currency"
-            value={form.currency}
-            onChange={(e) => set("currency", e.target.value)}
-            options={CURRENCIES.map((c) => ({ value: c, label: c }))}
-          />
-        </div>
-
-        <Input
-          label="Location"
-          value={form.location}
-          onChange={(e) => set("location", e.target.value)}
-          placeholder="Colombo, Sri Lanka"
-        />
-
-        <Textarea
-          label="Notes"
-          value={form.notes}
-          onChange={(e) => set("notes", e.target.value)}
-          placeholder="Any notes about this application..."
-        />
-
-        <div className="flex justify-end gap-2 pt-2 border-t border-border">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="cta" disabled={loading}>
-            {loading ? "Saving..." : saveForLater ? "Save for later" : "Add Application"}
-          </Button>
-        </div>
-      </form>
-    </Modal>
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm">
+              Add application
+            </Button>
+          </div>
+        </form>
+      </SheetContent>
+    </Sheet>
   );
 }

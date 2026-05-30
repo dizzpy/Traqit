@@ -4,22 +4,25 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutGridIcon,
-  LeftToRightListBulletIcon,
+  BookmarkIcon,
+  Calendar01Icon,
   BarChartIcon,
-  Clock01Icon,
+  Mail01Icon,
   Settings01Icon,
   Briefcase01Icon,
+  UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
-  { href: "/board",     label: "Board",     icon: LayoutGridIcon },
-  { href: "/list",      label: "List",      icon: LeftToRightListBulletIcon },
-  { href: "/analytics", label: "Analytics", icon: BarChartIcon },
-  { href: "/timeline",  label: "Timeline",  icon: Clock01Icon },
-  { href: "/settings",  label: "Settings",  icon: Settings01Icon },
+  { href: "/applications", label: "Applications", icon: LayoutGridIcon },
+  { href: "/saved",        label: "Saved jobs",   icon: BookmarkIcon },
+  { href: "/calendar",     label: "Calendar",     icon: Calendar01Icon },
+  { href: "/analytics",    label: "Analytics",    icon: BarChartIcon },
+  { href: "/templates",    label: "Email templates", icon: Mail01Icon },
+  { href: "/settings",     label: "Settings",     icon: Settings01Icon },
 ];
 
 export function Sidebar() {
@@ -29,11 +32,13 @@ export function Sidebar() {
     <aside className="w-[220px] shrink-0 h-screen bg-surface border-r border-border flex flex-col">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-border">
-        <Link href="/board" className="flex items-center gap-2.5">
+        <Link href="/applications" className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center">
             <HugeiconsIcon icon={Briefcase01Icon} size={14} className="text-white" strokeWidth={1.5} />
           </div>
-          <span className="text-sm font-semibold text-text-primary">InternTracker</span>
+          <span className="text-sm font-semibold text-text-primary" style={{ fontFamily: "var(--font-family-display)" }}>
+            InternTracker
+          </span>
         </Link>
       </div>
 
@@ -59,8 +64,14 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="px-3 py-3 border-t border-border flex items-center justify-between">
+      {/* Footer — profile chip + theme toggle */}
+      <div className="px-3 py-3 border-t border-border flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
+            <HugeiconsIcon icon={UserIcon} size={12} className="text-accent-soft-fg" strokeWidth={1.5} />
+          </div>
+          <span className="text-xs text-text-muted truncate">My profile</span>
+        </div>
         <ThemeToggle />
       </div>
     </aside>
