@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { formatDistanceToNow, differenceInHours } from "date-fns";
 import {
@@ -37,11 +37,13 @@ import {
   Delete02Icon,
   DragDropVerticalIcon,
   Cancel01Icon,
+  PreferenceHorizontalIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { StatusBadge, WorkModeBadge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { EditableCell } from "@/components/application/editable-cell";
@@ -69,6 +71,8 @@ import { cn } from "@/lib/utils";
 
 type SortKey = "companyName" | "appliedDate" | "status" | "position";
 type SortDir = "asc" | "desc";
+
+const HIDDEN_COLS_KEY = "it-hidden-cols";
 
 const FILTER_STATUSES: { value: ApplicationStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "All" },
@@ -143,6 +147,8 @@ interface RowProps {
   onUpdate: (id: string, patch: Partial<Application>) => void;
   onSelectType: (id: string, value: string) => void;
   onSelectSource: (id: string, value: string) => void;
+  /** Column keys the user has hidden. */
+  hidden: Set<string>;
 }
 
 function ApplicationRow({
@@ -156,7 +162,9 @@ function ApplicationRow({
   onUpdate,
   onSelectType,
   onSelectSource,
+  hidden,
 }: RowProps) {
+  const show = (key: string) => !hidden.has(key);
   const {
     setNodeRef,
     setActivatorNodeRef,
@@ -223,120 +231,138 @@ function ApplicationRow({
       </td>
 
       {/* Position */}
-      <td className="px-4 py-1.5 text-sm text-text-secondary max-w-[220px]">
-        <EditableCell
-          value={app.position}
-          placeholder="Add position"
-          onCommit={(v) => onUpdate(app.id, { position: v })}
-        />
-      </td>
+      {show("position") && (
+        <td className="px-4 py-1.5 text-sm text-text-secondary max-w-[220px]">
+          <EditableCell
+            value={app.position}
+            placeholder="Add position"
+            onCommit={(v) => onUpdate(app.id, { position: v })}
+          />
+        </td>
+      )}
 
       {/* Type */}
-      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted">
-        <OptionPicker
-          value={app.jobType}
-          options={typeOptions}
-          allowCreate
-          onSelect={(v) => onSelectType(app.id, v)}
-        >
-          {app.jobType ? (
-            <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", tagBadgeClass(app.jobType))}>
-              {app.jobType}
-            </span>
-          ) : (
-            <span className="text-text-muted">Add type</span>
-          )}
-        </OptionPicker>
-      </td>
+      {show("type") && (
+        <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted">
+          <OptionPicker
+            value={app.jobType}
+            options={typeOptions}
+            allowCreate
+            onSelect={(v) => onSelectType(app.id, v)}
+          >
+            {app.jobType ? (
+              <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", tagBadgeClass(app.jobType))}>
+                {app.jobType}
+              </span>
+            ) : (
+              <span className="text-text-muted">Add type</span>
+            )}
+          </OptionPicker>
+        </td>
+      )}
 
       {/* Work mode */}
-      <td className="px-4 py-1.5 whitespace-nowrap">
-        <OptionPicker
-          value={app.workMode}
-          options={WORKMODE_OPTIONS}
-          onSelect={(v) => onUpdate(app.id, { workMode: v as WorkMode })}
-        >
-          <WorkModeBadge mode={app.workMode} />
-        </OptionPicker>
-      </td>
+      {show("workMode") && (
+        <td className="px-4 py-1.5 whitespace-nowrap">
+          <OptionPicker
+            value={app.workMode}
+            options={WORKMODE_OPTIONS}
+            onSelect={(v) => onUpdate(app.id, { workMode: v as WorkMode })}
+          >
+            <WorkModeBadge mode={app.workMode} />
+          </OptionPicker>
+        </td>
+      )}
 
       {/* Current stage — opens pipeline preview */}
-      <td className="px-4 py-1.5 whitespace-nowrap max-w-[160px]">
-        <button
-          onClick={() => onPreview(app.id, "pipeline")}
-          title={currentStageLabel(app)}
-          className="block max-w-full truncate text-xs text-text-secondary bg-surface-elevated border border-border px-2 py-0.5 rounded-md hover:border-accent hover:text-accent transition-colors duration-150"
-        >
-          {currentStageLabel(app)}
-        </button>
-      </td>
+      {show("stage") && (
+        <td className="px-4 py-1.5 whitespace-nowrap max-w-[160px]">
+          <button
+            onClick={() => onPreview(app.id, "pipeline")}
+            title={currentStageLabel(app)}
+            className="block max-w-full truncate text-xs text-text-secondary bg-surface-elevated border border-border px-2 py-0.5 rounded-md hover:border-accent hover:text-accent transition-colors duration-150"
+          >
+            {currentStageLabel(app)}
+          </button>
+        </td>
+      )}
 
       {/* Status */}
-      <td className="px-4 py-1.5 whitespace-nowrap">
-        <OptionPicker
-          value={app.status}
-          options={STATUS_OPTIONS}
-          onSelect={(v) => onUpdate(app.id, { status: v as ApplicationStatus })}
-        >
-          <StatusBadge status={app.status} />
-        </OptionPicker>
-      </td>
+      {show("status") && (
+        <td className="px-4 py-1.5 whitespace-nowrap">
+          <OptionPicker
+            value={app.status}
+            options={STATUS_OPTIONS}
+            onSelect={(v) => onUpdate(app.id, { status: v as ApplicationStatus })}
+          >
+            <StatusBadge status={app.status} />
+          </OptionPicker>
+        </td>
+      )}
 
       {/* Via */}
-      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted max-w-[150px]">
-        <OptionPicker
-          value={app.appliedVia}
-          options={sourceOptions}
-          allowCreate
-          onSelect={(v) => onSelectSource(app.id, v)}
-        >
-          {app.appliedVia ? (
-            <span className="block max-w-[130px] truncate text-xs text-text-secondary" title={app.appliedVia}>{app.appliedVia}</span>
-          ) : (
-            <span className="text-text-muted">Add source</span>
-          )}
-        </OptionPicker>
-      </td>
+      {show("via") && (
+        <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted max-w-[150px]">
+          <OptionPicker
+            value={app.appliedVia}
+            options={sourceOptions}
+            allowCreate
+            onSelect={(v) => onSelectSource(app.id, v)}
+          >
+            {app.appliedVia ? (
+              <span className="block max-w-[130px] truncate text-xs text-text-secondary" title={app.appliedVia}>{app.appliedVia}</span>
+            ) : (
+              <span className="text-text-muted">Add source</span>
+            )}
+          </OptionPicker>
+        </td>
+      )}
 
       {/* Applied date */}
-      <td className="px-4 py-1.5 whitespace-nowrap">
-        <EditableCell
-          value={app.appliedDate ?? ""}
-          type="date"
-          placeholder="Set date"
-          display={
-            app.appliedDate ? (
-              <span className="text-xs text-text-muted" title={new Date(app.appliedDate).toLocaleDateString()}>
-                {relativeLabel(app.appliedDate)}
-              </span>
-            ) : undefined
-          }
-          onCommit={(v) => onUpdate(app.id, { appliedDate: v || null })}
-        />
-      </td>
+      {show("applied") && (
+        <td className="px-4 py-1.5 whitespace-nowrap">
+          <EditableCell
+            value={app.appliedDate ?? ""}
+            type="date"
+            placeholder="Set date"
+            display={
+              app.appliedDate ? (
+                <span className="text-xs text-text-muted" title={new Date(app.appliedDate).toLocaleDateString()}>
+                  {relativeLabel(app.appliedDate)}
+                </span>
+              ) : undefined
+            }
+            onCommit={(v) => onUpdate(app.id, { appliedDate: v || null })}
+          />
+        </td>
+      )}
 
       {/* Salary (edits max) */}
-      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted max-w-[130px]">
-        <EditableCell
-          value={app.salaryMax != null ? String(app.salaryMax) : ""}
-          type="number"
-          placeholder="Add salary"
-          display={formatSalary(app) ? <span className="text-xs text-text-muted">{formatSalary(app)}</span> : undefined}
-          onCommit={(v) => {
-            const n = v ? Number(v) : null;
-            onUpdate(app.id, { salaryMax: n, salaryMin: app.salaryMin ?? n });
-          }}
-        />
-      </td>
+      {show("salary") && (
+        <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted max-w-[130px]">
+          <EditableCell
+            value={app.salaryMax != null ? String(app.salaryMax) : ""}
+            type="number"
+            placeholder="Add salary"
+            display={formatSalary(app) ? <span className="text-xs text-text-muted">{formatSalary(app)}</span> : undefined}
+            onCommit={(v) => {
+              const n = v ? Number(v) : null;
+              onUpdate(app.id, { salaryMax: n, salaryMin: app.salaryMin ?? n });
+            }}
+          />
+        </td>
+      )}
 
       {/* Location */}
-      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted max-w-[150px]">
-        <EditableCell
-          value={app.location ?? ""}
-          placeholder="Add location"
-          onCommit={(v) => onUpdate(app.id, { location: v || null })}
-        />
-      </td>
+      {show("location") && (
+        <td className="px-4 py-1.5 whitespace-nowrap text-xs text-text-muted max-w-[150px]">
+          <EditableCell
+            value={app.location ?? ""}
+            placeholder="Add location"
+            onCommit={(v) => onUpdate(app.id, { location: v || null })}
+          />
+        </td>
+      )}
 
       {/* Delete */}
       <td className="pr-3 pl-1 w-[44px] whitespace-nowrap text-right">
@@ -382,6 +408,26 @@ function ApplicationsPageInner() {
   const [orderedIds, setOrderedIds] = useState<string[] | null>(null);
   const manualOrder = orderedIds !== null;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Per-user hidden columns (Company is the locked anchor), persisted locally.
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(HIDDEN_COLS_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved) setHidden(new Set(JSON.parse(saved)));
+    } catch { /* ignore */ }
+  }, []);
+  function toggleColumn(key: string) {
+    if (key === "company") return; // Company is the locked anchor column
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      localStorage.setItem(HIDDEN_COLS_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  }
+  const visibleColumns = COLUMNS.filter((c) => !hidden.has(c.key));
 
   // inline add-row state
   const [addingInline, setAddingInline] = useState(false);
@@ -643,6 +689,42 @@ function ApplicationsPageInner() {
             </div>
           )}
 
+          {/* Column visibility */}
+          {view !== "board" && (
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <button className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border bg-surface-elevated text-xs font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors duration-150 outline-none">
+                    <HugeiconsIcon icon={PreferenceHorizontalIcon} size={14} strokeWidth={1.5} />
+                    Columns
+                  </button>
+                }
+              />
+              <PopoverContent align="end" className="w-52 p-1.5">
+                <p className="px-2 py-1 text-[11px] text-text-muted">Show columns</p>
+                {COLUMNS.map((col) => {
+                  const locked = col.key === "company";
+                  const visible = locked || !hidden.has(col.key);
+                  return (
+                    <div
+                      key={col.key}
+                      onClick={() => toggleColumn(col.key)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors duration-150",
+                        locked ? "opacity-60 cursor-default" : "hover:bg-surface-hover cursor-pointer"
+                      )}
+                    >
+                      <Checkbox checked={visible} onChange={() => toggleColumn(col.key)} aria-label={col.label} />
+                      <HugeiconsIcon icon={col.icon} size={13} className="text-text-muted shrink-0" strokeWidth={1.5} />
+                      <span className="text-xs text-text-secondary flex-1">{col.label}</span>
+                      {locked && <span className="text-[10px] text-text-muted">locked</span>}
+                    </div>
+                  );
+                })}
+              </PopoverContent>
+            </Popover>
+          )}
+
           <div className="flex items-center gap-1 bg-surface-elevated border border-border rounded-lg p-0.5">
             <button
               onClick={() => setView("list")}
@@ -694,7 +776,7 @@ function ApplicationsPageInner() {
                     />
                   </div>
                 </th>
-                {COLUMNS.map((col) => (
+                {visibleColumns.map((col) => (
                   <th
                     key={col.key}
                     onClick={() => toggleSort(col.sortKey)}
@@ -731,6 +813,7 @@ function ApplicationsPageInner() {
                     onUpdate={updateApp}
                     onSelectType={selectType}
                     onSelectSource={selectSource}
+                    hidden={hidden}
                   />
                 ))}
               </SortableContext>
@@ -738,7 +821,7 @@ function ApplicationsPageInner() {
               {/* Notion-style inline add row */}
               <tr>
                 <td />
-                <td colSpan={COLUMNS.length + 1} className="px-4 py-1.5">
+                <td colSpan={visibleColumns.length + 1} className="px-4 py-1.5">
                   {addingInline ? (
                     <input
                       autoFocus
