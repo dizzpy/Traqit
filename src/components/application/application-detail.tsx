@@ -21,17 +21,27 @@ import {
   Location01Icon,
   Delete02Icon,
   Edit02Icon,
+  Add01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { StatusBadge, WorkModeBadge } from "@/components/ui/badge";
 import { EditableCell } from "./editable-cell";
 import { OptionPicker } from "./option-picker";
 import { tagBadgeClass } from "@/lib/tag-colors";
 import { PipelineBuilder } from "./pipeline-builder";
 import { useJobTypes, useSources, addJobType, addSource } from "@/hooks/use-presets";
+import {
+  createContact,
+  deleteContact,
+  createDocument,
+  deleteDocument,
+  revalidateApps,
+} from "@/hooks/use-detail";
 import { STATUS_LABELS, STATUS_BG, WORK_MODE_LABELS, WORK_MODE_COLORS } from "@/lib/constants";
 import type { Application, ApplicationStatus, WorkMode } from "@/types";
 import { cn } from "@/lib/utils";
@@ -74,6 +84,8 @@ function PropertyRow({ icon, label, children }: { icon: typeof UserIcon; label: 
 export function ApplicationDetail({ application: app, initialTab = "pipeline", onUpdate, onDelete, onClose }: ApplicationDetailProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [editingLinks, setEditingLinks] = useState(false);
+  const [addingContact, setAddingContact] = useState(false);
+  const [addingDoc, setAddingDoc] = useState(false);
   const { jobTypes, mutate: mutateTypes } = useJobTypes();
   const { sources, mutate: mutateSources } = useSources();
   const typeOptions = jobTypes.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) }));
@@ -87,6 +99,15 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
   async function selectSource(value: string) {
     update({ appliedVia: value });
     if (value && !sources.includes(value)) { await addSource(value); mutateSources(); }
+  }
+
+  async function removeContact(id: string) {
+    try { await deleteContact(app.id, id); revalidateApps(); }
+    catch { toast.error("Couldn't delete contact"); }
+  }
+  async function removeDocument(id: string) {
+    try { await deleteDocument(app.id, id); revalidateApps(); }
+    catch { toast.error("Couldn't delete document"); }
   }
 
   return (
@@ -273,19 +294,43 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
           </TabsContent>
 
           <TabsContent value="contacts" className="flex-1 overflow-y-auto p-6 mt-0">
-            {app.contacts.length === 0 ? (
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-text-muted uppercase tracking-wider">
+                {app.contacts.length} contact{app.contacts.length === 1 ? "" : "s"}
+              </p>
+              {!addingContact && (
+                <Button variant="outline" size="sm" onClick={() => setAddingContact(true)}>
+                  <HugeiconsIcon icon={Add01Icon} size={13} strokeWidth={2} /> Add contact
+                </Button>
+              )}
+            </div>
+
+            {addingContact && (
+              <AddContactForm appId={app.id} onDone={() => setAddingContact(false)} />
+            )}
+
+            {app.contacts.length === 0 && !addingContact ? (
               <EmptyState message="No contacts yet" hint="Add the recruiter or hiring manager to keep track of who you're talking to." />
             ) : (
               <div className="flex flex-col gap-3">
                 {app.contacts.map((c) => (
-                  <div key={c.id} className="bg-surface-elevated border border-border rounded-card p-4">
+                  <div key={c.id} className="group bg-surface-elevated border border-border rounded-card p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <p className="text-sm font-medium text-text-primary">{c.name}</p>
                         <p className="text-xs text-text-muted mt-0.5">{c.role}{c.stageName ? ` · ${c.stageName}` : ""}</p>
                       </div>
-                      <div className="w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
-                        <HugeiconsIcon icon={UserIcon} size={14} className="text-accent-soft-fg" strokeWidth={1.5} />
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => removeContact(c.id)}
+                          title="Delete contact"
+                          className="text-text-muted hover:text-[var(--status-rejected-fg)] opacity-0 group-hover:opacity-100 transition-all duration-150"
+                        >
+                          <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.5} />
+                        </button>
+                        <div className="w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center">
+                          <HugeiconsIcon icon={UserIcon} size={14} className="text-accent-soft-fg" strokeWidth={1.5} />
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-3 mt-2">
@@ -313,21 +358,43 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
           </TabsContent>
 
           <TabsContent value="documents" className="flex-1 overflow-y-auto p-6 mt-0">
-            {app.documents.length === 0 ? (
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-text-muted uppercase tracking-wider">
+                {app.documents.length} document{app.documents.length === 1 ? "" : "s"}
+              </p>
+              {!addingDoc && (
+                <Button variant="outline" size="sm" onClick={() => setAddingDoc(true)}>
+                  <HugeiconsIcon icon={Add01Icon} size={13} strokeWidth={2} /> Add document
+                </Button>
+              )}
+            </div>
+
+            {addingDoc && <AddDocumentForm appId={app.id} onDone={() => setAddingDoc(false)} />}
+
+            {app.documents.length === 0 && !addingDoc ? (
               <EmptyState message="No documents yet" hint="Link the CV or cover letter you sent to this company." />
             ) : (
               <div className="flex flex-col gap-2">
                 {app.documents.map((d) => (
-                  <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-surface-elevated border border-border rounded-card p-3 hover:border-accent transition-colors duration-150">
+                  <div key={d.id} className="group flex items-center gap-3 bg-surface-elevated border border-border rounded-card p-3 hover:border-accent transition-colors duration-150">
                     <div className="w-8 h-8 rounded-lg bg-accent-soft flex items-center justify-center shrink-0">
                       <HugeiconsIcon icon={FileAttachmentIcon} size={14} className="text-accent-soft-fg" strokeWidth={1.5} />
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-text-primary truncate">{d.name}</p>
+                    <a href={d.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-text-primary truncate hover:text-accent transition-colors">{d.name}</p>
                       <p className="text-xs text-text-muted capitalize">{d.type.replace("-", " ")}</p>
-                    </div>
-                    <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} className="text-text-muted ml-auto shrink-0" strokeWidth={1.5} />
-                  </a>
+                    </a>
+                    <a href={d.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                      <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} className="text-text-muted" strokeWidth={1.5} />
+                    </a>
+                    <button
+                      onClick={() => removeDocument(d.id)}
+                      title="Delete document"
+                      className="shrink-0 text-text-muted hover:text-[var(--status-rejected-fg)] opacity-0 group-hover:opacity-100 transition-all duration-150"
+                    >
+                      <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.5} />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -365,5 +432,102 @@ function EmptyState({ message, hint }: { message: string; hint: string }) {
       <p className="text-sm font-medium text-text-primary">{message}</p>
       <p className="text-xs text-text-muted max-w-xs">{hint}</p>
     </div>
+  );
+}
+
+const fieldClass =
+  "h-8 w-full rounded-input bg-surface border border-border px-2.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-border-hover transition-colors duration-150";
+
+function AddContactForm({ appId, onDone }: { appId: string; onDone: () => void }) {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !role.trim() || saving) return;
+    setSaving(true);
+    try {
+      await createContact(appId, {
+        name: name.trim(),
+        role: role.trim(),
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        linkedinUrl: linkedinUrl.trim() || null,
+        notes: notes.trim() || null,
+      });
+      revalidateApps();
+      onDone();
+    } catch (err) {
+      toast.error((err as Error).message || "Couldn't add contact");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="bg-surface-elevated border border-border rounded-card p-3 mb-3 flex flex-col gap-2">
+      <div className="grid grid-cols-2 gap-2">
+        <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name *" className={fieldClass} />
+        <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Role * (e.g. Recruiter)" className={fieldClass} />
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className={fieldClass} />
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className={fieldClass} />
+      </div>
+      <input type="url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="LinkedIn URL" className={fieldClass} />
+      <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" className={fieldClass} />
+      <div className="flex items-center justify-end gap-2 pt-0.5">
+        <Button type="button" variant="ghost" size="sm" onClick={onDone} disabled={saving}>Cancel</Button>
+        <Button type="submit" size="sm" disabled={saving || !name.trim() || !role.trim()}>
+          {saving ? "Saving…" : "Add contact"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+const DOC_TYPES = [
+  { value: "cv", label: "CV / Resume" },
+  { value: "cover-letter", label: "Cover letter" },
+  { value: "portfolio", label: "Portfolio" },
+  { value: "other", label: "Other" },
+] as const;
+
+function AddDocumentForm({ appId, onDone }: { appId: string; onDone: () => void }) {
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [type, setType] = useState<(typeof DOC_TYPES)[number]["value"]>("cv");
+  const [saving, setSaving] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !url.trim() || saving) return;
+    setSaving(true);
+    try {
+      await createDocument(appId, { name: name.trim(), url: url.trim(), type });
+      revalidateApps();
+      onDone();
+    } catch (err) {
+      toast.error((err as Error).message || "Couldn't add document");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="bg-surface-elevated border border-border rounded-card p-3 mb-3 flex flex-col gap-2">
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Label * (e.g. CV — Sysco)" className={fieldClass} />
+      <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Link * — https://drive.google.com/…" className={fieldClass} />
+      <select value={type} onChange={(e) => setType(e.target.value as typeof type)} className={cn(fieldClass, "cursor-pointer")}>
+        {DOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+      </select>
+      <div className="flex items-center justify-end gap-2 pt-0.5">
+        <Button type="button" variant="ghost" size="sm" onClick={onDone} disabled={saving}>Cancel</Button>
+        <Button type="submit" size="sm" disabled={saving || !name.trim() || !url.trim()}>
+          {saving ? "Saving…" : "Add document"}
+        </Button>
+      </div>
+    </form>
   );
 }

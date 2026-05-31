@@ -4,6 +4,7 @@
 **Author:** Dizzpy (Anuja Rathnayaka)
 **Date:** May 30, 2026
 **Status:** MVP — personal use + 4 friends, designed for SaaS
+**Progress (2026-05-31):** ✅ Sprints 0 & 1 complete; Sprint 3 complete; Sprint 4 nearly complete — Applications list + board + add/save + pipeline builder + the full detail panel (Pipeline / Contacts / Documents / Activity) are wired to live Supabase data with optimistic updates. Remaining: Calendar / Email-templates / Saved pages (Sprint 2), save-as-template, reminders (Sprint 5), final polish (Sprint 6). See §6 for the per-item breakdown.
 
 ---
 
@@ -436,55 +437,55 @@ Migration path to NextAuth / Supabase Auth later needs **no schema changes** —
 
 > **Strategy: build every key screen as a static, themed, clickable prototype with mock data before touching the database.** See and feel the whole app early; get friends reacting to real screens fast. Backend wires in behind already-built UI.
 
-### Sprint 0 — Foundation & design system (UI only)
+### Sprint 0 — Foundation & design system (UI only) ✅ DONE
 
 _Goal: the theme exists and renders. Nothing functional yet, but it looks right._
 
-- [ ] Init Next.js 15 + TypeScript + Tailwind 4. Add Satoshi + General Sans via `next/font`
-- [ ] Write `globals.css` with the full Violet haze token set (dark + light)
-- [ ] Init shadcn/ui, map tokens to the palette, set radius + fonts. Restyle base components (button, input, badge, dialog, sheet, tabs, dropdown, select, popover, calendar, table, sonner)
-- [ ] Build app shell: sidebar + header + empty page frames for all routes
-- [ ] Build login screen (static)
+- [x] Init Next.js 15 + TypeScript + Tailwind 4. Add Satoshi + General Sans via `next/font`
+- [x] Write `globals.css` with the full Violet haze token set (dark + light)
+- [x] Init shadcn/ui, map tokens to the palette, set radius + fonts. Restyle base components (button, input, badge, dialog, sheet, tabs, dropdown, select, popover, calendar, table, sonner) — plus custom `date-picker` + `checkbox`
+- [x] Build app shell: collapsible sidebar + header + page frames for all routes
+- [x] Build login screen + post-login transition screen
 
-### Sprint 1 — Core screens, static (UI only)
+### Sprint 1 — Core screens, static (UI only) ✅ DONE
 
 _Goal: the two most important screens look and feel finished, with mock data._
 
-- [ ] **Applications list view** — full table, all columns, soft status pills, filter bar, view chips. Mock data.
-- [ ] **Application detail slide-over** with tabs (Pipeline / Contacts / Documents / Activity)
-- [ ] **Pipeline builder (static):** stage palette, vertical sequence with rail, block states, date + bell affordances. _The signature screen — make it delightful._
-- [ ] Add-application modal + save-job modal (static forms)
+- [x] **Applications list view** — full table, all columns, soft status pills, status filter, search, view chips, column show/hide, inline editing, row select/drag/delete
+- [x] **Application detail slide-over** with tabs (Pipeline / Contacts / Documents / Activity) + editable property rows + edit/delete actions
+- [x] **Pipeline builder:** stage palette, vertical sequence with rail, block states, dates. _The signature screen._ (bell/reminder affordance deferred to Sprint 5 — no schema yet)
+- [x] Add-application panel + save-job modal
 
-### Sprint 2 — Remaining screens, static (UI only)
+### Sprint 2 — Remaining screens, static (UI only) — 🟡 PARTIAL
 
 _Goal: every screen in the app exists visually._
 
-- [ ] Board view (drag between columns on mock data via @dnd-kit)
-- [ ] Calendar page (month grid, mock events)
-- [ ] Analytics page (stat cards + charts on mock data via Recharts)
-- [ ] Email templates page + Gmail draft preview
-- [ ] Saved jobs page, Settings page, theme toggle
-- [ ] Polish empty states + transitions
+- [x] Board view (drag between columns via @dnd-kit) — now live data
+- [ ] Calendar page (month grid) — _stub_
+- [x] Analytics page (stat cards + charts via Recharts) — live data
+- [ ] Email templates page + Gmail draft preview — _stub_
+- [ ] Saved jobs page _(stub)_ · [x] Settings page · [x] theme toggle
+- [x] Polish empty states + transitions (ongoing)
 
 > **Milestone:** Share the clickable prototype with the 4 friends for feedback before any backend work.
 
-### Sprint 3 — Database & core CRUD (backend)
+### Sprint 3 — Database & core CRUD (backend) ✅ DONE
 
 _Goal: real data flows behind the already-built screens._
 
-- [ ] Prisma schema → Supabase, run migration, seed default presets + templates
-- [ ] Auth: login API route, middleware, cookie, profile select
-- [ ] Applications API (list/create/update/delete) wired to list + board + add modal
-- [ ] Activity logging on every mutation
+- [x] Prisma schema → Supabase, seed default presets + templates (`db push`)
+- [x] Auth: login API route, middleware, cookie, profile create/seed on login
+- [x] Applications API (list/create/update/delete) wired to list + board + add/save modals, with **optimistic** updates
+- [x] Activity logging on every mutation
 
-### Sprint 4 — Pipeline, save-for-later, detail (backend)
+### Sprint 4 — Pipeline, save-for-later, detail (backend) — 🟡 MOSTLY DONE
 
 _Goal: the signature feature is real._
 
-- [ ] Pipeline stages API: add / reorder / edit / delete; template apply + save-as-template
-- [ ] Wire the builder to real data (order persists, statuses, dates)
-- [ ] Save-job flow end to end; deadlines + countdown
-- [ ] Contacts + documents (links) in detail panel
+- [x] Pipeline stages API: add / reorder / edit / delete; template apply _(save-as-template still pending)_
+- [x] Wire the builder to real data (order persists via a 2-pass reorder endpoint, statuses, dates)
+- [x] Save-job flow end to end; deadlines + countdown
+- [x] Contacts + documents (links) in detail panel — add/remove wired; Activity tab auto-logs
 
 ### Sprint 5 — Calendar, analytics, email, reminders (backend)
 
