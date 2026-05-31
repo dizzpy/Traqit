@@ -9,15 +9,17 @@ import { PillToggle } from "@/components/ui/pill-toggle";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
 import { CURRENCIES, DEFAULT_JOB_TYPES, DEFAULT_SOURCES } from "@/lib/constants";
-import { createApplication } from "@/hooks/use-applications";
+import { createApplication, updateApplication } from "@/hooks/use-applications";
 import { useTemplates } from "@/hooks/use-presets";
-import type { WorkMode } from "@/types";
+import type { Application, WorkMode } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface AddApplicationPanelProps {
   onClose: () => void;
-  /** Called after a successful create so the list can revalidate. */
+  /** Called after a successful create/promote so the list can revalidate. */
   onCreated: () => void;
+  /** When set, the panel promotes this saved job to APPLIED (updates it) instead of creating a new one. */
+  promote?: Application;
 }
 
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
@@ -34,25 +36,26 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-[11px] text-[var(--status-rejected-fg)]">{message}</p>;
 }
 
-export function AddApplicationPanel({ onClose, onCreated }: AddApplicationPanelProps) {
+export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicationPanelProps) {
   const today = new Date().toISOString().split("T")[0];
+  const isPromote = !!promote;
   const { templates } = useTemplates();
   const [submitting, setSubmitting] = useState(false);
 
-  const [companyName, setCompanyName] = useState("");
-  const [position, setPosition] = useState("");
-  const [companyUrl, setCompanyUrl] = useState("");
-  const [jobPostUrl, setJobPostUrl] = useState("");
-  const [jobType, setJobType] = useState("");
-  const [workMode, setWorkMode] = useState<WorkMode>("no-data");
-  const [appliedVia, setAppliedVia] = useState("");
-  const [salaryMin, setSalaryMin] = useState("");
-  const [salaryMax, setSalaryMax] = useState("");
-  const [currency, setCurrency] = useState("LKR");
-  const [location, setLocation] = useState("");
-  const [appliedDate, setAppliedDate] = useState(today);
+  const [companyName, setCompanyName] = useState(promote?.companyName ?? "");
+  const [position, setPosition] = useState(promote?.position ?? "");
+  const [companyUrl, setCompanyUrl] = useState(promote?.companyUrl ?? "");
+  const [jobPostUrl, setJobPostUrl] = useState(promote?.jobPostUrl ?? "");
+  const [jobType, setJobType] = useState(promote?.jobType ?? "");
+  const [workMode, setWorkMode] = useState<WorkMode>(promote?.workMode ?? "no-data");
+  const [appliedVia, setAppliedVia] = useState(promote?.appliedVia ?? "");
+  const [salaryMin, setSalaryMin] = useState(promote?.salaryMin != null ? String(promote.salaryMin) : "");
+  const [salaryMax, setSalaryMax] = useState(promote?.salaryMax != null ? String(promote.salaryMax) : "");
+  const [currency, setCurrency] = useState(promote?.currency ?? "LKR");
+  const [location, setLocation] = useState(promote?.location ?? "");
+  const [appliedDate, setAppliedDate] = useState(promote?.appliedDate ?? today);
   const [templateId, setTemplateId] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(promote?.notes ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function validate() {
@@ -69,27 +72,32 @@ export function AddApplicationPanel({ onClose, onCreated }: AddApplicationPanelP
     e.preventDefault();
     if (!validate() || submitting) return;
     setSubmitting(true);
+    const fields = {
+      companyName: companyName.trim(),
+      position: position.trim(),
+      companyUrl: companyUrl.trim() || null,
+      jobPostUrl: jobPostUrl.trim() || null,
+      jobType: jobType.trim(),
+      workMode,
+      appliedVia: appliedVia.trim(),
+      salaryMin: salaryMin ? Number(salaryMin) : null,
+      salaryMax: salaryMax ? Number(salaryMax) : null,
+      currency,
+      location: location.trim() || null,
+      appliedDate: appliedDate || null,
+      notes: notes.trim() || null,
+    };
     try {
-      await createApplication({
-        companyName: companyName.trim(),
-        position: position.trim(),
-        companyUrl: companyUrl.trim() || null,
-        jobPostUrl: jobPostUrl.trim() || null,
-        jobType: jobType.trim(),
-        workMode,
-        appliedVia: appliedVia.trim(),
-        salaryMin: salaryMin ? Number(salaryMin) : null,
-        salaryMax: salaryMax ? Number(salaryMax) : null,
-        currency,
-        location: location.trim() || null,
-        appliedDate: appliedDate || null,
-        notes: notes.trim() || null,
-        templateId: templateId || null,
-      });
+      if (promote) {
+        // Promote the existing saved record → APPLIED (no duplicate, no stage seeding).
+        await updateApplication(promote.id, { ...fields, status: "APPLIED" });
+      } else {
+        await createApplication({ ...fields, templateId: templateId || null });
+      }
       onCreated();
       onClose();
     } catch {
-      toast.error("Couldn't create application");
+      toast.error(promote ? "Couldn't mark as applied" : "Couldn't create application");
       setSubmitting(false);
     }
   }
@@ -107,7 +115,7 @@ export function AddApplicationPanel({ onClose, onCreated }: AddApplicationPanelP
               className="text-base font-semibold text-text-primary"
               style={{ fontFamily: "var(--font-family-display)" }}
             >
-              Add application
+              {isPromote ? "Mark as applied" : "Add application"}
             </SheetTitle>
             <button
               onClick={onClose}
@@ -268,20 +276,22 @@ export function AddApplicationPanel({ onClose, onCreated }: AddApplicationPanelP
               </div>
             </div>
 
-            {/* Pipeline template */}
-            <div className="flex flex-col gap-1.5">
-              <Label>Pipeline template</Label>
-              <select
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
-              >
-                <option value="">No template — build from scratch</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name} ({(t.stages as string[]).join(" → ")})</option>
-                ))}
-              </select>
-            </div>
+            {/* Pipeline template — only when creating; promote keeps existing stages */}
+            {!isPromote && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Pipeline template</Label>
+                <select
+                  value={templateId}
+                  onChange={(e) => setTemplateId(e.target.value)}
+                  className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
+                >
+                  <option value="">No template — build from scratch</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} ({(t.stages as string[]).join(" → ")})</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Notes */}
             <div className="flex flex-col gap-1.5">
@@ -307,7 +317,7 @@ export function AddApplicationPanel({ onClose, onCreated }: AddApplicationPanelP
               ) : (
                 <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
               )}
-              {submitting ? "Adding…" : "Add application"}
+              {submitting ? (isPromote ? "Applying…" : "Adding…") : isPromote ? "Mark as applied" : "Add application"}
             </Button>
           </div>
         </form>

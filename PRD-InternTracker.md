@@ -4,7 +4,7 @@
 **Author:** Dizzpy (Anuja Rathnayaka)
 **Date:** May 30, 2026
 **Status:** MVP — personal use + 4 friends, designed for SaaS
-**Progress (2026-05-31):** ✅ Sprints 0 & 1 complete; Sprint 3 complete; Sprint 4 nearly complete — Applications list + board + add/save + pipeline builder + the full detail panel (Pipeline / Contacts / Documents / Activity) are wired to live Supabase data with optimistic updates. The Calendar page is live (dated stages + deadlines). The **Email templates page is live** — categorized, searchable, drag-reorderable templates with a click-to-load editable composer + open-in-Gmail (also from a contact in the detail panel). Remaining: Saved page (Sprint 2), save-as-template, email reminders (Sprint 5), final polish (Sprint 6). See §6 for the per-item breakdown.
+**Progress (2026-05-31):** ✅ Sprints 0 & 1 complete; Sprint 3 complete; Sprint 4 nearly complete — Applications list + board + add/save + pipeline builder + the full detail panel (Pipeline / Contacts / Documents / Activity) are wired to live Supabase data with optimistic updates. The Calendar page is live (dated stages + deadlines). The **Email templates page is live** — categorized, searchable, drag-reorderable templates with a click-to-load editable composer + open-in-Gmail (also from a contact in the detail panel). The **Saved jobs page is live** — saved postings live on their own page (hidden from Applications) with deadline badges, open-posting, mark-as-applied (promotes the existing record), and delete. **Sprint 2 is now complete.** Remaining: save-as-template, email reminders (Sprint 5), final polish (Sprint 6). See §6 for the per-item breakdown.
 
 ---
 
@@ -486,7 +486,7 @@ _Goal: every screen in the app exists visually._
 - [x] Calendar page (month grid) — dated stages + deadlines, color-coded, click event → application detail
 - [x] Analytics page (stat cards + charts via Recharts) — live data
 - [x] Email templates page — categories + search + drag-reorder, click-to-load editable composer, open-in-Gmail (templates page & contacts tab), confirm dialogs
-- [ ] Saved jobs page _(stub)_ · [x] Settings page · [x] theme toggle
+- [x] Saved jobs page — card grid, deadline badges, open posting, mark-as-applied (promotes the record), delete · [x] Settings page · [x] theme toggle
 - [x] Polish empty states + transitions (ongoing)
 
 > **Milestone:** Share the clickable prototype with the 4 friends for feedback before any backend work.

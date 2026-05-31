@@ -125,7 +125,6 @@ export const CONTACT_ROLES = [
 export const DOCUMENT_TYPES = ["cv", "cover-letter", "portfolio", "other"];
 
 export const KANBAN_COLUMNS: ApplicationStatus[] = [
-  "SAVED",
   "APPLIED",
   "IN_PROGRESS",
   "OFFER",

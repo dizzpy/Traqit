@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { differenceInDays } from "date-fns";
 import { BookmarkIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,28 +8,12 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
 import { createApplication } from "@/hooks/use-applications";
-import { cn } from "@/lib/utils";
+import { cn, deadlineBadge, hostnameOf } from "@/lib/utils";
 
 interface SaveJobModalProps {
   onClose: () => void;
   /** Called after a successful save so the list can revalidate. */
   onCreated: () => void;
-}
-
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
-
-function deadlineBadge(deadline: string): { label: string; className: string } | null {
-  if (!deadline) return null;
-  const days = differenceInDays(new Date(deadline), new Date());
-  if (days < 0) return { label: "Expired", className: "text-[var(--status-rejected-fg)] bg-[var(--status-rejected-bg)]" };
-  if (days <= 2) return { label: `${days}d left`, className: "text-[#f59e0b] bg-[#2d1f08]" };
-  return { label: `${days} days left`, className: "text-text-muted bg-surface-elevated border border-border" };
 }
 
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {

@@ -76,7 +76,6 @@ const HIDDEN_COLS_KEY = "it-hidden-cols";
 
 const FILTER_STATUSES: { value: ApplicationStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "All" },
-  { value: "SAVED", label: "Saved" },
   { value: "APPLIED", label: "Applied" },
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "OFFER", label: "Offer" },
@@ -496,7 +495,8 @@ function ApplicationsPageInner() {
   }
 
   const filtered = useMemo(() => {
-    let list = apps;
+    // Saved postings live on their own /saved page — keep them out of Applications.
+    let list = apps.filter((a) => a.status !== "SAVED");
     if (filterStatus !== "ALL") list = list.filter((a) => a.status === filterStatus);
     const q = query.trim().toLowerCase();
     if (q) list = list.filter((a) => a.companyName.toLowerCase().includes(q));
