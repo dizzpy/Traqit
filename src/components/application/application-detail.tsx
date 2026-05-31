@@ -34,6 +34,7 @@ import { EditableCell } from "./editable-cell";
 import { OptionPicker } from "./option-picker";
 import { tagBadgeClass } from "@/lib/tag-colors";
 import { PipelineBuilder } from "./pipeline-builder";
+import { DraftEmailModal } from "./draft-email-modal";
 import { useJobTypes, useSources, addJobType, addSource } from "@/hooks/use-presets";
 import {
   createContact,
@@ -43,7 +44,7 @@ import {
   revalidateApps,
 } from "@/hooks/use-detail";
 import { STATUS_LABELS, STATUS_BG, WORK_MODE_LABELS, WORK_MODE_COLORS } from "@/lib/constants";
-import type { Application, ApplicationStatus, WorkMode } from "@/types";
+import type { Application, ApplicationStatus, WorkMode, Contact } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface ApplicationDetailProps {
@@ -86,6 +87,7 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
   const [editingLinks, setEditingLinks] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
   const [addingDoc, setAddingDoc] = useState(false);
+  const [draftContact, setDraftContact] = useState<Contact | null>(null);
   const { jobTypes, mutate: mutateTypes } = useJobTypes();
   const { sources, mutate: mutateSources } = useSources();
   const typeOptions = jobTypes.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) }));
@@ -111,6 +113,7 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
   }
 
   return (
+    <>
     <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
       <SheetContent
         side="right"
@@ -322,6 +325,13 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <button
+                          onClick={() => setDraftContact(c)}
+                          title="Draft email"
+                          className="text-text-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-all duration-150"
+                        >
+                          <HugeiconsIcon icon={Mail01Icon} size={14} strokeWidth={1.5} />
+                        </button>
+                        <button
                           onClick={() => removeContact(c.id)}
                           title="Delete contact"
                           className="text-text-muted hover:text-[var(--status-rejected-fg)] opacity-0 group-hover:opacity-100 transition-all duration-150"
@@ -423,6 +433,15 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
         </Tabs>
       </SheetContent>
     </Sheet>
+    {draftContact && (
+      <DraftEmailModal
+        open={!!draftContact}
+        onClose={() => setDraftContact(null)}
+        app={app}
+        contact={draftContact}
+      />
+    )}
+    </>
   );
 }
 

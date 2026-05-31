@@ -118,6 +118,17 @@ export interface PipelineTemplate {
   createdAt: string;
 }
 
+export interface EmailTemplate {
+  id: string;
+  profileId: string;
+  name: string;
+  subject: string;
+  body: string;
+  category: string;
+  order: number;
+  createdAt: string;
+}
+
 export interface AnalyticsData {
   totalApplications: number;
   responseRate: number;

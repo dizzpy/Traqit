@@ -4,7 +4,7 @@
 **Author:** Dizzpy (Anuja Rathnayaka)
 **Date:** May 30, 2026
 **Status:** MVP — personal use + 4 friends, designed for SaaS
-**Progress (2026-05-31):** ✅ Sprints 0 & 1 complete; Sprint 3 complete; Sprint 4 nearly complete — Applications list + board + add/save + pipeline builder + the full detail panel (Pipeline / Contacts / Documents / Activity) are wired to live Supabase data with optimistic updates. Remaining: Calendar / Email-templates / Saved pages (Sprint 2), save-as-template, reminders (Sprint 5), final polish (Sprint 6). See §6 for the per-item breakdown.
+**Progress (2026-05-31):** ✅ Sprints 0 & 1 complete; Sprint 3 complete; Sprint 4 nearly complete — Applications list + board + add/save + pipeline builder + the full detail panel (Pipeline / Contacts / Documents / Activity) are wired to live Supabase data with optimistic updates. The Calendar page is live (dated stages + deadlines). The **Email templates page is live** — categorized, searchable, drag-reorderable templates with a click-to-load editable composer + open-in-Gmail (also from a contact in the detail panel). Remaining: Saved page (Sprint 2), save-as-template, email reminders (Sprint 5), final polish (Sprint 6). See §6 for the per-item breakdown.
 
 ---
 
@@ -369,18 +369,36 @@ Soft, readable charts themed to the violet/muted palette (Recharts).
 - Source effectiveness: horizontal bar, response rate by source
 - Applications over time: line chart by week/month
 
-### 4.8 Email templates (separate page)
+### 4.8 Email templates (separate page) — _implemented_
 
 Manage reusable outreach templates and fire them off pre-filled.
 
-**Template fields:** name, subject, body — all supporting `{placeholders}`:
+**Template fields:** name, **category**, subject, body — subject + body support `{placeholders}`:
 `{company}`, `{position}`, `{contact}`, `{myName}`, `{jobUrl}`
 
-#### The draft-in-Gmail flow
+**Categories:** Outreach · Follow-up · Cold · Networking · General. Seeded starters: "SE intern outreach" (Outreach), "Follow-up" (Follow-up), "Cold / referral intro" (Cold).
 
-1. From an application (or templates page), pick a template
-2. Placeholders are filled automatically from that application's data
-3. Click **"Draft in Gmail"** → opens Gmail compose in a new tab, pre-filled
+#### Page layout (two columns)
+
+**Left — template library**
+
+- **Search box** — filters by name / subject / category.
+- **Category filter chips** — `All` + each category in use.
+- **Drag-to-reorder** list (@dnd-kit); order persists per profile. Drag is disabled while a search/filter is active.
+- Each card shows name + colored category chip + subject + body preview, with hover edit / delete actions.
+- **Edit** opens the template editor modal (name, category select, subject, body with an Edit/Preview toggle, and click-to-insert placeholder chips).
+
+**Right — compose panel**
+
+- Empty ("Nothing open") until the user **clicks a template card** on the left.
+- Loads the chosen template into an **editable composer**: To / Subject / Body, all editable, with a **close (×)** button to dismiss.
+- Application + Contact pickers fill `{placeholders}` from real data; the user can still override any field by hand (e.g. type a recipient when the application has no contact).
+
+#### The open-in-Gmail flow
+
+1. Click a template → it loads into the right composer with placeholders filled
+2. Edit To / Subject / Body as needed
+3. Click **"Open in Gmail"** → a confirm popup → opens the Gmail compose window ("New Message") in a new tab, pre-filled
 
 ```
 https://mail.google.com/mail/?view=cm&fs=1
@@ -390,6 +408,10 @@ https://mail.google.com/mail/?view=cm&fs=1
 ```
 
 > No Gmail API or OAuth needed. Placeholders are substituted first, then the URL is encoded. The user reviews and hits send — nothing is sent automatically.
+
+**Also available from an application:** the detail panel's Contacts tab has a per-contact **Draft email** action → same compose/confirm flow, pre-filled from that application + contact.
+
+**Confirmations:** destructive / outward actions (delete template, open in Gmail) ask first via a soft confirm dialog.
 
 ### 4.9 Settings (separate page)
 
@@ -461,9 +483,9 @@ _Goal: the two most important screens look and feel finished, with mock data._
 _Goal: every screen in the app exists visually._
 
 - [x] Board view (drag between columns via @dnd-kit) — now live data
-- [ ] Calendar page (month grid) — _stub_
+- [x] Calendar page (month grid) — dated stages + deadlines, color-coded, click event → application detail
 - [x] Analytics page (stat cards + charts via Recharts) — live data
-- [ ] Email templates page + Gmail draft preview — _stub_
+- [x] Email templates page — categories + search + drag-reorder, click-to-load editable composer, open-in-Gmail (templates page & contacts tab), confirm dialogs
 - [ ] Saved jobs page _(stub)_ · [x] Settings page · [x] theme toggle
 - [x] Polish empty states + transitions (ongoing)
 
@@ -491,9 +513,9 @@ _Goal: the signature feature is real._
 
 _Goal: supporting pages go live; reminders fire._
 
-- [ ] Calendar reads real dated stages + deadlines
-- [ ] Analytics aggregation API behind the charts
-- [ ] Email templates CRUD + working Gmail-draft URL builder
+- [x] Calendar reads real dated stages + deadlines
+- [x] Analytics aggregation API behind the charts
+- [x] Email templates CRUD + reorder + working Gmail-compose URL builder (`src/lib/email.ts`)
 - [ ] **Email reminders:** Vercel Cron → daily API route → Gmail SMTP
 
 ### Sprint 6 — Polish & ship
@@ -619,7 +641,7 @@ enum StageStatus {
   SKIPPED
 }
 
-// ─── EMAIL TEMPLATE (NEW) ───────────────────────────────
+// ─── EMAIL TEMPLATE ─────────────────────────────────────
 model EmailTemplate {
   id        String  @id @default(cuid())
   profileId String
@@ -628,6 +650,8 @@ model EmailTemplate {
   name      String    // "SE intern outreach"
   subject   String    // supports {placeholders}
   body      String    // supports {placeholders}
+  category  String   @default("General") // Outreach | Follow-up | Cold | Networking | General
+  order     Int      @default(0)         // manual drag-reorder position (not unique)
 
   createdAt DateTime @default(now())
 
@@ -774,8 +798,11 @@ GET                    /api/applications/:id/activity
 GET                    /api/analytics                   aggregated stats
 GET                    /api/calendar                    dated stages + deadlines
 
-GET  POST              /api/templates/email             email templates CRUD
+GET  POST              /api/templates/email             email templates list / upsert
+PATCH DELETE           /api/templates/email/[id]        edit / delete an email template
+PATCH                  /api/templates/email/reorder     persist drag order ({orderedIds})
 GET  POST  DELETE      /api/templates/pipeline          pipeline templates CRUD
+GET                    /api/profile                     current profile (name for {myName})
 
 GET  POST              /api/presets/sources
 GET  POST              /api/presets/job-types
