@@ -7,7 +7,6 @@ import {
   Edit02Icon,
   Moon01Icon,
   Sun01Icon,
-  Logout01Icon,
   Download01Icon,
   StarIcon,
 } from "@hugeicons/core-free-icons";
@@ -44,11 +43,6 @@ export default function SettingsPage() {
   const { raw: sources, mutate: mutateSources } = useSources();
   const { raw: jobTypes, mutate: mutateJobTypes } = useJobTypes();
 
-  // Profile name — null = mirror the loaded profile; a string = user is editing.
-  const [nameEdit, setNameEdit] = useState<string | null>(null);
-  const [savingName, setSavingName] = useState(false);
-  const nameValue = nameEdit ?? profile?.name ?? "";
-
   // Preset add inputs
   const [newSource, setNewSource] = useState("");
   const [newJobType, setNewJobType] = useState("");
@@ -57,22 +51,6 @@ export default function SettingsPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<PipelineTemplate | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PipelineTemplate | null>(null);
-
-  async function handleSaveName() {
-    const trimmed = nameValue.trim();
-    if (!trimmed || trimmed === profile?.name) return;
-    setSavingName(true);
-    try {
-      await updateProfile({ name: trimmed });
-      mutateProfile();
-      setNameEdit(null); // resync to the saved profile
-      toast.success("Name updated");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Couldn't update name");
-    } finally {
-      setSavingName(false);
-    }
-  }
 
   async function savePref(patch: Parameters<typeof updateProfile>[0]) {
     try {
@@ -151,39 +129,11 @@ export default function SettingsPage() {
     toast.success("Export downloaded");
   }
 
-  async function handleLogout() {
-    await fetch("/api/auth/login", { method: "DELETE" });
-    window.location.href = "/login";
-  }
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Settings" />
       <div className="flex-1 overflow-y-auto p-6">
        <div className="max-w-5xl mx-auto columns-1 lg:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
-
-        {/* Profile */}
-        <Section title="Profile" description="Your display name — used across the app and in email {myName}.">
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Input
-                label="Display name"
-                value={nameValue}
-                onChange={(e) => setNameEdit(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); }}
-                placeholder="Your name"
-              />
-            </div>
-            <Button
-              size="sm"
-              onClick={handleSaveName}
-              disabled={savingName || !nameValue.trim() || nameValue.trim() === profile?.name}
-            >
-              Save
-            </Button>
-          </div>
-          <p className="text-[11px] text-text-muted mt-2">This is also your login name — sign back in with it next time.</p>
-        </Section>
 
         {/* Appearance */}
         <Section title="Appearance" description="Pick the look that feels calm to you.">
@@ -314,12 +264,6 @@ export default function SettingsPage() {
           </Button>
         </Section>
 
-        {/* Account */}
-        <Section title="Account" description="Sign out of this device.">
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <HugeiconsIcon icon={Logout01Icon} size={14} strokeWidth={1.5} /> Log out
-          </Button>
-        </Section>
        </div>
       </div>
 
@@ -439,10 +383,13 @@ function TemplateModal({
             {stagesText.split(",").map((s) => s.trim()).filter(Boolean).join(" → ")}
           </p>
         )}
-        <button onClick={() => setIsDefault(!isDefault)} className="flex items-center gap-2 self-start">
+        <div
+          onClick={() => setIsDefault(!isDefault)}
+          className="flex items-center gap-2 self-start cursor-pointer"
+        >
           <Checkbox checked={isDefault} onChange={() => setIsDefault(!isDefault)} />
           <span className="text-sm text-text-secondary">Use as default for new applications</span>
-        </button>
+        </div>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
           <Button size="sm" onClick={handleSave} disabled={saving}>Save template</Button>

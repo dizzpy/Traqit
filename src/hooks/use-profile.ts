@@ -1,19 +1,31 @@
 import useSWR from "swr";
-import type { Profile } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-type ProfilePrefs = Pick<
-  Profile,
-  "id" | "name" | "defaultCurrency" | "defaultPipelineTemplateId" | "ghostThresholdDays"
+/** Full profile + linked auth account info returned by GET /api/profile. */
+export interface ProfileAccount {
+  id: string;
+  name: string;
+  email: string;
+  defaultCurrency: string;
+  defaultPipelineTemplateId: string | null;
+  ghostThresholdDays: number;
+  createdAt: string;
+  avatarUrl: string | null;
+  provider: string | null;
+}
+
+/** Fields a user can actually edit (everything else is auth-derived/read-only). */
+export type ProfileUpdate = Partial<
+  Pick<ProfileAccount, "name" | "defaultCurrency" | "defaultPipelineTemplateId" | "ghostThresholdDays">
 >;
 
 export function useProfile() {
-  const { data, error, isLoading, mutate } = useSWR<{ data: ProfilePrefs }>("/api/profile", fetcher);
+  const { data, error, isLoading, mutate } = useSWR<{ data: ProfileAccount }>("/api/profile", fetcher);
   return { profile: data?.data ?? null, isLoading, error, mutate };
 }
 
-export async function updateProfile(patch: Partial<ProfilePrefs>) {
+export async function updateProfile(patch: ProfileUpdate) {
   const res = await fetch("/api/profile", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

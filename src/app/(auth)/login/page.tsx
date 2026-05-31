@@ -1,26 +1,58 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
+import { GithubIcon, Mail01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+
+// Our own callback errors (?error=...).
+const ERROR_MESSAGES: Record<string, string> = {
+  not_allowed: "This email isn't on the access list. Ask Dizzpy to add you.",
+  auth: "Sign in failed. Please try again.",
+  profile: "Couldn't set up your workspace. Please try again.",
+};
+
+// Supabase's own OAuth errors (?error_code=...) get friendlier copy.
+const SUPABASE_ERROR_MESSAGES: Record<string, string> = {
+  bad_oauth_state:
+    "Login session expired. Start again from this tab and finish within a minute.",
+};
+
+function resolveError(params: URLSearchParams): string | null {
+  const code = params.get("error_code");
+  if (code && SUPABASE_ERROR_MESSAGES[code]) return SUPABASE_ERROR_MESSAGES[code];
+
+  const ours = params.get("error");
+  if (ours && ERROR_MESSAGES[ours]) return ERROR_MESSAGES[ours];
+
+  // Fall back to Supabase's human-readable description, else a generic line.
+  const desc = params.get("error_description");
+  if (desc) return desc;
+  if (ours || code) return "Something went wrong. Try again.";
+  return null;
+}
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [password, setPassword] = useState("");
-  const [profileName, setProfileName] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [popup, setPopup] = useState("");
+  const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
 
-  // Transition screen between login and dashboard.
-  const LOADING_LINES = ["Setting up your workspace", "Just a second"];
-  const [showLoading, setShowLoading] = useState(false);
-  const [lineIndex, setLineIndex] = useState(0);
-  const [lineShown, setLineShown] = useState(false);
+  // Surface errors passed back from the auth callback (?error=...).
+  // One-time sync from the URL on mount — reading window.location keeps this
+  // SSR-safe (vs a lazy useState initializer, which would hydrate-mismatch).
+  useEffect(() => {
+    const message = resolveError(new URLSearchParams(window.location.search));
+    if (message) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError(message);
+      setPopup(message);
+    }
+  }, []);
 
   useEffect(() => {
     if (!popup) return;
@@ -28,44 +60,31 @@ export default function LoginPage() {
     return () => window.clearTimeout(timeout);
   }, [popup]);
 
-  // Sequence the two lines (~10s total), then navigate to the dashboard.
-  useEffect(() => {
-    if (!showLoading) return;
-    const timers: number[] = [];
-    timers.push(window.setTimeout(() => setLineShown(true), 80));          // line 1 reveal
-    timers.push(window.setTimeout(() => setLineShown(false), 1800));       // line 1 hide
-    timers.push(window.setTimeout(() => { setLineIndex(1); setLineShown(true); }, 2400)); // line 2 reveal
-    timers.push(window.setTimeout(() => setLineShown(false), 4200));       // line 2 hide
-    timers.push(window.setTimeout(() => { router.push("/applications"); router.refresh(); }, 4800));
-    return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [showLoading, router]);
+  function siteRedirect() {
+    const base = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+    return `${base}/auth/callback`;
+  }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const name = profileName.trim();
-    const pass = password.trim();
+    const emailTrimmed = email.trim();
 
-    if (!name || !pass) {
-      setPopup("Please fill out your name and password.");
+    if (!emailTrimmed) {
+      setPopup("Please enter your email.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: pass, profileName: name }),
+      const supabase = createClient();
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: emailTrimmed,
+        options: { emailRedirectTo: siteRedirect(), shouldCreateUser: true },
       });
-      const json = await res.json();
-      if (!res.ok) {
-        const message = json.error?.message ?? "Login failed";
-        setError(message);
-        setPopup(message);
-        return;
-      }
-      setShowLoading(true);
+      if (otpError) throw otpError;
+      setSent(true);
+      setPopup("Check your email for the magic link!");
     } catch {
       const message = "Something went wrong. Try again.";
       setError(message);
@@ -75,20 +94,21 @@ export default function LoginPage() {
     }
   }
 
-  // Blank transition screen — only the sequenced text, centered.
-  if (showLoading) {
-    return (
-      <div className="min-h-screen bg-bg flex items-center justify-center p-4">
-        <p
-          className={cn(
-            "text-2xl font-semibold text-text-primary transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
-            lineShown ? "opacity-100 translate-y-0 blur-none" : "opacity-0 translate-y-2 blur-sm"
-          )}
-        >
-          {LOADING_LINES[lineIndex]}
-        </p>
-      </div>
-    );
+  async function handleGithubLogin() {
+    setGithubLoading(true);
+    setError("");
+    try {
+      const supabase = createClient();
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: { redirectTo: siteRedirect() },
+      });
+      if (oauthError) throw oauthError;
+      // On success the browser is redirected to GitHub; nothing more to do here.
+    } catch {
+      setPopup("GitHub login failed. Please try again.");
+      setGithubLoading(false);
+    }
   }
 
   return (
@@ -106,50 +126,78 @@ export default function LoginPage() {
             Sign in
           </h1>
           <p className="text-sm text-text-secondary">
-            Sign in with your name and the shared password.
+            Choose your preferred sign in method.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <Input
-            label="Your name"
-            value={profileName}
-            onChange={(e) => setProfileName(e.target.value)}
-            placeholder="e.g. Anuja"
-            autoFocus
-          />
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Shared access password"
-          />
-
-          {error && (
-            <p className="text-xs text-[var(--status-rejected-fg)] bg-[var(--status-rejected-bg)] border border-[var(--status-rejected-fg)]/20 rounded-input px-3 py-2">
-              {error}
-            </p>
-          )}
-
+        <div className="flex flex-col gap-4">
           <Button
-            type="submit"
-            disabled={loading}
-            className="w-full h-10 mt-1"
+            variant="outline"
+            onClick={handleGithubLogin}
+            disabled={githubLoading || loading}
+            className="w-full h-11 flex items-center justify-center gap-3 bg-surface hover:bg-surface-hover border-border transition-all duration-200"
           >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Signing in…
-              </span>
+            {githubLoading ? (
+              <span className="inline-block w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin" />
             ) : (
-              <>
-                Continue
-                <HugeiconsIcon icon={ArrowRight02Icon} size={15} strokeWidth={1.5} />
-              </>
+              <HugeiconsIcon icon={GithubIcon} size={18} strokeWidth={1.5} />
             )}
+            <span className="font-medium">Continue with GitHub</span>
           </Button>
-        </form>
+
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
+              <span className="bg-bg px-3 text-text-muted font-medium">Or magic link</span>
+            </div>
+          </div>
+
+          <form onSubmit={handleMagicLink} noValidate className="flex flex-col gap-4">
+            <Input
+              label="Email address"
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (sent) setSent(false);
+              }}
+              placeholder="name@example.com"
+              autoFocus
+            />
+
+            {error && (
+              <p className="text-xs text-[var(--status-rejected-fg)] bg-[var(--status-rejected-bg)] border border-[var(--status-rejected-fg)]/20 rounded-input px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            {sent ? (
+              <p className="text-xs text-text-secondary bg-surface border border-border rounded-input px-3 py-2.5 text-center">
+                Magic link sent — check <span className="text-text-primary">{email.trim()}</span> and open it on this device.
+              </p>
+            ) : (
+              <Button
+                type="submit"
+                disabled={loading || githubLoading}
+                className="w-full h-10 mt-1"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Sending link…
+                  </span>
+                ) : (
+                  <>
+                    Send Magic Link
+                    <HugeiconsIcon icon={Mail01Icon} size={15} strokeWidth={1.5} />
+                  </>
+                )}
+              </Button>
+            )}
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -14,8 +14,10 @@ import {
   UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import Image from "next/image";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProfile } from "@/hooks/use-profile";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
@@ -31,6 +33,7 @@ const STORAGE_KEY = "it-sidebar-collapsed";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { profile } = useProfile();
   const [collapsed, setCollapsed] = useState(false);
 
   // Restore persisted state on mount. Reading localStorage must happen after
@@ -155,12 +158,34 @@ export function Sidebar() {
           collapsed ? "flex-col" : "justify-between"
         )}
       >
-        <div className={cn("flex items-center gap-2 min-w-0", collapsed && "justify-center")}>
-          <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={UserIcon} size={12} className="text-accent-soft-fg" strokeWidth={1.5} />
-          </div>
-          {!collapsed && <span className="text-xs text-text-muted truncate">My profile</span>}
-        </div>
+        <Link
+          href="/profile"
+          title="My profile"
+          className={cn(
+            "flex items-center gap-2 min-w-0 rounded-lg transition-colors duration-150 hover:bg-surface-hover",
+            collapsed ? "justify-center p-1" : "-ml-1 px-1 py-1 flex-1"
+          )}
+        >
+          {profile?.avatarUrl ? (
+            <Image
+              src={profile.avatarUrl}
+              alt={profile.name}
+              width={24}
+              height={24}
+              className="w-6 h-6 rounded-full object-cover shrink-0"
+              unoptimized
+            />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
+              <HugeiconsIcon icon={UserIcon} size={12} className="text-accent-soft-fg" strokeWidth={1.5} />
+            </div>
+          )}
+          {!collapsed && (
+            <span className="text-xs text-text-secondary truncate">
+              {profile?.name ?? "My profile"}
+            </span>
+          )}
+        </Link>
         <ThemeToggle />
       </div>
     </aside>

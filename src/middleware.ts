@@ -1,44 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
-const AUTH_COOKIE = "auth-token";
-const PROFILE_COOKIE = "profile-id";
+// Paths reachable without an authenticated session.
+const PUBLIC_PATHS = ["/login", "/auth"];
 
-const PUBLIC_PATHS = ["/login", "/api/auth"];
-
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  // Allow public paths and static assets
-  if (
-    PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
+function isPublic(pathname: string) {
+  return (
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/fonts") ||
     pathname === "/favicon.ico"
-  ) {
-    return NextResponse.next();
+  );
+}
+
+export async function middleware(req: NextRequest) {
+  // Refresh the session cookie and read the verified user on every request.
+  const { supabaseResponse, user } = await updateSession(req);
+  const { pathname } = req.nextUrl;
+
+  // Signed-in users have no reason to see the login page.
+  if (user && pathname === "/login") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/applications";
+    return NextResponse.redirect(url);
   }
 
-  const token = req.cookies.get(AUTH_COOKIE)?.value;
-  const password = process.env.AUTH_PASSWORD;
-
-  if (!password || token !== password) {
-    const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    return NextResponse.redirect(loginUrl);
+  // Everything else requires a verified session.
+  if (!user && !isPublic(pathname)) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
   }
 
-  // If authenticated but no profile selected, send back to login (which
-  // creates/selects the profile and sets the cookie). No separate picker page.
-  if (!pathname.startsWith("/api")) {
-    const profileId = req.cookies.get(PROFILE_COOKIE)?.value;
-    if (!profileId && pathname !== "/login") {
-      const loginUrl = req.nextUrl.clone();
-      loginUrl.pathname = "/login";
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
-  return NextResponse.next();
+  return supabaseResponse;
 }
 
 export const config = {
