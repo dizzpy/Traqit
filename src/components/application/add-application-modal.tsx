@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { CURRENCIES, DEFAULT_JOB_TYPES, DEFAULT_SOURCES } from "@/lib/constants";
 import { createApplication, updateApplication } from "@/hooks/use-applications";
 import { useTemplates } from "@/hooks/use-presets";
+import { useProfile } from "@/hooks/use-profile";
 import type { Application, WorkMode } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,7 @@ export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicat
   const today = new Date().toISOString().split("T")[0];
   const isPromote = !!promote;
   const { templates } = useTemplates();
+  const { profile } = useProfile();
   const [submitting, setSubmitting] = useState(false);
 
   const [companyName, setCompanyName] = useState(promote?.companyName ?? "");
@@ -51,12 +53,17 @@ export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicat
   const [appliedVia, setAppliedVia] = useState(promote?.appliedVia ?? "");
   const [salaryMin, setSalaryMin] = useState(promote?.salaryMin != null ? String(promote.salaryMin) : "");
   const [salaryMax, setSalaryMax] = useState(promote?.salaryMax != null ? String(promote.salaryMax) : "");
-  const [currency, setCurrency] = useState(promote?.currency ?? "LKR");
+  const [currency, setCurrency] = useState(promote?.currency ?? "");
   const [location, setLocation] = useState(promote?.location ?? "");
   const [appliedDate, setAppliedDate] = useState(promote?.appliedDate ?? today);
-  const [templateId, setTemplateId] = useState("");
+  // null = "use the profile default"; "" = explicitly no template; "<id>" = chosen
+  const [templateId, setTemplateId] = useState<string | null>(null);
   const [notes, setNotes] = useState(promote?.notes ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Fall back to the profile's saved preferences without a reset effect.
+  const effectiveCurrency = currency || profile?.defaultCurrency || "LKR";
+  const effectiveTemplateId = templateId === null ? profile?.defaultPipelineTemplateId ?? "" : templateId;
 
   function validate() {
     const e: Record<string, string> = {};
@@ -82,7 +89,7 @@ export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicat
       appliedVia: appliedVia.trim(),
       salaryMin: salaryMin ? Number(salaryMin) : null,
       salaryMax: salaryMax ? Number(salaryMax) : null,
-      currency,
+      currency: effectiveCurrency,
       location: location.trim() || null,
       appliedDate: appliedDate || null,
       notes: notes.trim() || null,
@@ -92,7 +99,7 @@ export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicat
         // Promote the existing saved record → APPLIED (no duplicate, no stage seeding).
         await updateApplication(promote.id, { ...fields, status: "APPLIED" });
       } else {
-        await createApplication({ ...fields, templateId: templateId || null });
+        await createApplication({ ...fields, templateId: effectiveTemplateId || null });
       }
       onCreated();
       onClose();
@@ -231,7 +238,7 @@ export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicat
               <Label>Salary range</Label>
               <div className="flex items-stretch rounded-input border border-border bg-surface-elevated overflow-hidden transition-colors duration-150 focus-within:border-border-hover">
                 <select
-                  value={currency}
+                  value={effectiveCurrency}
                   onChange={(e) => setCurrency(e.target.value)}
                   className="h-9 shrink-0 bg-surface-hover/40 border-r border-border pl-3 pr-2 text-sm font-medium text-text-secondary outline-none cursor-pointer"
                 >
@@ -281,7 +288,7 @@ export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicat
               <div className="flex flex-col gap-1.5">
                 <Label>Pipeline template</Label>
                 <select
-                  value={templateId}
+                  value={effectiveTemplateId}
                   onChange={(e) => setTemplateId(e.target.value)}
                   className="h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary transition-colors duration-150 focus:outline-none focus:border-border-hover"
                 >

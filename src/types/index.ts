@@ -91,6 +91,9 @@ export interface Application {
 export interface Profile {
   id: string;
   name: string;
+  defaultCurrency: string;
+  defaultPipelineTemplateId: string | null;
+  ghostThresholdDays: number;
   createdAt: string;
   updatedAt: string;
 }

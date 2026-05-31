@@ -67,7 +67,8 @@ import {
   WORK_MODE_COLORS,
 } from "@/lib/constants";
 import type { Application, ApplicationStatus, WorkMode } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, daysUntil } from "@/lib/utils";
+import { useProfile } from "@/hooks/use-profile";
 
 type SortKey = "companyName" | "appliedDate" | "status" | "position";
 type SortDir = "asc" | "desc";
@@ -148,6 +149,8 @@ interface RowProps {
   onSelectSource: (id: string, value: string) => void;
   /** Column keys the user has hidden. */
   hidden: Set<string>;
+  /** Profile's ghost threshold in days — used to flag silent applications. */
+  ghostThreshold: number;
 }
 
 function ApplicationRow({
@@ -162,6 +165,7 @@ function ApplicationRow({
   onSelectType,
   onSelectSource,
   hidden,
+  ghostThreshold,
 }: RowProps) {
   const show = (key: string) => !hidden.has(key);
   const {
@@ -176,6 +180,10 @@ function ApplicationRow({
 
   const upcoming = hasUpcomingInterview(app);
   const ghosted = app.status === "GHOSTED";
+  // Silent for longer than the profile's ghost threshold → flag it gently.
+  const daysSinceApplied = app.appliedDate ? -(daysUntil(app.appliedDate) ?? 0) : 0;
+  const atRisk =
+    app.status === "APPLIED" && !app.firstResponseDate && daysSinceApplied >= ghostThreshold;
 
   return (
     <tr
@@ -289,13 +297,23 @@ function ApplicationRow({
       {/* Status */}
       {show("status") && (
         <td className="px-4 py-1.5 whitespace-nowrap">
-          <OptionPicker
-            value={app.status}
-            options={STATUS_OPTIONS}
-            onSelect={(v) => onUpdate(app.id, { status: v as ApplicationStatus })}
-          >
-            <StatusBadge status={app.status} />
-          </OptionPicker>
+          <div className="flex items-center gap-1.5">
+            <OptionPicker
+              value={app.status}
+              options={STATUS_OPTIONS}
+              onSelect={(v) => onUpdate(app.id, { status: v as ApplicationStatus })}
+            >
+              <StatusBadge status={app.status} />
+            </OptionPicker>
+            {atRisk && (
+              <span
+                title={`No reply in ${daysSinceApplied} days — possible ghosting`}
+                className="text-[10px] text-[#f59e0b] bg-[#2d1f08] px-1.5 py-0.5 rounded-full whitespace-nowrap"
+              >
+                {daysSinceApplied}d silent
+              </span>
+            )}
+          </div>
         </td>
       )}
 
@@ -395,6 +413,8 @@ function ApplicationsPageInner() {
   );
 
   const { applications: apps, isLoading, mutate } = useApplications();
+  const { profile } = useProfile();
+  const ghostThreshold = profile?.ghostThresholdDays ?? 14;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<string>("pipeline");
   const [showAdd, setShowAdd] = useState(false);
@@ -814,6 +834,7 @@ function ApplicationsPageInner() {
                     onSelectType={selectType}
                     onSelectSource={selectSource}
                     hidden={hidden}
+                    ghostThreshold={ghostThreshold}
                   />
                 ))}
               </SortableContext>
