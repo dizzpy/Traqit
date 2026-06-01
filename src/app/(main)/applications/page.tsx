@@ -82,6 +82,7 @@ import { consumePendingAction } from "@/lib/pending-action";
 import { useShortcutHints } from "@/hooks/use-shortcut-hints";
 import { Kbd } from "@/components/ui/kbd";
 import { useProfile } from "@/hooks/use-profile";
+import { AppTour } from "@/components/tour/app-tour";
 
 type SortKey = "companyName" | "appliedDate" | "status" | "position";
 type SortDir = "asc" | "desc";
@@ -164,6 +165,8 @@ interface RowProps {
   hidden: Set<string>;
   /** Profile's ghost threshold in days — used to flag silent applications. */
   ghostThreshold: number;
+  /** First visible row — anchors the product tour's pipeline tip. */
+  isFirst: boolean;
 }
 
 function ApplicationRow({
@@ -179,6 +182,7 @@ function ApplicationRow({
   onSelectSource,
   hidden,
   ghostThreshold,
+  isFirst,
 }: RowProps) {
   const show = (key: string) => !hidden.has(key);
   const {
@@ -296,7 +300,10 @@ function ApplicationRow({
 
       {/* Current stage — opens pipeline preview */}
       {show("stage") && (
-        <td className="px-4 py-1.5 whitespace-nowrap max-w-[160px]">
+        <td
+          className="px-4 py-1.5 whitespace-nowrap max-w-[160px]"
+          {...(isFirst ? { "data-tour": "current-stage-cell" } : {})}
+        >
           <button
             onClick={() => onPreview(app.id, "pipeline")}
             title={currentStageLabel(app)}
@@ -650,7 +657,7 @@ function ApplicationsPageInner() {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowSave(true)}>
+          <Button variant="outline" size="sm" data-tour="save-job-btn" onClick={() => setShowSave(true)}>
             <HugeiconsIcon icon={BookmarkIcon} size={14} strokeWidth={1.5} />
             Save job
             {showHints && <Kbd className="ml-1">b</Kbd>}
@@ -785,6 +792,7 @@ function ApplicationsPageInner() {
               List
             </button>
             <button
+              data-tour="board-view-chip"
               onClick={() => setView("board")}
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-150",
@@ -848,10 +856,11 @@ function ApplicationsPageInner() {
             </thead>
             <tbody>
               <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
-                {filtered.map((app) => (
+                {filtered.map((app, index) => (
                   <ApplicationRow
                     key={app.id}
                     app={app}
+                    isFirst={index === 0}
                     selected={selectedIds.has(app.id)}
                     typeOptions={typeOptions}
                     sourceOptions={sourceOptions}
@@ -932,6 +941,9 @@ function ApplicationsPageInner() {
       )}
       {showAdd && <AddApplicationPanel onClose={() => setShowAdd(false)} onCreated={() => mutate()} />}
       {showSave && <SaveJobModal onClose={() => setShowSave(false)} onCreated={() => mutate()} />}
+
+      {/* One-time product tour — renders null, fires on first visit with apps */}
+      <AppTour />
     </div>
   );
 }

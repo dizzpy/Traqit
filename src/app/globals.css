@@ -342,3 +342,117 @@ h1, h2, h3, h4 {
     font-family: var(--font-family-sans);
   }
 }
+
+/* ── driver.js tour overrides — Violet haze ─── */
+
+/* Popover card */
+.traqit-tour-popover.driver-popover {
+  background: var(--surface-elevated) !important;
+  border: 1px solid var(--border-hover) !important;
+  border-radius: 14px !important;
+  padding: 18px 20px 16px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+  max-width: 280px !important;
+  font-family: var(--font-family-sans) !important;
+}
+
+/* Arrow — tinted to the popover border on every side */
+.traqit-tour-popover.driver-popover .driver-popover-arrow-side-left.driver-popover-arrow {
+  border-left-color: var(--border-hover) !important;
+}
+.traqit-tour-popover.driver-popover .driver-popover-arrow-side-right.driver-popover-arrow {
+  border-right-color: var(--border-hover) !important;
+}
+.traqit-tour-popover.driver-popover .driver-popover-arrow-side-top.driver-popover-arrow {
+  border-top-color: var(--border-hover) !important;
+}
+.traqit-tour-popover.driver-popover .driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-bottom-color: var(--border-hover) !important;
+}
+
+/* Title */
+.traqit-tour-popover.driver-popover .driver-popover-title {
+  font-family: var(--font-family-display) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+  margin-bottom: 6px !important;
+}
+
+/* Description */
+.traqit-tour-popover.driver-popover .driver-popover-description {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--text-secondary) !important;
+  line-height: 1.6 !important;
+  margin-bottom: 14px !important;
+}
+
+/* Progress text */
+.traqit-tour-popover.driver-popover .driver-popover-progress-text {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+}
+
+/* Footer row */
+.traqit-tour-popover.driver-popover .driver-popover-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  margin-top: 0 !important;
+}
+
+/* All buttons base */
+.traqit-tour-popover.driver-popover .driver-popover-footer button {
+  font-family: var(--font-family-sans) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 6px 14px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  text-shadow: none !important;
+  cursor: pointer !important;
+  transition: all 150ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+/* Next / Done button — violet filled */
+.traqit-tour-popover.driver-popover .driver-popover-next-btn,
+.traqit-tour-popover.driver-popover .driver-popover-done-btn {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+.traqit-tour-popover.driver-popover .driver-popover-next-btn:hover,
+.traqit-tour-popover.driver-popover .driver-popover-done-btn:hover {
+  background: var(--accent-hover) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Back button — ghost */
+.traqit-tour-popover.driver-popover .driver-popover-prev-btn {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+}
+.traqit-tour-popover.driver-popover .driver-popover-prev-btn:hover {
+  color: var(--text-secondary) !important;
+  background: var(--surface-hover) !important;
+}
+
+/* Close X button */
+.traqit-tour-popover.driver-popover .driver-popover-close-btn {
+  color: var(--text-muted) !important;
+  font-size: 16px !important;
+  background: transparent !important;
+  border: none !important;
+}
+.traqit-tour-popover.driver-popover .driver-popover-close-btn:hover {
+  color: var(--text-secondary) !important;
+}
+
+/* Spotlight overlay colour is set at runtime via the --bg token (see
+   app-tour.tsx) so it tracks the active theme. */
+
+/* Highlighted element ring */
+.driver-active-element {
+  border-radius: 10px !important;
+}
