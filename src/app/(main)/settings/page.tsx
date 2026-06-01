@@ -21,6 +21,7 @@ import { Modal } from "@/components/ui/modal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useProfile, updateProfile } from "@/hooks/use-profile";
+import { useTheme } from "@/hooks/use-theme";
 import {
   useTemplates,
   useSources,
@@ -290,23 +291,14 @@ export default function SettingsPage() {
 }
 
 function ThemeSelector() {
-  const [theme, setTheme] = useState<"dark" | "light">(() =>
-    typeof window !== "undefined" && localStorage.getItem("theme") === "light" ? "light" : "dark"
-  );
-
-  function apply(next: "dark" | "light") {
-    setTheme(next);
-    localStorage.setItem("theme", next);
-    if (next === "light") document.documentElement.setAttribute("data-theme", "light");
-    else document.documentElement.removeAttribute("data-theme");
-  }
+  const [theme, setTheme] = useTheme();
 
   return (
     <div className="flex gap-2">
       {(["dark", "light"] as const).map((t) => (
         <button
           key={t}
-          onClick={() => apply(t)}
+          onClick={() => setTheme(t)}
           className={cn(
             "flex items-center gap-2 px-4 h-10 rounded-input border text-sm capitalize transition-colors duration-150",
             theme === t

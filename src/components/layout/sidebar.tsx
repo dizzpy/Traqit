@@ -15,7 +15,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Image from "next/image";
-import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { ThemeToggle } from "./theme-toggle";
@@ -26,8 +25,6 @@ const NAV_ITEMS = [
   { href: "/calendar",     label: "Calendar",     icon: Calendar01Icon },
   { href: "/analytics",    label: "Analytics",    icon: BarChartIcon },
   { href: "/templates",    label: "Email templates", icon: Mail01Icon },
-  { href: "/profile",      label: "Profile",      icon: UserIcon },
-  { href: "/settings",     label: "Settings",     icon: Settings01Icon },
 ];
 
 const STORAGE_KEY = "it-sidebar-collapsed";
@@ -85,13 +82,13 @@ export function Sidebar() {
         <span
           className={cn(
             "h-4 w-1 rounded-full bg-border origin-bottom transition-all duration-200 ease-out group-hover/bump:bg-accent",
-            collapsed ? "group-hover/bump:-rotate-[8deg]" : "group-hover/bump:rotate-[8deg]"
+            collapsed ? "group-hover/bump:rotate-[-8deg]" : "group-hover/bump:rotate-[8deg]"
           )}
         />
         <span
           className={cn(
             "h-4 w-1 -mt-px rounded-full bg-border origin-top transition-all duration-200 ease-out group-hover/bump:bg-accent",
-            collapsed ? "group-hover/bump:rotate-[8deg]" : "group-hover/bump:-rotate-[8deg]"
+            collapsed ? "group-hover/bump:rotate-[8deg]" : "group-hover/bump:rotate-[-8deg]"
           )}
         />
 
@@ -120,38 +117,29 @@ export function Sidebar() {
         </span>
       </button>
 
-      {/* Logo + collapse toggle */}
+      {/* Logo */}
       <div
         className={cn(
           "h-15.25 px-3 border-b border-border flex items-center",
-          collapsed ? "justify-center" : "justify-between"
+          collapsed && "justify-center"
         )}
       >
-        {!collapsed && (
-          <Link href="/applications" className="flex items-center gap-2.5 min-w-0 pl-2">
-            <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center shrink-0">
-              <HugeiconsIcon icon={Briefcase01Icon} size={14} className="text-white" strokeWidth={1.5} />
-            </div>
+        <Link
+          href="/applications"
+          className={cn("flex items-center gap-2.5 min-w-0", !collapsed && "pl-2")}
+        >
+          <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center shrink-0">
+            <HugeiconsIcon icon={Briefcase01Icon} size={14} className="text-white" strokeWidth={1.5} />
+          </div>
+          {!collapsed && (
             <span
               className="text-sm font-semibold text-text-primary truncate"
               style={{ fontFamily: "var(--font-family-display)" }}
             >
               InternTracker
             </span>
-          </Link>
-        )}
-        <button
-          onClick={toggle}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="flex items-center justify-center w-8 h-8 rounded-lg text-text-muted hover:bg-surface-hover hover:text-text-primary transition-colors duration-150 shrink-0"
-        >
-          {collapsed ? (
-            <PanelLeftOpenIcon size={17} strokeWidth={1.5} />
-          ) : (
-            <PanelLeftCloseIcon size={17} strokeWidth={1.5} />
           )}
-        </button>
+        </Link>
       </div>
 
       {/* Nav */}
@@ -189,6 +177,24 @@ export function Sidebar() {
       ) : (
         <div className="flex-1" />
       )}
+
+      {/* Settings — bottom-aligned, styled like the top nav items */}
+      <div className="px-3 pb-2">
+        <Link
+          href="/settings"
+          title={collapsed ? "Settings" : undefined}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150",
+            collapsed && "justify-center px-0",
+            pathname === "/settings" || pathname.startsWith("/settings/")
+              ? "bg-surface-hover text-text-primary"
+              : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+          )}
+        >
+          <HugeiconsIcon icon={Settings01Icon} size={16} strokeWidth={1.5} className="shrink-0" />
+          {!collapsed && <span className="truncate">Settings</span>}
+        </Link>
+      </div>
 
       {/* Footer — profile chip + theme toggle */}
       <div
