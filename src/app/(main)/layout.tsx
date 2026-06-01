@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
+import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
 import { Toaster } from "sonner";
 import { getProfile } from "@/lib/auth";
 
@@ -11,6 +12,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
+      <KeyboardShortcuts />
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
       <Toaster

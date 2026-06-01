@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BookmarkIcon,
   Search01Icon,
@@ -19,6 +19,9 @@ import { AddApplicationPanel } from "@/components/application/add-application-mo
 import { ApplicationDetail } from "@/components/application/application-detail";
 import { useApplications, updateApplication, deleteApplication } from "@/hooks/use-applications";
 import { cn, deadlineBadge, hostnameOf, formatRelativeDate } from "@/lib/utils";
+import { consumePendingAction } from "@/lib/pending-action";
+import { useShortcutHints } from "@/hooks/use-shortcut-hints";
+import { Kbd } from "@/components/ui/kbd";
 import type { Application } from "@/types";
 
 type SortKey = "recent" | "deadline";
@@ -32,6 +35,15 @@ export default function SavedPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
+  const [showHints] = useShortcutHints();
+
+  // "b" shortcut → open the Save job modal (from here or after navigating in).
+  useEffect(() => {
+    const open = () => setShowSave(true);
+    window.addEventListener("app:save-job", open);
+    if (consumePendingAction("save-job")) open();
+    return () => window.removeEventListener("app:save-job", open);
+  }, []);
 
   const selectedApp = saved.find((a) => a.id === selectedId) ?? null;
 
@@ -96,6 +108,7 @@ export default function SavedPage() {
         >
           <HugeiconsIcon icon={BookmarkIcon} size={14} strokeWidth={1.5} />
           Save job
+          {showHints && <Kbd className="ml-1 border-white/25 bg-white/10 text-white/90">b</Kbd>}
         </Button>
       </div>
 
@@ -110,11 +123,15 @@ export default function SavedPage() {
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
             />
             <input
+              data-search="true"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search saved jobs…"
-              className="h-9 w-full rounded-input bg-surface-elevated border border-border pl-8 pr-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover"
+              className="h-9 w-full rounded-input bg-surface-elevated border border-border pl-8 pr-9 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover"
             />
+            {!query && showHints && (
+              <Kbd className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">/</Kbd>
+            )}
           </div>
           <div className="w-44 shrink-0">
             <Select

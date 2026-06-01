@@ -17,14 +17,16 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
+import { useShortcutHints } from "@/hooks/use-shortcut-hints";
+import { Kbd } from "@/components/ui/kbd";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
-  { href: "/applications", label: "Applications", icon: LayoutGridIcon },
-  { href: "/saved",        label: "Saved jobs",   icon: BookmarkIcon },
-  { href: "/calendar",     label: "Calendar",     icon: Calendar01Icon },
-  { href: "/analytics",    label: "Analytics",    icon: BarChartIcon },
-  { href: "/templates",    label: "Email templates", icon: Mail01Icon },
+  { href: "/applications", label: "Applications", icon: LayoutGridIcon, shortcut: "a" },
+  { href: "/saved",        label: "Saved jobs",   icon: BookmarkIcon,   shortcut: "s" },
+  { href: "/calendar",     label: "Calendar",     icon: Calendar01Icon, shortcut: "c" },
+  { href: "/analytics",    label: "Analytics",    icon: BarChartIcon,   shortcut: "g" },
+  { href: "/templates",    label: "Email templates", icon: Mail01Icon,  shortcut: "t" },
 ];
 
 const STORAGE_KEY = "it-sidebar-collapsed";
@@ -32,6 +34,7 @@ const STORAGE_KEY = "it-sidebar-collapsed";
 export function Sidebar() {
   const pathname = usePathname();
   const { profile } = useProfile();
+  const [showHints] = useShortcutHints();
   const [collapsed, setCollapsed] = useState(false);
   const [isMac, setIsMac] = useState(false);
 
@@ -144,7 +147,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="px-3 py-4 flex flex-col gap-0.5">
-        {NAV_ITEMS.map(({ href, label, icon }) => {
+        {NAV_ITEMS.map(({ href, label, icon, shortcut }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
@@ -161,6 +164,7 @@ export function Sidebar() {
             >
               <HugeiconsIcon icon={icon} size={16} strokeWidth={1.5} className="shrink-0" />
               {!collapsed && <span className="truncate">{label}</span>}
+              {!collapsed && showHints && <Kbd className="ml-auto">{shortcut}</Kbd>}
             </Link>
           );
         })}
@@ -193,6 +197,7 @@ export function Sidebar() {
         >
           <HugeiconsIcon icon={Settings01Icon} size={16} strokeWidth={1.5} className="shrink-0" />
           {!collapsed && <span className="truncate">Settings</span>}
+          {!collapsed && showHints && <Kbd className="ml-auto">,</Kbd>}
         </Link>
       </div>
 
@@ -230,6 +235,7 @@ export function Sidebar() {
               {profile?.name ?? "My profile"}
             </span>
           )}
+          {!collapsed && showHints && <Kbd className="ml-auto">p</Kbd>}
         </Link>
         <ThemeToggle />
       </div>

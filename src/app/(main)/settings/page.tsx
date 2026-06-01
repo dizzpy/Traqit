@@ -19,9 +19,12 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useProfile, updateProfile } from "@/hooks/use-profile";
 import { useTheme } from "@/hooks/use-theme";
+import { useShortcutHints } from "@/hooks/use-shortcut-hints";
+import { ShortcutsDialog } from "@/components/layout/shortcuts-dialog";
 import {
   useTemplates,
   useSources,
@@ -139,6 +142,11 @@ export default function SettingsPage() {
         {/* Appearance */}
         <Section title="Appearance" description="Pick the look that feels calm to you.">
           <ThemeSelector />
+        </Section>
+
+        {/* Keyboard shortcuts */}
+        <Section title="Keyboard shortcuts" description="Move around faster with single-key shortcuts.">
+          <ShortcutsSettings />
         </Section>
 
         {/* Preferences */}
@@ -310,6 +318,43 @@ function ThemeSelector() {
           {t}
         </button>
       ))}
+    </div>
+  );
+}
+
+function ShortcutsSettings() {
+  const [show, setShow] = useShortcutHints();
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-text-primary">Show shortcut hints</p>
+          <p className="text-xs text-text-muted mt-0.5">
+            Show keycap labels (a, n, /, …) next to navigation and actions.
+          </p>
+        </div>
+        <Switch
+          checked={show}
+          aria-label="Show keyboard shortcut hints"
+          onChange={setShow}
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-text-primary">All shortcuts</p>
+          <p className="text-xs text-text-muted mt-0.5">
+            See every keyboard shortcut available in the app.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
+          View shortcuts
+        </Button>
+      </div>
+
+      <ShortcutsDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </div>
   );
 }

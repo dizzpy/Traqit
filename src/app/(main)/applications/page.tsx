@@ -78,6 +78,9 @@ import {
 } from "@/lib/constants";
 import type { Application, ApplicationStatus, WorkMode } from "@/types";
 import { cn, daysUntil } from "@/lib/utils";
+import { consumePendingAction } from "@/lib/pending-action";
+import { useShortcutHints } from "@/hooks/use-shortcut-hints";
+import { Kbd } from "@/components/ui/kbd";
 import { useProfile } from "@/hooks/use-profile";
 
 type SortKey = "companyName" | "appliedDate" | "status" | "position";
@@ -427,6 +430,7 @@ function ApplicationsPageInner() {
   const ghostThreshold = profile?.ghostThresholdDays ?? 14;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<string>("pipeline");
+  const [showHints] = useShortcutHints();
   const [showAdd, setShowAdd] = useState(false);
   const [showSave, setShowSave] = useState(false);
   const [filterStatus, setFilterStatus] = useState<ApplicationStatus | "ALL">("ALL");
@@ -446,6 +450,14 @@ function ApplicationsPageInner() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (saved) setHidden(new Set(JSON.parse(saved)));
     } catch { /* ignore */ }
+  }, []);
+
+  // "n" shortcut → open the New application panel (from here or after navigating in).
+  useEffect(() => {
+    const open = () => setShowAdd(true);
+    window.addEventListener("app:new-application", open);
+    if (consumePendingAction("new-application")) open();
+    return () => window.removeEventListener("app:new-application", open);
   }, []);
   function toggleColumn(key: string) {
     if (key === "company") return; // Company is the locked anchor column
@@ -641,6 +653,7 @@ function ApplicationsPageInner() {
           <Button variant="outline" size="sm" onClick={() => setShowSave(true)}>
             <HugeiconsIcon icon={BookmarkIcon} size={14} strokeWidth={1.5} />
             Save job
+            {showHints && <Kbd className="ml-1">b</Kbd>}
           </Button>
           <Button
             size="sm"
@@ -649,6 +662,7 @@ function ApplicationsPageInner() {
           >
             <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
             Add application
+            {showHints && <Kbd className="ml-1 border-white/25 bg-white/10 text-white/90">n</Kbd>}
           </Button>
         </div>
       </div>
@@ -665,6 +679,7 @@ function ApplicationsPageInner() {
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
             />
             <input
+              data-search="true"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search company…"
@@ -678,6 +693,9 @@ function ApplicationsPageInner() {
               >
                 <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={1.5} />
               </button>
+            )}
+            {!query && showHints && (
+              <Kbd className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">/</Kbd>
             )}
           </div>
 
