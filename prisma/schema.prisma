@@ -18,6 +18,7 @@ model Profile {
   emailName         String?            // name used for the {myName} placeholder in email templates
   remindersEnabled  Boolean            @default(false) // email me before scheduled interviews
   reminderLeadTime  Int                @default(24) // hours before a scheduled stage to remind
+  onboardedAt       DateTime?          // set when the guided onboarding flow is completed; null = not yet onboarded
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   applications      Application[]

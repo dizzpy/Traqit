@@ -1,12 +1,12 @@
 /** Soft violet-haze palette for free-form tags (Type, Source, etc.). */
 const TAG_PALETTE = [
-  "bg-[#25203b] text-[#a78bfa]", // violet
-  "bg-[#16233f] text-[#7cb0f8]", // blue
-  "bg-[#14271b] text-[#4ade80]", // green
-  "bg-[#2d2408] text-[#f0b429]", // amber
-  "bg-[#2d1414] text-[#f87171]", // red
-  "bg-[#16292a] text-[#5ed1c5]", // teal
-  "bg-[#1b1a1f] text-[#8b8792]", // grey
+  "bg-[var(--tag-violet-bg)] text-[var(--tag-violet-fg)]", // violet
+  "bg-[var(--tag-blue-bg)] text-[var(--tag-blue-fg)]", // blue
+  "bg-[var(--tag-green-bg)] text-[var(--tag-green-fg)]", // green
+  "bg-[var(--tag-amber-bg)] text-[var(--tag-amber-fg)]", // amber
+  "bg-[var(--tag-red-bg)] text-[var(--tag-red-fg)]", // red
+  "bg-[var(--tag-teal-bg)] text-[var(--tag-teal-fg)]", // teal
+  "bg-[var(--tag-grey-bg)] text-[var(--tag-grey-fg)]", // grey
 ];
 
 export function tagBadgeClass(name: string): string {

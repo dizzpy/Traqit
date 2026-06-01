@@ -36,12 +36,27 @@ export function Sidebar() {
   const pathname = usePathname();
   const { profile } = useProfile();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMac, setIsMac] = useState(false);
 
   // Restore persisted state on mount. Reading localStorage must happen after
   // hydration (it's unavailable during SSR), so this effect is intentional.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+    setIsMac(/mac/i.test(navigator.platform) || /mac/i.test(navigator.userAgent));
+  }, []);
+
+  // ⌘/Ctrl+B toggles the sidebar — ignored while typing in a field.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "b") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName))) return;
+      e.preventDefault();
+      toggle();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   function toggle() {
@@ -65,21 +80,44 @@ export function Sidebar() {
       <button
         onClick={toggle}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         className="group/bump absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2 z-40 flex h-12 w-4 flex-col items-center justify-center"
       >
         <span
           className={cn(
-            "h-3.5 w-1 rounded-full bg-border origin-bottom transition-all duration-200 ease-out group-hover/bump:bg-accent",
-            collapsed ? "group-hover/bump:-rotate-[18deg]" : "group-hover/bump:rotate-[18deg]"
+            "h-4 w-1 rounded-full bg-border origin-bottom transition-all duration-200 ease-out group-hover/bump:bg-accent",
+            collapsed ? "group-hover/bump:-rotate-[8deg]" : "group-hover/bump:rotate-[8deg]"
           )}
         />
         <span
           className={cn(
-            "h-3.5 w-1 -mt-px rounded-full bg-border origin-top transition-all duration-200 ease-out group-hover/bump:bg-accent",
-            collapsed ? "group-hover/bump:rotate-[18deg]" : "group-hover/bump:-rotate-[18deg]"
+            "h-4 w-1 -mt-px rounded-full bg-border origin-top transition-all duration-200 ease-out group-hover/bump:bg-accent",
+            collapsed ? "group-hover/bump:rotate-[8deg]" : "group-hover/bump:-rotate-[8deg]"
           )}
         />
+
+        {/* Reference-style tooltip — appears to the right on hover / keyboard focus */}
+        <span
+          role="tooltip"
+          className={cn(
+            "pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 translate-x-1 opacity-0",
+            "flex items-center gap-2 whitespace-nowrap rounded-xl border border-border bg-surface-elevated px-3 py-2 shadow-sm",
+            "transition-all duration-150 ease-out",
+            "group-hover/bump:translate-x-0 group-hover/bump:opacity-100",
+            "group-focus-visible/bump:translate-x-0 group-focus-visible/bump:opacity-100"
+          )}
+        >
+          <span className="text-sm font-medium text-text-primary">
+            {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          </span>
+          <kbd className="flex items-center gap-1 text-text-muted">
+            <span className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-2xs font-medium leading-none">
+              {isMac ? "⌘" : "Ctrl"}
+            </span>
+            <span className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-2xs font-medium leading-none">
+              B
+            </span>
+          </kbd>
+        </span>
       </button>
 
       {/* Logo + collapse toggle */}

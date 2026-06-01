@@ -41,6 +41,23 @@
   --accent-soft: #25203b;
   --accent-soft-fg: #a78bfa;
 
+  /* Tag palette pairs — used by tagBadgeClass for free-form Type/Source/
+     Category chips. Dark-mode values (soft tint bg + bright fg). */
+  --tag-violet-bg: #25203b;
+  --tag-violet-fg: #a78bfa;
+  --tag-blue-bg: #16233f;
+  --tag-blue-fg: #7cb0f8;
+  --tag-green-bg: #14271b;
+  --tag-green-fg: #4ade80;
+  --tag-amber-bg: #2d2408;
+  --tag-amber-fg: #f0b429;
+  --tag-red-bg: #2d1414;
+  --tag-red-fg: #f87171;
+  --tag-teal-bg: #16292a;
+  --tag-teal-fg: #5ed1c5;
+  --tag-grey-bg: #1b1a1f;
+  --tag-grey-fg: #8b8792;
+
   /* Status color pairs — text / background */
   --status-applied-fg: #8b8792;
   --status-applied-bg: #1b1a1f;
@@ -122,6 +139,47 @@
   --muted: var(--surface-hover);
   --muted-foreground: var(--text-muted);
   --input: var(--surface-elevated);
+
+  /* Status badge pairs — light mode versions (dark text + soft tint bg) */
+  --status-applied-fg: #565263; /* muted gray text */
+  --status-applied-bg: #f0eef6; /* barely-there violet tint */
+  --status-progress-fg: #6d28d9; /* deep violet text */
+  --status-progress-bg: #ede9fe; /* soft violet bg */
+  --status-offer-fg: #15803d; /* deep green text */
+  --status-offer-bg: #dcfce7; /* soft green bg */
+  --status-rejected-fg: #dc2626; /* deep red text */
+  --status-rejected-bg: #fee2e2; /* soft red bg */
+  --status-ghosted-fg: #9c99a6; /* muted, same as text-muted */
+  --status-ghosted-bg: transparent;
+  --status-saved-fg: #9c99a6;
+  --status-saved-bg: transparent;
+  --status-accepted-fg: #15803d;
+  --status-accepted-bg: #dcfce7;
+  --status-withdrawn-fg: #565263;
+  --status-withdrawn-bg: #f0eef6;
+
+  /* Destructive — richer red in light for better contrast */
+  --destructive: #dc2626;
+
+  /* Accent soft — lighter tint works better on white */
+  --accent-soft: #f5f3ff;
+  --accent-soft-fg: #6d28d9;
+
+  /* Tag palette — light mode versions (soft tint bg + deep text) */
+  --tag-violet-bg: #ede9fe;
+  --tag-violet-fg: #6d28d9;
+  --tag-blue-bg: #dbeafe;
+  --tag-blue-fg: #1d4ed8;
+  --tag-green-bg: #dcfce7;
+  --tag-green-fg: #15803d;
+  --tag-amber-bg: #fef3c7;
+  --tag-amber-fg: #b45309;
+  --tag-red-bg: #fee2e2;
+  --tag-red-fg: #dc2626;
+  --tag-teal-bg: #ccfbf1;
+  --tag-teal-fg: #0f766e;
+  --tag-grey-bg: #f0eef6;
+  --tag-grey-fg: #565263;
 }
 
 /* ── Base styles ─────────────────────────────────────────────────── */

@@ -13,6 +13,7 @@ export interface ProfileAccount {
   emailName: string | null;
   remindersEnabled: boolean;
   reminderLeadTime: number;
+  onboardedAt: string | null;
   createdAt: string;
   avatarUrl: string | null;
   provider: string | null;
@@ -29,6 +30,7 @@ export type ProfileUpdate = Partial<
     | "emailName"
     | "remindersEnabled"
     | "reminderLeadTime"
+    | "onboardedAt"
   >
 >;
 

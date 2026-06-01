@@ -28,10 +28,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=not_allowed`);
   }
 
+  let profile;
   try {
-    await getOrCreateProfileForUser(data.user);
+    profile = await getOrCreateProfileForUser(data.user);
   } catch {
     return NextResponse.redirect(`${origin}/login?error=profile`);
+  }
+
+  // New (or not-yet-onboarded) users go through the guided setup first.
+  if (!profile.onboardedAt) {
+    return NextResponse.redirect(`${origin}/onboarding`);
   }
 
   return NextResponse.redirect(`${origin}${next}`);

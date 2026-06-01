@@ -17,6 +17,7 @@ function serialize(p: {
   emailName: string | null;
   remindersEnabled: boolean;
   reminderLeadTime: number;
+  onboardedAt: Date | null;
   createdAt: Date;
 }) {
   return {
@@ -29,6 +30,7 @@ function serialize(p: {
     emailName: p.emailName,
     remindersEnabled: p.remindersEnabled,
     reminderLeadTime: p.reminderLeadTime,
+    onboardedAt: p.onboardedAt,
     createdAt: p.createdAt,
   };
 }
@@ -77,12 +79,20 @@ export async function PATCH(req: NextRequest) {
     reminderLeadTime: z.number().int().refine((v) => (REMINDER_LEAD_TIMES as readonly number[]).includes(v), {
       message: "reminderLeadTime must be one of 1, 3, 24, 48",
     }).optional(),
+    onboardedAt: z.string().datetime().nullable().optional(),
   }).safeParse(body);
   if (!parsed.success) return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
+  // onboardedAt arrives as an ISO string (or null) — Prisma needs a Date.
+  const { onboardedAt, ...rest } = parsed.data;
+  const data = {
+    ...rest,
+    ...(onboardedAt !== undefined ? { onboardedAt: onboardedAt ? new Date(onboardedAt) : null } : {}),
+  };
+
   const updated = await prisma.profile.update({
     where: { id: profile.id },
-    data: parsed.data,
+    data,
   });
   await invalidate(cacheKey.profile(updated.userId));
   return NextResponse.json({ data: serialize(updated) });
