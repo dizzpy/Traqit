@@ -139,7 +139,7 @@ export function Sidebar() {
               className="text-sm font-semibold text-text-primary truncate"
               style={{ fontFamily: "var(--font-family-display)" }}
             >
-              InternTracker
+              Traqit
             </span>
           )}
         </Link>

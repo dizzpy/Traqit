@@ -4,7 +4,10 @@ import { cn } from "@/lib/utils";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "InternTracker",
+  title: {
+    default: "Traqit",
+    template: "%s · Traqit",
+  },
   description: "Track your SE internship journey",
 };
 

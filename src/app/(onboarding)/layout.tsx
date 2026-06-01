@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { Toaster } from "sonner";
+
+export const metadata: Metadata = {
+  title: "Get started",
+};
 
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
