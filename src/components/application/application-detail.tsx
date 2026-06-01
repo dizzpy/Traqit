@@ -36,15 +36,17 @@ import { tagBadgeClass } from "@/lib/tag-colors";
 import { PipelineBuilder } from "./pipeline-builder";
 import { DraftEmailModal } from "./draft-email-modal";
 import { useJobTypes, useSources, addJobType, addSource } from "@/hooks/use-presets";
+import { useApplication } from "@/hooks/use-applications";
 import {
   createContact,
   deleteContact,
   createDocument,
   deleteDocument,
-  revalidateApps,
+  type ContactInput,
+  type DocumentInput,
 } from "@/hooks/use-detail";
 import { STATUS_LABELS, STATUS_BG, WORK_MODE_LABELS, WORK_MODE_COLORS } from "@/lib/constants";
-import type { Application, ApplicationStatus, WorkMode, Contact } from "@/types";
+import type { Application, ApplicationStatus, WorkMode, Contact, Document } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface ApplicationDetailProps {
@@ -94,6 +96,19 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
   const sourceOptions = sources.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) }));
   const update = (patch: Partial<Application>) => onUpdate?.(patch);
 
+  // The list payload is trimmed to summary fields + stages for speed, so the
+  // panel fetches the full record (contacts/documents/activity) on demand and
+  // mutates that cache optimistically for instant adds/deletes.
+  const { application: detail, mutate: mutateDetail } = useApplication(app.id);
+  const contacts = detail?.contacts ?? [];
+  const documents = detail?.documents ?? [];
+  const activityLog = detail?.activityLog ?? [];
+
+  /** Optimistically transform the cached detail record without revalidating. */
+  function patchDetail(updater: (a: Application) => Application) {
+    mutateDetail((cur) => (cur ? { ...cur, data: updater(cur.data) } : cur), { revalidate: false });
+  }
+
   async function selectType(value: string) {
     update({ jobType: value });
     if (value && !jobTypes.includes(value)) { await addJobType(value); mutateTypes(); }
@@ -103,13 +118,70 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
     if (value && !sources.includes(value)) { await addSource(value); mutateSources(); }
   }
 
-  async function removeContact(id: string) {
-    try { await deleteContact(app.id, id); revalidateApps(); }
-    catch { toast.error("Couldn't delete contact"); }
+  async function addContact(input: ContactInput) {
+    const now = new Date().toISOString();
+    const temp: Contact = {
+      id: `temp-${now}`,
+      applicationId: app.id,
+      name: input.name,
+      role: input.role,
+      email: input.email ?? null,
+      phone: input.phone ?? null,
+      linkedinUrl: input.linkedinUrl ?? null,
+      stageName: input.stageName ?? null,
+      notes: input.notes ?? null,
+      createdAt: now,
+    };
+    patchDetail((a) => ({ ...a, contacts: [...a.contacts, temp] }));
+    try {
+      const real = await createContact(app.id, input);
+      patchDetail((a) => ({ ...a, contacts: a.contacts.map((c) => (c.id === temp.id ? real : c)) }));
+    } catch {
+      patchDetail((a) => ({ ...a, contacts: a.contacts.filter((c) => c.id !== temp.id) }));
+      toast.error("Couldn't add contact. Changes reverted.");
+    }
   }
+
+  async function removeContact(id: string) {
+    const snapshot = contacts;
+    patchDetail((a) => ({ ...a, contacts: a.contacts.filter((c) => c.id !== id) }));
+    try {
+      await deleteContact(app.id, id);
+    } catch {
+      patchDetail((a) => ({ ...a, contacts: snapshot }));
+      toast.error("Couldn't delete contact. Changes reverted.");
+    }
+  }
+
+  async function addDocument(input: DocumentInput) {
+    const now = new Date().toISOString();
+    const temp: Document = {
+      id: `temp-${now}`,
+      applicationId: app.id,
+      name: input.name,
+      url: input.url,
+      type: input.type,
+      createdAt: now,
+    };
+    patchDetail((a) => ({ ...a, documents: [...a.documents, temp] }));
+    try {
+      const real = await createDocument(app.id, input);
+      patchDetail((a) => ({ ...a, documents: a.documents.map((d) => (d.id === temp.id ? real : d)) }));
+    } catch {
+      patchDetail((a) => ({ ...a, documents: a.documents.filter((d) => d.id !== temp.id) }));
+      toast.error("Couldn't add document. Changes reverted.");
+    }
+  }
+
   async function removeDocument(id: string) {
-    try { await deleteDocument(app.id, id); revalidateApps(); }
-    catch { toast.error("Couldn't delete document"); }
+    const snapshot = documents;
+    patchDetail((a) => ({ ...a, documents: a.documents.filter((d) => d.id !== id) }));
+    try {
+      await deleteDocument(app.id, id);
+    } catch {
+      patchDetail((a) => ({ ...a, documents: snapshot }));
+      toast.error("Couldn't delete document. Changes reverted.");
+    }
   }
 
   return (
@@ -299,7 +371,7 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
           <TabsContent value="contacts" className="flex-1 overflow-y-auto p-6 mt-0">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-medium text-text-muted uppercase tracking-wider">
-                {app.contacts.length} contact{app.contacts.length === 1 ? "" : "s"}
+                {contacts.length} contact{contacts.length === 1 ? "" : "s"}
               </p>
               {!addingContact && (
                 <Button variant="outline" size="sm" onClick={() => setAddingContact(true)}>
@@ -309,14 +381,14 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
             </div>
 
             {addingContact && (
-              <AddContactForm appId={app.id} onDone={() => setAddingContact(false)} />
+              <AddContactForm onCreate={addContact} onDone={() => setAddingContact(false)} />
             )}
 
-            {app.contacts.length === 0 && !addingContact ? (
+            {contacts.length === 0 && !addingContact ? (
               <EmptyState message="No contacts yet" hint="Add the recruiter or hiring manager to keep track of who you're talking to." />
             ) : (
               <div className="flex flex-col gap-3">
-                {app.contacts.map((c) => (
+                {contacts.map((c) => (
                   <div key={c.id} className="group bg-surface-elevated border border-border rounded-card p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div>
@@ -370,7 +442,7 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
           <TabsContent value="documents" className="flex-1 overflow-y-auto p-6 mt-0">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-medium text-text-muted uppercase tracking-wider">
-                {app.documents.length} document{app.documents.length === 1 ? "" : "s"}
+                {documents.length} document{documents.length === 1 ? "" : "s"}
               </p>
               {!addingDoc && (
                 <Button variant="outline" size="sm" onClick={() => setAddingDoc(true)}>
@@ -379,13 +451,13 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
               )}
             </div>
 
-            {addingDoc && <AddDocumentForm appId={app.id} onDone={() => setAddingDoc(false)} />}
+            {addingDoc && <AddDocumentForm onCreate={addDocument} onDone={() => setAddingDoc(false)} />}
 
-            {app.documents.length === 0 && !addingDoc ? (
+            {documents.length === 0 && !addingDoc ? (
               <EmptyState message="No documents yet" hint="Link the CV or cover letter you sent to this company." />
             ) : (
               <div className="flex flex-col gap-2">
-                {app.documents.map((d) => (
+                {documents.map((d) => (
                   <div key={d.id} className="group flex items-center gap-3 bg-surface-elevated border border-border rounded-card p-3 hover:border-accent transition-colors duration-150">
                     <div className="w-8 h-8 rounded-lg bg-accent-soft flex items-center justify-center shrink-0">
                       <HugeiconsIcon icon={FileAttachmentIcon} size={14} className="text-accent-soft-fg" strokeWidth={1.5} />
@@ -411,13 +483,13 @@ export function ApplicationDetail({ application: app, initialTab = "pipeline", o
           </TabsContent>
 
           <TabsContent value="activity" className="flex-1 overflow-y-auto p-6 mt-0">
-            {app.activityLog.length === 0 ? (
+            {activityLog.length === 0 ? (
               <EmptyState message="No activity yet" hint="Activity is recorded automatically as you update this application." />
             ) : (
               <div className="flex flex-col gap-0">
-                {[...app.activityLog].reverse().map((entry, i) => (
+                {[...activityLog].reverse().map((entry, i) => (
                   <div key={entry.id} className="flex gap-3 relative">
-                    {i < app.activityLog.length - 1 && <div className="absolute left-[14px] top-6 bottom-0 w-px bg-border" />}
+                    {i < activityLog.length - 1 && <div className="absolute left-[14px] top-6 bottom-0 w-px bg-border" />}
                     <div className="w-7 h-7 rounded-full bg-surface-elevated border border-border flex items-center justify-center shrink-0 mt-0.5 z-10">
                       <HugeiconsIcon icon={Clock01Icon} size={12} className="text-text-muted" strokeWidth={1.5} />
                     </div>
@@ -457,34 +529,28 @@ function EmptyState({ message, hint }: { message: string; hint: string }) {
 const fieldClass =
   "h-8 w-full rounded-input bg-surface border border-border px-2.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-border-hover transition-colors duration-150";
 
-function AddContactForm({ appId, onDone }: { appId: string; onDone: () => void }) {
+function AddContactForm({ onCreate, onDone }: { onCreate: (input: ContactInput) => void; onDone: () => void }) {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !role.trim() || saving) return;
-    setSaving(true);
-    try {
-      await createContact(appId, {
-        name: name.trim(),
-        role: role.trim(),
-        email: email.trim() || null,
-        phone: phone.trim() || null,
-        linkedinUrl: linkedinUrl.trim() || null,
-        notes: notes.trim() || null,
-      });
-      revalidateApps();
-      onDone();
-    } catch (err) {
-      toast.error((err as Error).message || "Couldn't add contact");
-      setSaving(false);
-    }
+    if (!name.trim() || !role.trim()) return;
+    // Optimistic — the parent inserts the row immediately and persists in the
+    // background, so we close the form right away.
+    onCreate({
+      name: name.trim(),
+      role: role.trim(),
+      email: email.trim() || null,
+      phone: phone.trim() || null,
+      linkedinUrl: linkedinUrl.trim() || null,
+      notes: notes.trim() || null,
+    });
+    onDone();
   }
 
   return (
@@ -498,9 +564,9 @@ function AddContactForm({ appId, onDone }: { appId: string; onDone: () => void }
       <input type="url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="LinkedIn URL" className={fieldClass} />
       <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" className={fieldClass} />
       <div className="flex items-center justify-end gap-2 pt-0.5">
-        <Button type="button" variant="ghost" size="sm" onClick={onDone} disabled={saving}>Cancel</Button>
-        <Button type="submit" size="sm" disabled={saving || !name.trim() || !role.trim()}>
-          {saving ? "Saving…" : "Add contact"}
+        <Button type="button" variant="ghost" size="sm" onClick={onDone}>Cancel</Button>
+        <Button type="submit" size="sm" disabled={!name.trim() || !role.trim()}>
+          Add contact
         </Button>
       </div>
     </form>
@@ -514,24 +580,16 @@ const DOC_TYPES = [
   { value: "other", label: "Other" },
 ] as const;
 
-function AddDocumentForm({ appId, onDone }: { appId: string; onDone: () => void }) {
+function AddDocumentForm({ onCreate, onDone }: { onCreate: (input: DocumentInput) => void; onDone: () => void }) {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [type, setType] = useState<(typeof DOC_TYPES)[number]["value"]>("cv");
-  const [saving, setSaving] = useState(false);
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !url.trim() || saving) return;
-    setSaving(true);
-    try {
-      await createDocument(appId, { name: name.trim(), url: url.trim(), type });
-      revalidateApps();
-      onDone();
-    } catch (err) {
-      toast.error((err as Error).message || "Couldn't add document");
-      setSaving(false);
-    }
+    if (!name.trim() || !url.trim()) return;
+    onCreate({ name: name.trim(), url: url.trim(), type });
+    onDone();
   }
 
   return (
@@ -542,9 +600,9 @@ function AddDocumentForm({ appId, onDone }: { appId: string; onDone: () => void 
         {DOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
       </select>
       <div className="flex items-center justify-end gap-2 pt-0.5">
-        <Button type="button" variant="ghost" size="sm" onClick={onDone} disabled={saving}>Cancel</Button>
-        <Button type="submit" size="sm" disabled={saving || !name.trim() || !url.trim()}>
-          {saving ? "Saving…" : "Add document"}
+        <Button type="button" variant="ghost" size="sm" onClick={onDone}>Cancel</Button>
+        <Button type="submit" size="sm" disabled={!name.trim() || !url.trim()}>
+          Add document
         </Button>
       </div>
     </form>

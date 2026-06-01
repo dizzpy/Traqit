@@ -15,6 +15,9 @@ model Profile {
   defaultCurrency   String             @default("LKR")
   defaultPipelineTemplateId String?    // pre-selected template in the Add form
   ghostThresholdDays Int               @default(14) // days of silence before a job reads as "ghosting"
+  emailName         String?            // name used for the {myName} placeholder in email templates
+  remindersEnabled  Boolean            @default(false) // email me before scheduled interviews
+  reminderLeadTime  Int                @default(24) // hours before a scheduled stage to remind
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   applications      Application[]
@@ -63,6 +66,7 @@ model Application {
   @@index([profileId])
   @@index([profileId, status])
   @@index([profileId, appliedDate])
+  @@index([profileId, createdAt])
 }
 
 enum ApplicationStatus {

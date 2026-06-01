@@ -50,7 +50,17 @@ import { EditableCell } from "@/components/application/editable-cell";
 import { OptionPicker } from "@/components/application/option-picker";
 import { tagBadgeClass } from "@/lib/tag-colors";
 import { ApplicationDetail } from "@/components/application/application-detail";
-import { KanbanBoard } from "@/components/board/kanban-board";
+import dynamic from "next/dynamic";
+// Board view is opt-in — defer its component code until the user switches to it.
+const KanbanBoard = dynamic(
+  () => import("@/components/board/kanban-board").then((m) => m.KanbanBoard),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex-1 flex items-center justify-center text-text-muted text-sm">Loading board…</div>
+    ),
+  }
+);
 import { AddApplicationPanel } from "@/components/application/add-application-modal";
 import { SaveJobModal } from "@/components/application/save-job-modal";
 import {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { invalidateAppData } from "@/lib/redis";
 
 const createSchema = z.object({
   name: z.string().min(1),
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
+    await invalidateAppData(profile.id);
     return NextResponse.json({ data: stage }, { status: 201 });
   } catch (err) {
     console.error(err);

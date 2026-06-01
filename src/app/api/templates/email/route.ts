@@ -3,16 +3,22 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { cached, invalidate, cacheKey, TTL } from "@/lib/redis";
 
 export async function GET() {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
 
-  const templates = await prisma.emailTemplate.findMany({
-    where: { profileId: profile.id },
-    orderBy: [{ order: "asc" }, { name: "asc" }],
-  });
-  return NextResponse.json({ data: templates });
+  const templates = await cached(cacheKey.emailTemplates(profile.id), TTL.TEMPLATES, () =>
+    prisma.emailTemplate.findMany({
+      where: { profileId: profile.id },
+      orderBy: [{ order: "asc" }, { name: "asc" }],
+    })
+  );
+  return NextResponse.json(
+    { data: templates },
+    { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } }
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -41,5 +47,6 @@ export async function POST(req: NextRequest) {
     update: { subject: parsed.data.subject, body: parsed.data.body, category: parsed.data.category },
     create: { profileId: profile.id, ...parsed.data, order: nextOrder },
   });
+  await invalidate(cacheKey.emailTemplates(profile.id));
   return NextResponse.json({ data: template }, { status: 201 });
 }

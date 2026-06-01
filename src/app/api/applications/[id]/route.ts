@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { invalidateAppData } from "@/lib/redis";
 
 const include = {
   stages: { orderBy: { order: "asc" as const } },
@@ -82,6 +83,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       include,
     });
 
+    await invalidateAppData(profile.id);
     return NextResponse.json({ data: app });
   } catch (err) {
     console.error(err);
@@ -97,5 +99,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!existing) return apiError("Not found", "NOT_FOUND", 404);
 
   await prisma.application.delete({ where: { id } });
+  await invalidateAppData(profile.id);
   return NextResponse.json({ data: { ok: true } });
 }

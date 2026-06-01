@@ -101,6 +101,10 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
   }
 
   async function removeStage(id: string) {
+    // A temp stage is mid-create on the server — deleting it now would 404 and
+    // could orphan the row the pending create is about to insert. Ignore until
+    // it resolves to a real id (a beat later).
+    if (id.startsWith("temp-")) return;
     const snapshot = stages;
     setStages((prev) => prev.filter((s) => s.id !== id));
     try {
@@ -113,6 +117,7 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
   }
 
   async function cycleStatus(stage: PipelineStage) {
+    if (stage.id.startsWith("temp-")) return; // not persisted yet — PATCH would 404
     const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(stage.status) + 1) % STATUS_CYCLE.length];
     const snapshot = stages;
     setStages((prev) => prev.map((s) => (s.id === stage.id ? { ...s, status: next } : s)));
@@ -126,6 +131,7 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
   }
 
   async function setStageDate(stage: PipelineStage, date: string) {
+    if (stage.id.startsWith("temp-")) return; // not persisted yet — PATCH would 404
     const value = date || null;
     const snapshot = stages;
     setStages((prev) => prev.map((s) => (s.id === stage.id ? { ...s, scheduledDate: value } : s)));
@@ -263,6 +269,7 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
                   key={stage.id}
                   stage={stage}
                   isLast={index === stages.length - 1}
+                  pending={stage.id.startsWith("temp-")}
                   onCycleStatus={() => cycleStatus(stage)}
                   onSetDate={(d) => setStageDate(stage, d)}
                   onRemove={() => removeStage(stage.id)}
@@ -279,14 +286,16 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
 interface StageCardProps {
   stage: PipelineStage;
   isLast: boolean;
+  /** Stage is mid-create (temp id) — its controls are inert until it persists. */
+  pending?: boolean;
   onCycleStatus: () => void;
   onSetDate: (date: string) => void;
   onRemove: () => void;
 }
 
-function StageCard({ stage, isLast, onCycleStatus, onSetDate, onRemove }: StageCardProps) {
+function StageCard({ stage, isLast, pending = false, onCycleStatus, onSetDate, onRemove }: StageCardProps) {
   const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging } =
-    useSortable({ id: stage.id });
+    useSortable({ id: stage.id, disabled: pending });
 
   return (
     <div
@@ -298,8 +307,9 @@ function StageCard({ stage, isLast, onCycleStatus, onSetDate, onRemove }: StageC
       <div className="flex flex-col items-center" style={{ width: 20 }}>
         <button
           onClick={onCycleStatus}
-          title={`Status: ${STAGE_STATUS_LABELS[stage.status]} (click to change)`}
-          className="mt-3.5 flex items-center justify-center hover:scale-110 transition-transform duration-150"
+          disabled={pending}
+          title={pending ? "Saving…" : `Status: ${STAGE_STATUS_LABELS[stage.status]} (click to change)`}
+          className="mt-3.5 flex items-center justify-center transition-transform duration-150 enabled:hover:scale-110 disabled:cursor-not-allowed"
         >
           {STATUS_DOT[stage.status]}
         </button>
@@ -310,8 +320,10 @@ function StageCard({ stage, isLast, onCycleStatus, onSetDate, onRemove }: StageC
       <div
         className={cn(
           "flex-1 bg-surface-elevated border border-border rounded-card p-3 mb-2 group transition-colors duration-150 hover:border-border-hover",
-          stage.status === "COMPLETED" || stage.status === "PASSED" ? "opacity-80" : ""
+          stage.status === "COMPLETED" || stage.status === "PASSED" ? "opacity-80" : "",
+          pending && "opacity-60"
         )}
+        aria-busy={pending}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -320,7 +332,8 @@ function StageCard({ stage, isLast, onCycleStatus, onSetDate, onRemove }: StageC
               {...attributes}
               {...listeners}
               aria-label="Drag to reorder"
-              className="text-text-muted opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity duration-150 shrink-0 touch-none"
+              disabled={pending}
+              className="text-text-muted opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity duration-150 shrink-0 touch-none disabled:cursor-not-allowed"
             >
               <HugeiconsIcon icon={DragDropVerticalIcon} size={14} strokeWidth={1.5} />
             </button>
@@ -330,13 +343,15 @@ function StageCard({ stage, isLast, onCycleStatus, onSetDate, onRemove }: StageC
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={onCycleStatus}
-              className={cn("text-xs font-medium hover:underline", STATUS_LABEL_COLORS[stage.status])}
+              disabled={pending}
+              className={cn("text-xs font-medium enabled:hover:underline disabled:cursor-not-allowed", STATUS_LABEL_COLORS[stage.status])}
             >
-              {STAGE_STATUS_LABELS[stage.status]}
+              {pending ? "Saving…" : STAGE_STATUS_LABELS[stage.status]}
             </button>
             <button
               onClick={onRemove}
-              className="text-text-muted hover:text-[var(--status-rejected-fg)] transition-colors duration-150 opacity-0 group-hover:opacity-100"
+              disabled={pending}
+              className="text-text-muted hover:text-[var(--status-rejected-fg)] transition-colors duration-150 opacity-0 group-hover:opacity-100 disabled:cursor-not-allowed"
             >
               <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={1.5} />
             </button>
@@ -344,7 +359,7 @@ function StageCard({ stage, isLast, onCycleStatus, onSetDate, onRemove }: StageC
         </div>
 
         {/* Date row */}
-        <div className="mt-2">
+        <div className={cn("mt-2", pending && "pointer-events-none")}>
           <DatePicker
             value={stage.scheduledDate?.slice(0, 10) ?? ""}
             onChange={onSetDate}

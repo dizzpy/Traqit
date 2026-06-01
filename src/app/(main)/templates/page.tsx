@@ -44,7 +44,7 @@ import {
   deleteEmailTemplate,
   reorderEmailTemplates,
 } from "@/hooks/use-email-templates";
-import { useApplications } from "@/hooks/use-applications";
+import { useComposeApplications, type ComposeApplication } from "@/hooks/use-applications";
 import {
   EMAIL_PLACEHOLDERS,
   EMAIL_TEMPLATE_CATEGORIES,
@@ -55,7 +55,7 @@ import {
 } from "@/lib/email";
 import { tagBadgeClass } from "@/lib/tag-colors";
 import { cn } from "@/lib/utils";
-import type { Application, EmailTemplate } from "@/types";
+import type { EmailTemplate } from "@/types";
 
 function insertAtCursor(
   el: HTMLInputElement | HTMLTextAreaElement,
@@ -75,7 +75,7 @@ function insertAtCursor(
 export default function TemplatesPage() {
   const { templates, mutate } = useEmailTemplates();
   const myName = useProfileName();
-  const { applications } = useApplications({ limit: 1000 });
+  const { applications } = useComposeApplications();
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<EmailTemplate | null>(null);
@@ -471,7 +471,7 @@ function EditableDraft({ defaultTo, defaultSubject, defaultBody }: EditableDraft
 interface EditorProps {
   onClose: () => void;
   template: EmailTemplate | null;
-  apps: Application[];
+  apps: ComposeApplication[];
   myName: string;
   onSaved: () => void;
 }

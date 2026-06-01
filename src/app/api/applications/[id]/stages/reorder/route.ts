@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { invalidateAppData } from "@/lib/redis";
 
 const reorderSchema = z.object({
   orderedIds: z.array(z.string()).min(1),
@@ -53,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { applicationId: id },
       orderBy: { order: "asc" },
     });
+    await invalidateAppData(profile.id);
     return NextResponse.json({ data: stages });
   } catch (err) {
     console.error(err);

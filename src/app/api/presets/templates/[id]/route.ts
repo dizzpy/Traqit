@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { invalidate, cacheKey } from "@/lib/redis";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const profile = await getProfile();
@@ -32,6 +33,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     where: { id },
     data: parsed.data,
   });
+  await invalidate(cacheKey.pipTemplates(profile.id));
   return NextResponse.json({ data: template });
 }
 
@@ -46,5 +48,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     where: { id: profile.id, defaultPipelineTemplateId: id },
     data: { defaultPipelineTemplateId: null },
   });
+  // Templates list changed, and the profile's default pointer may have been cleared.
+  await invalidate(cacheKey.pipTemplates(profile.id), cacheKey.profile(profile.userId));
   return NextResponse.json({ data: { id } });
 }

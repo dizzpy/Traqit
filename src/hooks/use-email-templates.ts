@@ -12,7 +12,13 @@ export function useEmailTemplates() {
 }
 
 export function useProfileName() {
-  const { data } = useSWR<{ data: { id: string; name: string } }>("/api/profile", fetcher);
+  // Shares the "/api/profile" key with useProfile — keep the same dedup config
+  // so the two callers don't trigger competing revalidations.
+  const { data } = useSWR<{ data: { id: string; name: string } }>("/api/profile", fetcher, {
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+  });
   return data?.data?.name ?? "";
 }
 

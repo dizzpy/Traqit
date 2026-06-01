@@ -117,7 +117,7 @@ export default function SettingsPage() {
   }
 
   async function handleExport() {
-    const res = await fetch("/api/applications?limit=1000&status=SAVED,APPLIED,IN_PROGRESS,OFFER,ACCEPTED,REJECTED,GHOSTED,WITHDRAWN");
+    const res = await fetch("/api/applications?full=1&limit=1000&status=SAVED,APPLIED,IN_PROGRESS,OFFER,ACCEPTED,REJECTED,GHOSTED,WITHDRAWN");
     const json = await res.json();
     const blob = new Blob([JSON.stringify(json.data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { invalidate, cacheKey } from "@/lib/redis";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const profile = await getProfile();
@@ -25,6 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (result.count === 0) return apiError("Not found", "NOT_FOUND", 404);
 
   const template = await prisma.emailTemplate.findUnique({ where: { id } });
+  await invalidate(cacheKey.emailTemplates(profile.id));
   return NextResponse.json({ data: template });
 }
 
@@ -34,5 +36,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
 
   await prisma.emailTemplate.deleteMany({ where: { id, profileId: profile.id } });
+  await invalidate(cacheKey.emailTemplates(profile.id));
   return NextResponse.json({ data: { id } });
 }

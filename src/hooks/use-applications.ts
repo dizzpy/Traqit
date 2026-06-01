@@ -38,6 +38,29 @@ export function useApplications(opts: UseApplicationsOptions = {}) {
   };
 }
 
+/** Trimmed application shape returned by /api/applications/search (pickers). */
+export interface ComposeApplication {
+  id: string;
+  companyName: string;
+  position: string;
+  jobPostUrl: string | null;
+  status: ApplicationStatus;
+  contacts: { id: string; name: string; email: string | null; role: string }[];
+}
+
+/**
+ * Lightweight application list for the email-template compose/preview pickers.
+ * Replaces the old `useApplications({ limit: 1000 })` heavy fetch.
+ */
+export function useComposeApplications() {
+  const { data, error, isLoading } = useSWR<{ data: ComposeApplication[] }>(
+    "/api/applications/search",
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  return { applications: data?.data ?? [], isLoading, error };
+}
+
 export function useApplication(id: string | null) {
   const { data, error, isLoading, mutate } = useSWR<{ data: Application }>(
     id ? `/api/applications/${id}` : null,

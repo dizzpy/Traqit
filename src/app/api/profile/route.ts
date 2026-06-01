@@ -5,6 +5,7 @@ import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/utils";
+import { cached, invalidate, cacheKey, TTL } from "@/lib/redis";
 
 function serialize(p: {
   id: string;
@@ -13,6 +14,9 @@ function serialize(p: {
   defaultCurrency: string;
   defaultPipelineTemplateId: string | null;
   ghostThresholdDays: number;
+  emailName: string | null;
+  remindersEnabled: boolean;
+  reminderLeadTime: number;
   createdAt: Date;
 }) {
   return {
@@ -22,9 +26,15 @@ function serialize(p: {
     defaultCurrency: p.defaultCurrency,
     defaultPipelineTemplateId: p.defaultPipelineTemplateId,
     ghostThresholdDays: p.ghostThresholdDays,
+    emailName: p.emailName,
+    remindersEnabled: p.remindersEnabled,
+    reminderLeadTime: p.reminderLeadTime,
     createdAt: p.createdAt,
   };
 }
+
+// Allowed reminder lead times (hours), shared with the profile UI.
+const REMINDER_LEAD_TIMES = [1, 3, 24, 48] as const;
 
 export async function GET() {
   const supabase = await createClient();
@@ -33,17 +43,23 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return apiError("Unauthorized", "UNAUTHORIZED", 401);
 
-  const profile = await prisma.profile.findUnique({ where: { userId: user.id } });
+  // Cache only the DB-backed profile — avatar/provider come from the live session.
+  const profile = await cached(cacheKey.profile(user.id), TTL.PROFILE, () =>
+    prisma.profile.findUnique({ where: { userId: user.id } })
+  );
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
 
   const meta = user.user_metadata ?? {};
-  return NextResponse.json({
-    data: {
-      ...serialize(profile),
-      avatarUrl: (meta.avatar_url as string | undefined) ?? null,
-      provider: (user.app_metadata?.provider as string | undefined) ?? null,
+  return NextResponse.json(
+    {
+      data: {
+        ...serialize(profile),
+        avatarUrl: (meta.avatar_url as string | undefined) ?? null,
+        provider: (user.app_metadata?.provider as string | undefined) ?? null,
+      },
     },
-  });
+    { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } }
+  );
 }
 
 export async function PATCH(req: NextRequest) {
@@ -56,6 +72,11 @@ export async function PATCH(req: NextRequest) {
     defaultCurrency: z.string().min(1).optional(),
     defaultPipelineTemplateId: z.string().nullable().optional(),
     ghostThresholdDays: z.number().int().min(1).max(365).optional(),
+    emailName: z.string().max(60).nullable().optional(),
+    remindersEnabled: z.boolean().optional(),
+    reminderLeadTime: z.number().int().refine((v) => (REMINDER_LEAD_TIMES as readonly number[]).includes(v), {
+      message: "reminderLeadTime must be one of 1, 3, 24, 48",
+    }).optional(),
   }).safeParse(body);
   if (!parsed.success) return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
@@ -63,6 +84,7 @@ export async function PATCH(req: NextRequest) {
     where: { id: profile.id },
     data: parsed.data,
   });
+  await invalidate(cacheKey.profile(updated.userId));
   return NextResponse.json({ data: serialize(updated) });
 }
 
@@ -83,6 +105,7 @@ export async function DELETE() {
 
   // Cascades clear all owned data (see schema onDelete: Cascade relations).
   await prisma.profile.deleteMany({ where: { userId: user.id } });
+  await invalidate(cacheKey.profile(user.id));
 
   let authDeleted = false;
   const admin = createAdminClient();

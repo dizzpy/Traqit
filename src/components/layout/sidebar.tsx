@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/calendar",     label: "Calendar",     icon: Calendar01Icon },
   { href: "/analytics",    label: "Analytics",    icon: BarChartIcon },
   { href: "/templates",    label: "Email templates", icon: Mail01Icon },
+  { href: "/profile",      label: "Profile",      icon: UserIcon },
   { href: "/settings",     label: "Settings",     icon: Settings01Icon },
 ];
 

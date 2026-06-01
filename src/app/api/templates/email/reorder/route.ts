@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { invalidate, cacheKey } from "@/lib/redis";
 
 const reorderSchema = z.object({
   orderedIds: z.array(z.string()).min(1),
@@ -42,6 +43,7 @@ export async function PATCH(req: NextRequest) {
       where: { profileId: profile.id },
       orderBy: [{ order: "asc" }, { name: "asc" }],
     });
+    await invalidate(cacheKey.emailTemplates(profile.id));
     return NextResponse.json({ data: templates });
   } catch (err) {
     console.error(err);
