@@ -51,9 +51,17 @@ export async function proxy(req: NextRequest) {
     return supabaseResponse;
   }
 
-  // App subdomain. `/` is the marketing landing's route, but the app never
-  // serves marketing — send people to the dashboard (or login) instead.
+  // The app subdomain has no landing of its own — the bare root belongs to the
+  // marketing site, so `app.traqit.*/` bounces to `traqit.*/`. In dev both
+  // resolve to the same origin; skip the cross-redirect there to avoid a loop
+  // and keep the old behavior of dropping straight into the app.
   if (pathname === "/") {
+    const marketingRoot = siteUrl("/");
+    const sameOrigin =
+      new URL(marketingRoot).host === (req.headers.get("host") ?? "");
+    if (!sameOrigin) {
+      return NextResponse.redirect(marketingRoot);
+    }
     const url = req.nextUrl.clone();
     url.pathname = user ? "/applications" : "/login";
     return NextResponse.redirect(url);
