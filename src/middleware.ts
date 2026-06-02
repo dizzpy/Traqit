@@ -6,6 +6,7 @@ const PUBLIC_PATHS = ["/login", "/auth"];
 
 function isPublic(pathname: string) {
   return (
+    pathname === "/" || // public marketing landing page
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/fonts") ||
