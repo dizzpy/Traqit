@@ -61,7 +61,10 @@ export default function LoginPage() {
   }, [popup]);
 
   function siteRedirect() {
-    const base = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+    // The /auth/callback handler lives on the app subdomain, and the session
+    // cookie is scoped there — send Supabase back to APP_URL, not the marketing
+    // SITE_URL. Falls back to the current origin in dev.
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
     return `${base}/auth/callback`;
   }
 

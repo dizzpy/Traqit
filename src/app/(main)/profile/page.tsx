@@ -30,6 +30,7 @@ import { PipelineTemplateModal } from "@/components/templates/pipeline-template-
 import { useProfile, updateProfile, type ProfileUpdate } from "@/hooks/use-profile";
 import { useTemplates, updateTemplate, deleteTemplate } from "@/hooks/use-presets";
 import { CURRENCIES } from "@/lib/constants";
+import { appPath } from "@/lib/urls";
 import type { PipelineTemplate } from "@/types";
 
 const REMINDER_LEAD_OPTIONS = [
@@ -77,7 +78,7 @@ export default function ProfilePage() {
 
   async function handleLogout() {
     await fetch("/auth/signout", { method: "POST" });
-    window.location.href = "/login";
+    window.location.href = appPath("/login");
   }
 
   async function handleDeleteAccount() {
@@ -85,7 +86,7 @@ export default function ProfilePage() {
     try {
       const res = await fetch("/api/profile", { method: "DELETE" });
       if (!res.ok) throw new Error();
-      window.location.href = "/login";
+      window.location.href = appPath("/login");
     } catch {
       toast.error("Couldn't delete account. Try again.");
       setBusy(false);
@@ -434,7 +435,7 @@ export default function ProfilePage() {
         onClose={() => setWipeOpen(false)}
         onWiped={() => {
           setWipeOpen(false);
-          window.location.href = "/applications";
+          window.location.href = appPath("/applications");
         }}
       />
     </div>

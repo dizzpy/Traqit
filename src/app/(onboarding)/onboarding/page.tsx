@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
+import { appPath } from "@/lib/urls";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 
 export const metadata = { title: "Welcome to Traqit" };
@@ -12,8 +13,8 @@ export const metadata = { title: "Welcome to Traqit" };
  */
 export default async function OnboardingPage() {
   const profile = await getProfile();
-  if (!profile) redirect("/login");
-  if (profile.onboardedAt) redirect("/applications");
+  if (!profile) redirect(appPath("/login"));
+  if (profile.onboardedAt) redirect(appPath("/applications"));
 
   const templates = await prisma.pipelineTemplate.findMany({
     where: { profileId: profile.id },

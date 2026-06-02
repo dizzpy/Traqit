@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { updateProfile } from "@/hooks/use-profile";
 import { createApplication } from "@/hooks/use-applications";
 import { useSources } from "@/hooks/use-presets";
+import { appPath } from "@/lib/urls";
 import { cn } from "@/lib/utils";
 
 interface TemplateOption {
@@ -127,7 +128,7 @@ export function OnboardingFlow({
     try {
       await updateProfile({ onboardedAt: new Date().toISOString() });
       // Full navigation so the gated (main) layout re-reads the fresh profile.
-      window.location.assign("/applications");
+      window.location.assign(appPath("/applications"));
     } catch {
       toast.error("Couldn't finish setup. Try again.");
       setSaving(false);
