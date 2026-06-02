@@ -42,18 +42,3 @@ export async function getOrCreateProfileForUser(user: User) {
   await seedProfile(profile.id);
   return profile;
 }
-
-/**
- * True if the email is permitted to sign in. The app is private to a fixed set
- * of users defined in ALLOWED_EMAILS (comma-separated). If the var is unset,
- * sign-in is denied — fail closed rather than open.
- */
-export function isEmailAllowed(email: string | undefined | null): boolean {
-  if (!email) return false;
-  const allowed = (process.env.ALLOWED_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  if (allowed.length === 0) return false;
-  return allowed.includes(email.trim().toLowerCase());
-}

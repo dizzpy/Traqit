@@ -1,7 +1,11 @@
 import useSWR from "swr";
 import type { Source, JobType, PipelineTemplate } from "@/types";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error("Fetch error");
+    return r.json();
+  });
 
 export function useSources() {
   const { data, error, isLoading, mutate } = useSWR<{ data: Source[] }>("/api/presets/sources", fetcher);

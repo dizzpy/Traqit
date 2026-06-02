@@ -10,6 +10,7 @@ import {
   ArrowDown01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -39,12 +40,15 @@ export function PipelineStages({ applicationId, stages, onUpdate }: PipelineStag
   async function updateStage(stageId: string, data: Record<string, unknown>) {
     setLoading(true);
     try {
-      await fetch(`/api/applications/${applicationId}/stages/${stageId}`, {
+      const res = await fetch(`/api/applications/${applicationId}/stages/${stageId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+      if (!res.ok) throw new Error();
       onUpdate();
+    } catch {
+      toast.error("Couldn't update stage");
     } finally {
       setLoading(false);
     }
@@ -54,14 +58,17 @@ export function PipelineStages({ applicationId, stages, onUpdate }: PipelineStag
     if (!name.trim()) return;
     setLoading(true);
     try {
-      await fetch(`/api/applications/${applicationId}/stages`, {
+      const res = await fetch(`/api/applications/${applicationId}/stages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), order: afterOrder + 1 }),
       });
+      if (!res.ok) throw new Error();
       onUpdate();
       setAddingAfter(null);
       setNewStageName("");
+    } catch {
+      toast.error("Couldn't add stage");
     } finally {
       setLoading(false);
     }
@@ -70,8 +77,11 @@ export function PipelineStages({ applicationId, stages, onUpdate }: PipelineStag
   async function deleteStage(stageId: string) {
     setLoading(true);
     try {
-      await fetch(`/api/applications/${applicationId}/stages/${stageId}`, { method: "DELETE" });
+      const res = await fetch(`/api/applications/${applicationId}/stages/${stageId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
       onUpdate();
+    } catch {
+      toast.error("Couldn't delete stage");
     } finally {
       setLoading(false);
     }

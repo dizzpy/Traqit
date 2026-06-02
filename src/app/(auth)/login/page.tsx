@@ -9,7 +9,6 @@ import { createClient } from "@/lib/supabase/client";
 
 // Our own callback errors (?error=...).
 const ERROR_MESSAGES: Record<string, string> = {
-  not_allowed: "This email isn't on the access list. Ask Dizzpy to add you.",
   auth: "Sign in failed. Please try again.",
   profile: "Couldn't set up your workspace. Please try again.",
 };

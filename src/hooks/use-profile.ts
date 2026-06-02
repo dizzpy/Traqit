@@ -1,6 +1,10 @@
 import useSWR from "swr";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error("Fetch error");
+    return r.json();
+  });
 
 /** Full profile + linked auth account info returned by GET /api/profile. */
 export interface ProfileAccount {
