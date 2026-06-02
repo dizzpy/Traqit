@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { invalidateAppData } from "@/lib/redis";
 
 const include = {
   stages: { orderBy: { order: "asc" as const } },
@@ -13,9 +14,9 @@ const include = {
 
 const updateSchema = z.object({
   companyName: z.string().min(1).max(100).optional(),
-  companyUrl: z.string().url().optional().nullable(),
-  position: z.string().min(1).max(100).optional(),
-  jobPostUrl: z.string().url().optional().nullable(),
+  companyUrl: z.string().optional().nullable(),
+  position: z.string().max(100).optional(),
+  jobPostUrl: z.string().optional().nullable(),
   jobType: z.string().optional(),
   workMode: z.enum(["on-site", "remote", "hybrid", "no-data"]).optional(),
   appliedVia: z.string().optional(),
@@ -82,6 +83,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       include,
     });
 
+    await invalidateAppData(profile.id);
     return NextResponse.json({ data: app });
   } catch (err) {
     console.error(err);
@@ -97,5 +99,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!existing) return apiError("Not found", "NOT_FOUND", 404);
 
   await prisma.application.delete({ where: { id } });
+  await invalidateAppData(profile.id);
   return NextResponse.json({ data: { ok: true } });
 }

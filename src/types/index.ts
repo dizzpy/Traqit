@@ -91,6 +91,10 @@ export interface Application {
 export interface Profile {
   id: string;
   name: string;
+  email: string;
+  defaultCurrency: string;
+  defaultPipelineTemplateId: string | null;
+  ghostThresholdDays: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -115,6 +119,17 @@ export interface PipelineTemplate {
   name: string;
   stages: string[];
   isDefault: boolean;
+  createdAt: string;
+}
+
+export interface EmailTemplate {
+  id: string;
+  profileId: string;
+  name: string;
+  subject: string;
+  body: string;
+  category: string;
+  order: number;
   createdAt: string;
 }
 

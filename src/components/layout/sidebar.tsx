@@ -1,66 +1,242 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutGridIcon,
-  LeftToRightListBulletIcon,
+  BookmarkIcon,
+  Calendar01Icon,
   BarChartIcon,
-  Clock01Icon,
+  Mail01Icon,
   Settings01Icon,
   Briefcase01Icon,
+  UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { useProfile } from "@/hooks/use-profile";
+import { useShortcutHints } from "@/hooks/use-shortcut-hints";
+import { Kbd } from "@/components/ui/kbd";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
-  { href: "/board",     label: "Board",     icon: LayoutGridIcon },
-  { href: "/list",      label: "List",      icon: LeftToRightListBulletIcon },
-  { href: "/analytics", label: "Analytics", icon: BarChartIcon },
-  { href: "/timeline",  label: "Timeline",  icon: Clock01Icon },
-  { href: "/settings",  label: "Settings",  icon: Settings01Icon },
+  { href: "/applications", label: "Applications", icon: LayoutGridIcon, shortcut: "a" },
+  { href: "/saved",        label: "Saved jobs",   icon: BookmarkIcon,   shortcut: "s" },
+  { href: "/calendar",     label: "Calendar",     icon: Calendar01Icon, shortcut: "c" },
+  { href: "/analytics",    label: "Analytics",    icon: BarChartIcon,   shortcut: "g" },
+  { href: "/templates",    label: "Email templates", icon: Mail01Icon,  shortcut: "t" },
 ];
+
+const STORAGE_KEY = "it-sidebar-collapsed";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { profile } = useProfile();
+  const [showHints] = useShortcutHints();
+  const [collapsed, setCollapsed] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+
+  // Restore persisted state on mount. Reading localStorage must happen after
+  // hydration (it's unavailable during SSR), so this effect is intentional.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+    setIsMac(/mac/i.test(navigator.platform) || /mac/i.test(navigator.userAgent));
+  }, []);
+
+  // ⌘/Ctrl+B toggles the sidebar — ignored while typing in a field.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "b") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName))) return;
+      e.preventDefault();
+      toggle();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  function toggle() {
+    setCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      return next;
+    });
+  }
 
   return (
-    <aside className="w-[220px] shrink-0 h-screen bg-surface border-r border-border flex flex-col">
+    <aside
+      className={cn(
+        "relative z-30 shrink-0 h-screen bg-surface border-r border-border flex flex-col",
+        "transition-[width] duration-300 ease-in-out",
+        collapsed ? "w-16" : "w-55"
+      )}
+    >
+      {/* Cute little bump on the divider — two rounded segments that bend into a
+          soft curve on hover, pointing the way the sidebar will move. */}
+      <button
+        onClick={toggle}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className="group/bump absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2 z-40 flex h-12 w-4 flex-col items-center justify-center"
+      >
+        <span
+          className={cn(
+            "h-4 w-1 rounded-full bg-border origin-bottom transition-all duration-200 ease-out group-hover/bump:bg-accent",
+            collapsed ? "group-hover/bump:rotate-[-8deg]" : "group-hover/bump:rotate-[8deg]"
+          )}
+        />
+        <span
+          className={cn(
+            "h-4 w-1 -mt-px rounded-full bg-border origin-top transition-all duration-200 ease-out group-hover/bump:bg-accent",
+            collapsed ? "group-hover/bump:rotate-[8deg]" : "group-hover/bump:rotate-[-8deg]"
+          )}
+        />
+
+        {/* Reference-style tooltip — appears to the right on hover / keyboard focus */}
+        <span
+          role="tooltip"
+          className={cn(
+            "pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 translate-x-1 opacity-0",
+            "flex items-center gap-2 whitespace-nowrap rounded-xl border border-border bg-surface-elevated px-3 py-2 shadow-sm",
+            "transition-all duration-150 ease-out",
+            "group-hover/bump:translate-x-0 group-hover/bump:opacity-100",
+            "group-focus-visible/bump:translate-x-0 group-focus-visible/bump:opacity-100"
+          )}
+        >
+          <span className="text-sm font-medium text-text-primary">
+            {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          </span>
+          <kbd className="flex items-center gap-1 text-text-muted">
+            <span className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-2xs font-medium leading-none">
+              {isMac ? "⌘" : "Ctrl"}
+            </span>
+            <span className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-2xs font-medium leading-none">
+              B
+            </span>
+          </kbd>
+        </span>
+      </button>
+
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-border">
-        <Link href="/board" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center">
+      <div
+        className={cn(
+          "h-15.25 px-3 border-b border-border flex items-center",
+          collapsed && "justify-center"
+        )}
+      >
+        <Link
+          href="/applications"
+          className={cn("flex items-center gap-2.5 min-w-0", !collapsed && "pl-2")}
+        >
+          <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center shrink-0">
             <HugeiconsIcon icon={Briefcase01Icon} size={14} className="text-white" strokeWidth={1.5} />
           </div>
-          <span className="text-sm font-semibold text-text-primary">InternTracker</span>
+          {!collapsed && (
+            <span
+              className="text-sm font-semibold text-text-primary truncate"
+              style={{ fontFamily: "var(--font-family-display)" }}
+            >
+              Traqit
+            </span>
+          )}
         </Link>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
-        {NAV_ITEMS.map(({ href, label, icon }) => {
+      <nav className="px-3 py-4 flex flex-col gap-0.5">
+        {NAV_ITEMS.map(({ href, label, icon, shortcut }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}
               href={href}
+              title={collapsed ? label : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150",
+                collapsed && "justify-center px-0",
                 active
                   ? "bg-surface-hover text-text-primary"
                   : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
               )}
             >
-              <HugeiconsIcon icon={icon} size={16} strokeWidth={1.5} />
-              {label}
+              <HugeiconsIcon icon={icon} size={16} strokeWidth={1.5} className="shrink-0" />
+              {!collapsed && <span className="truncate">{label}</span>}
+              {!collapsed && showHints && <Kbd className="ml-auto">{shortcut}</Kbd>}
             </Link>
           );
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="px-3 py-3 border-t border-border flex items-center justify-between">
+      {/* Empty middle — when collapsed, click anywhere here to expand */}
+      {collapsed ? (
+        <button
+          onClick={toggle}
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+          className="flex-1 w-full cursor-pointer"
+        />
+      ) : (
+        <div className="flex-1" />
+      )}
+
+      {/* Settings — bottom-aligned, styled like the top nav items */}
+      <div className="px-3 pb-2">
+        <Link
+          href="/settings"
+          title={collapsed ? "Settings" : undefined}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150",
+            collapsed && "justify-center px-0",
+            pathname === "/settings" || pathname.startsWith("/settings/")
+              ? "bg-surface-hover text-text-primary"
+              : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+          )}
+        >
+          <HugeiconsIcon icon={Settings01Icon} size={16} strokeWidth={1.5} className="shrink-0" />
+          {!collapsed && <span className="truncate">Settings</span>}
+          {!collapsed && showHints && <Kbd className="ml-auto">,</Kbd>}
+        </Link>
+      </div>
+
+      {/* Footer — profile chip + theme toggle */}
+      <div
+        className={cn(
+          "px-3 py-3 border-t border-border flex items-center gap-2",
+          collapsed ? "flex-col" : "justify-between"
+        )}
+      >
+        <Link
+          href="/profile"
+          title="My profile"
+          className={cn(
+            "flex items-center gap-2 min-w-0 rounded-lg transition-colors duration-150 hover:bg-surface-hover",
+            collapsed ? "justify-center p-1" : "-ml-1 px-1 py-1 flex-1"
+          )}
+        >
+          {profile?.avatarUrl ? (
+            <Image
+              src={profile.avatarUrl}
+              alt={profile.name}
+              width={24}
+              height={24}
+              className="w-6 h-6 rounded-full object-cover shrink-0"
+              unoptimized
+            />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
+              <HugeiconsIcon icon={UserIcon} size={12} className="text-accent-soft-fg" strokeWidth={1.5} />
+            </div>
+          )}
+          {!collapsed && (
+            <span className="text-xs text-text-secondary truncate">
+              {profile?.name ?? "My profile"}
+            </span>
+          )}
+          {!collapsed && showHints && <Kbd className="ml-auto">p</Kbd>}
+        </Link>
         <ThemeToggle />
       </div>
     </aside>

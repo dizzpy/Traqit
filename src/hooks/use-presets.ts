@@ -35,3 +35,44 @@ export async function addJobType(name: string) {
   });
   return res.json();
 }
+
+export async function deleteSource(id: string) {
+  const res = await fetch(`/api/presets/sources/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete source");
+  return res.json();
+}
+
+export async function deleteJobType(id: string) {
+  const res = await fetch(`/api/presets/job-types/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete job type");
+  return res.json();
+}
+
+export async function saveTemplate(payload: { name: string; stages: string[]; isDefault?: boolean }) {
+  const res = await fetch("/api/presets/templates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to save template");
+  return res.json();
+}
+
+export async function updateTemplate(
+  id: string,
+  patch: { name?: string; stages?: string[]; isDefault?: boolean }
+) {
+  const res = await fetch(`/api/presets/templates/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error("Failed to update template");
+  return res.json();
+}
+
+export async function deleteTemplate(id: string) {
+  const res = await fetch(`/api/presets/templates/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete template");
+  return res.json();
+}

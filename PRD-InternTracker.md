@@ -1,225 +1,545 @@
 # InternTracker — Product Requirements Document
 
-**Version:** 1.0
-**Date:** March 23, 2026
+**Version:** 2.0 — UI-first build plan
 **Author:** Dizzpy (Anuja Rathnayaka)
-**Status:** MVP — Personal Use + 4 Friends
+**Date:** May 30, 2026
+**Status:** MVP — personal use + 4 friends, designed for SaaS
+**Progress (2026-05-31):** ✅ Sprints 0 & 1 complete; Sprint 3 complete; Sprint 4 nearly complete — Applications list + board + add/save + pipeline builder + the full detail panel (Pipeline / Contacts / Documents / Activity) are wired to live Supabase data with optimistic updates. The Calendar page is live (dated stages + deadlines). The **Email templates page is live** — categorized, searchable, drag-reorderable templates with a click-to-load editable composer + open-in-Gmail (also from a contact in the detail panel). The **Saved jobs page is live** — saved postings live on their own page (hidden from Applications) with deadline badges, open-posting, mark-as-applied (promotes the existing record), and delete. **Sprint 2 is now complete.** Remaining: save-as-template, email reminders (Sprint 5), final polish (Sprint 6). See §6 for the per-item breakdown.
+
+---
+
+## Contents
+
+1. [Product overview](#1-product-overview)
+2. [What changed from the Notion version](#2-what-changed-from-the-notion-version)
+3. [Design system (build this first)](#3-design-system-build-this-first)
+4. [Screens & UX](#4-screens--ux-the-heart-of-the-build)
+5. [Tech stack](#5-tech-stack)
+6. [Build plan — sprints](#6-build-plan--sprints)
+7. [Database schema](#7-database-schema-prisma)
+8. [Email reminders](#8-email-reminders)
+9. [API surface](#9-api-surface)
+10. [Security & performance](#10-security--performance-mvp)
+11. [SaaS path](#11-saas-path-later)
 
 ---
 
 ## 1. Product overview
 
-### 1.1 What is this?
+### 1.1 What it is
 
-InternTracker is a job application tracker built specifically for SE/CS students going through multi-round tech interview pipelines. Unlike generic trackers (Huntr, Teal), this models the full interview lifecycle per company — OA rounds, phone screens, technical interviews, system design, HR rounds — not just a single "interviewing" bucket.
+InternTracker is a job-application tracker built for software-engineering students moving through multi-round tech interview pipelines. The defining feature: **every application has its own custom pipeline.** One company might run `apply → phone screen → assessment → technical → HR → CEO → offer`, while another runs only `apply → call → technical → offer`. Generic trackers and Notion force every row through one fixed status list; InternTracker lets each job carry its own sequence of stages, built like blocks.
 
-### 1.2 Why build this?
+### 1.2 Why it exists
 
-Existing tools treat applications as: Saved → Applied → Interviewing → Offer. But SE/CS interviews have 3-7 stages per company, each with different prep, different contacts, and different timelines. No tool models this properly. Additionally, nothing serves the Sri Lankan/South Asian job market with LKR salary support and local job board integrations.
+The current workflow lives in Notion. It works for storing rows but breaks on three things:
 
-### 1.3 Target users (MVP)
+1. The Status field is a single shared dropdown — every job is forced into the same fixed stage list and it becomes cluttered
+2. No clean way to save a job posting to apply to later
+3. No way to attach the specific CV sent to each company, or to fire off a templated outreach email quickly
 
-- Primary: Dizzpy (the builder, actively applying for Flutter/SE internships)
-- Secondary: 4 university friends, all final-year SE students at NSBM Green University
-- All 5 users are in Sri Lanka, applying to local companies
+InternTracker solves these directly while keeping the dense, scannable table feel of the Notion view.
+
+### 1.3 Target users
+
+- **Primary:** the builder (Dizzpy), actively applying for Flutter / SE internships in Sri Lanka
+- **Secondary:** four final-year SE friends at NSBM, all applying to local companies
+- All users are in Sri Lanka — LKR-first salary handling, local job boards (RoosterJob, etc.)
 
 ### 1.4 Success criteria
 
-- All 5 users actively tracking applications within 1 week of launch
-- Replaces the existing Notion tracker completely
-- Each user has logged at least 5 applications with pipeline stages within 2 weeks
+- All 5 users tracking applications within a week of launch, fully replacing Notion
+- Each user builds at least one custom pipeline and saves at least one job-for-later within two weeks
+- The app feels calm and pleasant enough that users open it voluntarily during a stressful job hunt
 
 ---
 
-## 2. Tech stack
+## 2. What changed from the Notion version
 
-### 2.1 Core stack
+| Notion pain point                            | InternTracker solution                                                                              |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| One fixed Status dropdown shared by all jobs | Per-application pipeline: each job owns an ordered list of stage blocks, built and reordered freely |
+| Can't model different interview flows        | Stage palette + drag-to-arrange builder; pick a template or build from scratch                      |
+| No way to save a posting for later           | Save-job flow: paste a URL + minimal details, sits in a Saved page until you apply                  |
+| Can't tell which CV went to which company    | Documents per application — attach the exact CV/cover-letter link sent                              |
+| Manual, repetitive outreach emails           | Email templates with placeholders → one click opens a pre-filled Gmail draft                        |
+| Calendar, chart, table crammed together      | Separate dedicated pages: Applications, Calendar, Analytics, Saved, Templates                       |
+| No reminders for upcoming interviews         | Dated stage blocks notify by email and appear on the Calendar                                       |
 
-| Layer | Technology | Reason |
-|-------|-----------|--------|
-| Framework | Next.js 15 (App Router) | SSR, API routes, familiar from Macks project |
-| Language | TypeScript | Type safety, Prisma integration |
-| ORM | Prisma | No raw SQL, type-safe queries, auto-migrations |
-| Database | Supabase PostgreSQL | Hosted Postgres, free tier, Prisma-compatible |
-| Hosting | Vercel (free tier) | Zero-config Next.js deployment |
-| Styling | Tailwind CSS 4 | Utility-first, matches Orchestra design tokens |
-| Font | General Sans (Fontshare) | Self-hosted variable woff2 |
-| Icons | Lucide React | Thin-stroke, consistent with Orchestra aesthetic |
-| Drag & Drop | @dnd-kit/core | Kanban board drag-and-drop |
-| Charts | Recharts | Analytics dashboard visualizations |
-| Date handling | date-fns | Lightweight date formatting/calculations |
+---
 
-### 2.2 Why Prisma + Supabase (not raw SQL)
+## 3. Design system (build this first)
 
-Prisma provides a schema file (`schema.prisma`) that feels like TypeScript. You define models, Prisma generates migrations and fully typed client. Supabase is just the hosted PostgreSQL — you never open the Supabase dashboard for DB management. When going SaaS later, swap env-based auth for Supabase Auth or NextAuth — the DB layer stays identical.
+> **Build the UI first, throughout.** Every key screen ships as a static, themed, clickable prototype with mock data before touching the database.
 
-### 2.3 Auth strategy (MVP)
+### 3.1 Design principles — "cute, minimal, calm"
 
-Simple env-based password protection. No full auth system.
+- **Calm over loud.** Job hunting is stressful. Status colors are soft and muted, never alarming. "Rejected" is a gentle muted red, "Ghosted" is simply dimmed — the UI never shouts.
+- **Minimal but warm.** Generous whitespace, soft rounded corners (10–12px), one friendly accent (violet). Flat — no heavy shadows, no gradients. Elevation comes from subtle surface color shifts.
+- **Dense where it counts.** The main list stays information-rich like the Notion table — all columns visible — because scanning matters. Calm doesn't mean empty.
+- **Gentle motion.** Soft 150ms transitions, a tiny rise-in on panels. Nothing flashy.
+- **Kind empty states.** "Nothing saved yet — add a posting when you spot one" instead of a blank table.
+
+### 3.2 Theme — Violet haze (dark default)
+
+A soft-purple dark theme. Premium but quiet. Light theme ships too; accent stays the same.
+
+```css
+/* ── Dark (default) ─────────────────────────────── */
+--bg: #0b0a0e; /* page background */
+--surface: #131116; /* cards, sidebar */
+--surface-elevated: #1b1a1f; /* inputs, modals, popovers */
+--surface-hover: #221f28; /* row / item hover */
+--border: #29272f; /* dividers, outlines */
+--border-hover: #3a3742; /* focus / hover border */
+
+--text-primary: #f6f5fa; /* headings */
+--text-secondary: #8b8792; /* body */
+--text-muted: #6e6b7a; /* placeholders, hints */
+
+--accent: #8b5cf6; /* primary actions, brand */
+--accent-hover: #7c3aed;
+--accent-soft: #25203b; /* tinted chip background */
+--accent-soft-fg: #a78bfa;
+```
+
+**Soft semantic colors** (deliberately muted — these are the calm part):
+
+```css
+/* status badge combos: text on background */
+--applied: #8b8792 on #1b1a1f /* neutral grey */ --progress: #a78bfa on #25203b
+  /* soft violet */ --offer: #4ade80 on #14271b /* gentle green */
+  --rejected: #f87171 on #2d1414 /* muted red, never harsh */ --ghosted: #6e6b7a
+  on transparent /* dimmed, 0.6 opacity */ --saved: #6e6b7a on transparent
+  /* dashed border */;
+```
+
+**Light theme:** `bg #FFFFFF`, `surface #F7F6FA`, `surface-elevated #EFEEF4`, `border #E4E2EA`, `text-primary #1B1A1F`, `text-secondary #565263`, `text-muted #9C99A6`. Accent and semantic colors unchanged.
+
+### 3.3 Typography
+
+Two Fontshare families. **No bold-700 anywhere** — heaviest weight used is 600, which keeps it soft.
+
+| Role               | Font             | Size / weight | Usage                                   |
+| ------------------ | ---------------- | ------------- | --------------------------------------- |
+| Display / headings | Satoshi 600      | 18–24px       | Page titles, brand                      |
+| Body / UI          | General Sans 500 | 13–14px       | Everything else — labels, rows, buttons |
+| Caption            | General Sans 500 | 11–12px       | Timestamps, badges, hints               |
+
+> Load via Fontshare CDN for prototyping; self-host woff2 via `next/font` in production to avoid layout shift.
+
+```ts
+// next/font setup
+import localFont from "next/font/local";
+
+export const satoshi = localFont({
+  src: "../public/fonts/Satoshi-Variable.woff2",
+  variable: "--font-display",
+  weight: "300 900",
+});
+
+export const generalSans = localFont({
+  src: "../public/fonts/GeneralSans-Variable.woff2",
+  variable: "--font-sans",
+  weight: "300 700",
+});
+```
+
+### 3.4 Spacing, radius, motion
+
+| Token | Value | Usage                      |
+| ----- | ----- | -------------------------- |
+| xs    | 4px   | Badge padding, inline gaps |
+| sm    | 8px   | Between related elements   |
+| md    | 12px  | Card padding, form gaps    |
+| lg    | 16px  | Section spacing            |
+| xl    | 24px  | Between major sections     |
+| 2xl   | 32px  | Page-level padding         |
+
+| Element          | Radius |
+| ---------------- | ------ |
+| Inputs / buttons | 9–10px |
+| Cards            | 12px   |
+| Modals / sheets  | 16px   |
+| Pills / chips    | 999px  |
+
+- **Borders:** 1px solid `var(--border)`. Flat — no shadows except a barely-there one on floating popovers.
+- **Transitions:** 150ms ease on hover/focus; panels rise-in ~250ms cubic-bezier(0.22, 1, 0.36, 1).
+- **Icons:** single thin-stroke set (Lucide or Hugeicons), ~16–18px, stroke 1.5, color inherits text.
+
+### 3.5 Component library — shadcn/ui, themed
+
+**Yes — use shadcn/ui**, customized to the Violet haze palette. You own the component code (it lives in your repo, not a `node_modules` dependency), it's built on Radix so accessibility and keyboard handling are solved, and it themes entirely through CSS variables — exactly how the palette above is structured.
+
+#### How to wire the theme
+
+1. Init shadcn with the CSS-variables option, base color Neutral, so it generates a token layer instead of hard-coded colors.
+2. Map shadcn's semantic tokens to Violet haze:
+
+```ts
+// tailwind.config.ts (v4 @theme equivalent in globals.css)
+// shadcn token → your token
+--primary          → var(--accent)
+--primary-foreground → #fff
+--background       → var(--bg)
+--card             → var(--surface)
+--popover          → var(--surface-elevated)
+--muted            → var(--surface-hover)
+--border           → var(--border)
+--ring             → var(--accent)
+--radius           → 0.6rem
+```
+
+3. Set font tokens to Satoshi (display) and General Sans (sans). Drop shadcn's default Inter.
+4. Pull components as needed and lightly restyle: softer radii, muted semantic colors, no harsh focus rings (use `box-shadow: 0 0 0 3px rgba(139,92,246,0.2)` instead).
+
+#### Components used per screen
+
+| shadcn component                     | Used for                                                 |
+| ------------------------------------ | -------------------------------------------------------- |
+| `button`, `input`, `label`           | Forms, login, add-application                            |
+| `dialog`                             | Add-application modal, save-job modal                    |
+| `sheet` (slide-over)                 | Application detail panel + pipeline builder              |
+| `tabs`                               | Detail panel: Pipeline / Contacts / Documents / Activity |
+| `dropdown-menu`, `select`, `popover` | Status dropdowns, filters, stage palette                 |
+| `badge`                              | Status pills, work-mode chips, stage status              |
+| `calendar`                           | Calendar page, date pickers on stages                    |
+| `table`                              | Main applications list view                              |
+| `sonner`                             | Toast notifications (bottom-right, soft)                 |
+
+> `@dnd-kit/core` handles drag-and-drop for the pipeline builder and board view — shadcn has no native DnD.
+
+---
+
+## 4. Screens & UX (the heart of the build)
+
+> Screens are listed in build order. Each is built first as a **static themed screen with mock data**, then wired to real data in later sprints.
+
+### 4.1 App shell
+
+A fixed left sidebar (~220px wide, collapses to icons on mobile) with:
+
+- Brand mark + "InternTracker" at the top
+- Nav: Applications, Saved jobs, Calendar, Analytics, Email templates, Settings
+- Profile chip at the bottom
+
+A main content area to the right with a per-page header (title + primary actions).
+
+### 4.2 Applications — main screen
+
+The home screen. Keeps the dense, all-columns-visible feel of the Notion table.
+
+**Header:** "Applications" + live count, a "Save job" button, and a violet "+ Add" button.
+
+**View chips** below the header: `List` (default) and `Board`. These switch the render mode of the same data and persist via `?view=` URL param.
+
+#### List view (default)
+
+A table with columns matching the current Notion tracker:
+
+`Company` · `Position` · `Type` · `Work mode` · `Current stage` · `Status` · `Applied via` · `Applied date` · `Salary` · `Location`
+
+- **The "Current stage" cell is a button.** Clicking it (or the row) opens the application detail slide-over with the pipeline builder focused.
+- Soft status pills, relative dates ("5 days ago") with absolute on hover, sortable headers
+- Filter bar: status (multi-select), work mode (pill), source (multi-select), date range
+- Ghosted rows: gently dimmed (0.6 opacity)
+- Rows with an interview in next 48h: subtle violet left-border
+- Empty state: "No applications yet — add your first one"
+
+#### Board view
+
+Kanban columns by high-level status:
+
+`Saved` → `Applied` → `In progress` → `Offer` → `Accepted` → `Rejected` → `Ghosted`
+
+- Drag cards between columns to change status (`@dnd-kit`)
+- Column headers show counts: "Applied (5)"
+- Cards show: company, position, work-mode badge, current stage name, days since last activity, pulsing dot if interview in next 48h
+- Saved column: dashed border, muted cards; deadline badge "3 days left" → "Expired"
+
+### 4.3 Application detail + pipeline builder (slide-over)
+
+Opens from the right as a full-height sheet when a row or current-stage cell is clicked. This is the **second most important screen**.
+
+Tabs: **Pipeline** · Contacts · Documents · Activity
+
+#### The pipeline builder
+
+A vertical sequence of stage blocks assembled manually by the user.
+
+```
+┌─ Stage palette ──────────────────────────────────────┐
+│  [+ Call]  [+ Phone screen]  [+ Assessment]           │
+│  [+ Technical]  [+ HR]  [+ CEO]  [+ Offer]  [Custom] │
+└──────────────────────────────────────────────────────┘
+
+  ● Applied                               Done  · Mar 13
+  │
+  ● Phone screen                          Done  · Mar 23
+  │
+  ◉ Technical interview          Scheduled  · Mar 25, 10:30 AM  🔔
+  │
+  ○ HR interview                          Upcoming  · set date
+  │
+  + drag a stage here, or tap one above
+```
+
+**Each block has:**
+
+- Name (preset or custom)
+- Status: Upcoming / Scheduled / Done / Passed / Failed
+- Optional date + time
+- Optional notes
+- 🔔 Remind me bell (triggers email reminder when on)
+- Drag handle to reorder
+
+**Per-job independence:** Company A can have 6 stages, Company B can have 3 — stored per application, fully independent.
+
+**Templates:** "Apply a template" pre-fills a common sequence. "Save as template" stores the current pipeline for reuse.
+
+> Dates feed two systems: any block with a date shows on the Calendar page; any block with the bell on triggers an email reminder.
+
+#### Other tabs
+
+- **Contacts:** name, role (Recruiter / Hiring Manager / Interviewer / HR / Other), email, phone, LinkedIn — click to `mailto:` / `tel:` / open.
+- **Documents:** CV and cover-letter links sent to this company. Name + URL + type (CV / Cover letter / Portfolio / Other). MVP = links only; file uploads in v2.
+- **Activity:** auto-generated chronological timeline of all events on this application.
+
+### 4.4 Save job (modal)
+
+Deliberately minimal — capture a posting in seconds.
+
+**Fields:**
+
+- Job posting URL _(required)_
+- Company _(optional)_
+- Position _(optional)_
+- Note _(optional, one line)_
+- Deadline _(optional — shows countdown badge)_
+
+Status is set to `SAVED`, no applied date. "Mark as applied" promotes it into a full application.
+
+**Deadline badge logic:**
+
+- Future: "X days left" (muted)
+- Within 48h: amber "2 days left"
+- Passed: red "Expired"
+
+### 4.5 Add application (modal)
+
+The full create form.
+
+| Field             | Type                       | Required | Default |
+| ----------------- | -------------------------- | -------- | ------- |
+| Company name      | text                       | yes      | —       |
+| Company URL       | url                        | no       | —       |
+| Position          | text                       | yes      | —       |
+| Job post URL      | url                        | no       | —       |
+| Job type          | searchable-select + custom | yes      | —       |
+| Work mode         | pill toggle                | yes      | no-data |
+| Applied via       | searchable-select + custom | yes      | —       |
+| Salary min / max  | number                     | no       | —       |
+| Currency          | select                     | no       | LKR     |
+| Location          | text                       | no       | —       |
+| Applied date      | date                       | no       | today   |
+| Pipeline template | select                     | no       | —       |
+| Notes             | textarea                   | no       | —       |
+
+On save: card appears in the right place, activity entry auto-created.
+
+### 4.6 Calendar (separate page)
+
+A month grid showing:
+
+- Every dated pipeline stage (interviews, calls, assessments) across all applications
+- Saved-job deadlines
+
+Click an event to jump to that application's detail. Soft event chips colored by stage type. Replaces the current Notion calendar.
+
+### 4.7 Analytics (separate page)
+
+Soft, readable charts themed to the violet/muted palette (Recharts).
+
+**Stat cards (top row):** total applications, response rate, interview rate, offer rate, avg days to first response. Each clickable → filtered list.
+
+**Charts:**
+
+- Status donut (like the current Notion chart, but styled)
+- Application funnel: applied → response → interview → offer
+- Source effectiveness: horizontal bar, response rate by source
+- Applications over time: line chart by week/month
+
+### 4.8 Email templates (separate page) — _implemented_
+
+Manage reusable outreach templates and fire them off pre-filled.
+
+**Template fields:** name, **category**, subject, body — subject + body support `{placeholders}`:
+`{company}`, `{position}`, `{contact}`, `{myName}`, `{jobUrl}`
+
+**Categories:** Outreach · Follow-up · Cold · Networking · General. Seeded starters: "SE intern outreach" (Outreach), "Follow-up" (Follow-up), "Cold / referral intro" (Cold).
+
+#### Page layout (two columns)
+
+**Left — template library**
+
+- **Search box** — filters by name / subject / category.
+- **Category filter chips** — `All` + each category in use.
+- **Drag-to-reorder** list (@dnd-kit); order persists per profile. Drag is disabled while a search/filter is active.
+- Each card shows name + colored category chip + subject + body preview, with hover edit / delete actions.
+- **Edit** opens the template editor modal (name, category select, subject, body with an Edit/Preview toggle, and click-to-insert placeholder chips).
+
+**Right — compose panel**
+
+- Empty ("Nothing open") until the user **clicks a template card** on the left.
+- Loads the chosen template into an **editable composer**: To / Subject / Body, all editable, with a **close (×)** button to dismiss.
+- Application + Contact pickers fill `{placeholders}` from real data; the user can still override any field by hand (e.g. type a recipient when the application has no contact).
+
+#### The open-in-Gmail flow
+
+1. Click a template → it loads into the right composer with placeholders filled
+2. Edit To / Subject / Body as needed
+3. Click **"Open in Gmail"** → a confirm popup → opens the Gmail compose window ("New Message") in a new tab, pre-filled
+
+```
+https://mail.google.com/mail/?view=cm&fs=1
+  &to={email}
+  &su={URL-encoded subject}
+  &body={URL-encoded body}
+```
+
+> No Gmail API or OAuth needed. Placeholders are substituted first, then the URL is encoded. The user reviews and hits send — nothing is sent automatically.
+
+**Also available from an application:** the detail panel's Contacts tab has a per-contact **Draft email** action → same compose/confirm flow, pre-filled from that application + contact.
+
+**Confirmations:** destructive / outward actions (delete template, open in Gmail) ask first via a soft confirm dialog.
+
+### 4.9 Settings (separate page)
+
+- **Profile:** edit display name
+- **Pipeline templates:** view / create / edit / delete
+- **Custom presets:** sources, job types
+- **Preferences:** ghost threshold (default 14 days), default currency, default template
+- **Theme:** dark / light toggle
+- **Data:** export all as JSON
+
+---
+
+## 5. Tech stack
+
+| Layer           | Choice                   | Note                               |
+| --------------- | ------------------------ | ---------------------------------- |
+| Framework       | Next.js 15 (App Router)  | SSR + API routes                   |
+| Language        | TypeScript               | End-to-end type safety             |
+| Styling         | Tailwind CSS 4           | CSS-first `@theme` tokens          |
+| Components      | shadcn/ui + Radix        | Owned in-repo, themed to palette   |
+| Drag & drop     | @dnd-kit/core            | Pipeline builder + board           |
+| Fonts           | Satoshi + General Sans   | Fontshare; self-host via next/font |
+| Icons           | Lucide / Hugeicons       | Thin-stroke, 1.5                   |
+| ORM             | Prisma                   | Type-safe, auto-migrations         |
+| Database        | Supabase PostgreSQL      | Hosted Postgres, free tier         |
+| Charts          | Recharts                 | Analytics, themed                  |
+| Dates           | date-fns                 | Lightweight formatting             |
+| Toasts          | sonner                   | Soft notifications                 |
+| Email reminders | Vercel Cron + Gmail SMTP | Daily check; SMTP already set up   |
+| Hosting         | Vercel                   | Zero-config Next.js deploy         |
+
+### 5.1 Auth (MVP)
+
+Env-based shared password. Middleware checks an `auth-token` cookie; unauthenticated requests redirect to `/login`. After login the user picks/creates a profile (display name); profile id sits in a cookie and scopes all data.
 
 ```
 AUTH_PASSWORD=your-shared-password-here
 ```
 
-**Flow:**
-1. User visits the app → middleware checks for `auth-token` cookie
-2. If no cookie → redirect to `/login` page
-3. User enters the shared password (from `AUTH_PASSWORD` env var)
-4. If correct → set `auth-token` cookie (httpOnly, 30-day expiry), redirect to `/`
-5. After login → user picks or creates a profile (just a display name)
-6. Profile ID stored in `profile-id` cookie, all data scoped to this profile
-7. Each user sees only their own applications
-
-**SaaS migration path:** Replace the password check middleware with NextAuth or Supabase Auth. Migrate profiles to user accounts. Zero data schema changes needed.
+Migration path to NextAuth / Supabase Auth later needs **no schema changes** — profiles simply become users.
 
 ---
 
-## 3. Design system
+## 6. Build plan — sprints
 
-### 3.1 Theme — Orchestra-inspired
+> **Strategy: build every key screen as a static, themed, clickable prototype with mock data before touching the database.** See and feel the whole app early; get friends reacting to real screens fast. Backend wires in behind already-built UI.
 
-The UI follows the Orchestra (getorchestra.com) design language: near-black backgrounds, warm gray surfaces, minimal accent color, no shadows, no gradients. Elevation is communicated through background color shifts only.
+### Sprint 0 — Foundation & design system (UI only) ✅ DONE
 
-### 3.2 Color tokens
+_Goal: the theme exists and renders. Nothing functional yet, but it looks right._
 
-#### Dark theme (default)
+- [x] Init Next.js 15 + TypeScript + Tailwind 4. Add Satoshi + General Sans via `next/font`
+- [x] Write `globals.css` with the full Violet haze token set (dark + light)
+- [x] Init shadcn/ui, map tokens to the palette, set radius + fonts. Restyle base components (button, input, badge, dialog, sheet, tabs, dropdown, select, popover, calendar, table, sonner) — plus custom `date-picker` + `checkbox`
+- [x] Build app shell: collapsible sidebar + header + page frames for all routes
+- [x] Build login screen + post-login transition screen
 
-```css
-:root {
-  /* Backgrounds */
-  --bg: #0A0A0A;                    /* Page background, main canvas */
-  --surface: #141414;               /* Sidebar, cards, elevated panels */
-  --surface-elevated: #1C1C1C;      /* Modals, dropdowns, popovers, inputs */
-  --surface-hover: #262626;         /* Hover states on list items, rows */
+### Sprint 1 — Core screens, static (UI only) ✅ DONE
 
-  /* Borders */
-  --border: #2A2A2A;                /* Card borders, dividers, input outlines */
-  --border-hover: #3A3A3A;          /* Input focus, hover border */
+_Goal: the two most important screens look and feel finished, with mock data._
 
-  /* Text */
-  --text-primary: #FFFFFF;          /* Headings, primary labels, active nav */
-  --text-secondary: #A1A1A1;        /* Body text, descriptions */
-  --text-muted: #6B6B6B;            /* Placeholders, hints, disabled text */
+- [x] **Applications list view** — full table, all columns, soft status pills, status filter, search, view chips, column show/hide, inline editing, row select/drag/delete
+- [x] **Application detail slide-over** with tabs (Pipeline / Contacts / Documents / Activity) + editable property rows + edit/delete actions
+- [x] **Pipeline builder:** stage palette, vertical sequence with rail, block states, dates. _The signature screen._ (bell/reminder affordance deferred to Sprint 5 — no schema yet)
+- [x] Add-application panel + save-job modal
 
-  /* Accent */
-  --accent: #6C5CE7;                /* Primary CTA buttons (used sparingly) */
-  --accent-hover: #5A4BD6;          /* CTA hover */
+### Sprint 2 — Remaining screens, static (UI only) — 🟡 PARTIAL
 
-  /* Semantic */
-  --success: #22C55E;               /* Passed, accepted, active */
-  --warning: #EAB308;               /* Pending, upcoming deadline */
-  --danger: #EF4444;                /* Rejected, failed, expired */
-  --info: #3B82F6;                  /* Links, current/active stage */
-}
-```
+_Goal: every screen in the app exists visually._
 
-#### Light theme
+- [x] Board view (drag between columns via @dnd-kit) — now live data
+- [x] Calendar page (month grid) — dated stages + deadlines, color-coded, click event → application detail
+- [x] Analytics page (stat cards + charts via Recharts) — live data
+- [x] Email templates page — categories + search + drag-reorder, click-to-load editable composer, open-in-Gmail (templates page & contacts tab), confirm dialogs
+- [x] Saved jobs page — card grid, deadline badges, open posting, mark-as-applied (promotes the record), delete · [x] Settings page · [x] theme toggle
+- [x] Polish empty states + transitions (ongoing)
 
-```css
-[data-theme="light"] {
-  --bg: #FFFFFF;
-  --surface: #F7F7F7;
-  --surface-elevated: #EFEFEF;
-  --surface-hover: #E8E8E8;
-  --border: #E5E5E5;
-  --border-hover: #D4D4D4;
-  --text-primary: #0A0A0A;
-  --text-secondary: #525252;
-  --text-muted: #9C9C9C;
-  /* Accent and semantic colors remain the same */
-}
-```
+> **Milestone:** Share the clickable prototype with the 4 friends for feedback before any backend work.
 
-### 3.3 Typography
+### Sprint 3 — Database & core CRUD (backend) ✅ DONE
 
-**Font:** General Sans (from Fontshare by Indian Type Foundry)
-**Source:** `https://api.fontshare.com/v2/css?f[]=general-sans@200,300,400,500,600,700&display=swap`
-**Or self-host:** Download variable woff2 from fontshare.com/fonts/general-sans
+_Goal: real data flows behind the already-built screens._
 
-| Role | Size | Weight | Line Height | Usage |
-|------|------|--------|-------------|-------|
-| Page title | 24-28px | 600 | 1.2 | "Applications", "Analytics" |
-| Section heading | 18-20px | 500 | 1.3 | Card headers, modal titles |
-| Label / nav | 14px | 500 | 1.4 | Sidebar items, buttons, table headers |
-| Body | 14px | 400 | 1.5 | Descriptions, form inputs, table cells |
-| Caption | 12px | 400 | 1.4 | Timestamps, badges, helper text |
+- [x] Prisma schema → Supabase, seed default presets + templates (`db push`)
+- [x] Auth: login API route, middleware, cookie, profile create/seed on login
+- [x] Applications API (list/create/update/delete) wired to list + board + add/save modals, with **optimistic** updates
+- [x] Activity logging on every mutation
 
-### 3.4 Spacing scale
+### Sprint 4 — Pipeline, save-for-later, detail (backend) — 🟡 MOSTLY DONE
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| xs | 4px | Inline gaps, badge padding |
-| sm | 8px | Between related elements |
-| md | 12px | Card internal padding, form gaps |
-| lg | 16px | Section spacing |
-| xl | 24px | Between major sections |
-| 2xl | 32px | Page-level padding |
+_Goal: the signature feature is real._
 
-### 3.5 Border radius
+- [x] Pipeline stages API: add / reorder / edit / delete; template apply _(save-as-template still pending)_
+- [x] Wire the builder to real data (order persists via a 2-pass reorder endpoint, statuses, dates)
+- [x] Save-job flow end to end; deadlines + countdown
+- [x] Contacts + documents (links) in detail panel — add/remove wired; Activity tab auto-logs
 
-| Element | Radius |
-|---------|--------|
-| Buttons | 6px |
-| Inputs | 8px |
-| Cards | 12px |
-| Modals | 16px |
-| Avatars / pills | 50% or 9999px |
+### Sprint 5 — Calendar, analytics, email, reminders (backend)
 
-### 3.6 Component rules
+_Goal: supporting pages go live; reminders fire._
 
-- **No shadows anywhere.** Elevation = bg color shift only
-- **No gradients.** Flat fills only
-- **Borders:** 1px solid var(--border). Not 0.5px
-- **Transitions:** 150ms ease for all hover/focus states
-- **Icons:** Lucide React, 18-20px, stroke-width 1.5, color inherits text
-- **Inputs:** height 40px, bg: surface-elevated, border: border, radius 8px, placeholder: text-muted, focus: border-hover
-- **Primary buttons:** bg: white, text: black (dark mode) OR bg: surface, border: border, text: white (outline style)
-- **CTA buttons:** bg: accent (#6C5CE7), text: white, no border, radius 8px. Used sparingly
-- **Sidebar:** width 220px, bg: surface, right border. Active item: surface-hover bg + text-primary. Inactive: text-secondary
-- **Cards:** bg: surface or bg, border: border, radius 12px, padding 16-20px
-- **Tooltips:** bg: accent, text: white, radius 12px
+- [x] Calendar reads real dated stages + deadlines
+- [x] Analytics aggregation API behind the charts
+- [x] Email templates CRUD + reorder + working Gmail-compose URL builder (`src/lib/email.ts`)
+- [ ] **Email reminders:** Vercel Cron → daily API route → Gmail SMTP
 
-### 3.7 Tailwind config mapping
+### Sprint 6 — Polish & ship
 
-```js
-// tailwind.config.ts
-module.exports = {
-  theme: {
-    extend: {
-      colors: {
-        bg: 'var(--bg)',
-        surface: 'var(--surface)',
-        'surface-elevated': 'var(--surface-elevated)',
-        'surface-hover': 'var(--surface-hover)',
-        border: 'var(--border)',
-        'border-hover': 'var(--border-hover)',
-        'text-primary': 'var(--text-primary)',
-        'text-secondary': 'var(--text-secondary)',
-        'text-muted': 'var(--text-muted)',
-        accent: 'var(--accent)',
-        'accent-hover': 'var(--accent-hover)',
-        success: 'var(--success)',
-        warning: 'var(--warning)',
-        danger: 'var(--danger)',
-        info: 'var(--info)',
-      },
-      fontFamily: {
-        sans: ['General Sans', 'system-ui', 'sans-serif'],
-      },
-      borderRadius: {
-        btn: '6px',
-        input: '8px',
-        card: '12px',
-        modal: '16px',
-      },
-    },
-  },
-}
-```
+- [ ] Mobile responsiveness (sidebar collapse, slide-over full-width on phone)
+- [ ] Loading skeletons, optimistic drag updates, error states, toasts
+- [ ] JSON export
+- [ ] Deploy to Vercel, onboard the 4 friends
+
+### 6.1 Priority summary
+
+| Priority             | What                                                                | Sprints    |
+| -------------------- | ------------------------------------------------------------------- | ---------- |
+| **P0 — must, first** | Design system + Applications list + pipeline builder (UI then data) | 0, 1, 3, 4 |
+| **P1 — core**        | Save-for-later, detail tabs, add/save modals, board                 | 1, 2, 4    |
+| **P2 — supporting**  | Calendar, analytics, email templates + drafts                       | 2, 5       |
+| **P3 — nice**        | Email reminders, JSON export, mobile polish                         | 5, 6       |
+| **v2 — later**       | CV file uploads, browser clipper, full auth, billing                | post-MVP   |
 
 ---
 
-## 4. Database schema (Prisma)
+## 7. Database schema (Prisma)
+
+> Two additions vs. the original spec: `notify` + `notifyAt` on `PipelineStage` for reminders, and the new `EmailTemplate` model.
 
 ```prisma
 generator client {
@@ -231,105 +551,111 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── PROFILES ───────────────────────────────────────────
-// Simple profile system (not full auth). Each user picks a name.
+// ─── PROFILE ────────────────────────────────────────────
 model Profile {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  applications Application[]
-  customSources Source[]
-  customTypes   JobType[]
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  applications      Application[]
+  sources           Source[]
+  jobTypes          JobType[]
   pipelineTemplates PipelineTemplate[]
+  emailTemplates    EmailTemplate[]
 }
 
-// ─── APPLICATIONS ───────────────────────────────────────
+// ─── APPLICATION ────────────────────────────────────────
 model Application {
-  id            String          @id @default(cuid())
-  profileId     String
-  profile       Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  id          String            @id @default(cuid())
+  profileId   String
+  profile     Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  // Company info
-  companyName   String
-  companyUrl    String?         // Company website or LinkedIn URL
-  position      String
-  jobPostUrl    String?         // Original job listing URL
+  companyName String
+  companyUrl  String?
+  position    String
+  jobPostUrl  String?
+  jobType     String
+  workMode    String            // on-site | remote | hybrid | no-data
+  appliedVia  String
+  salaryMin   Float?
+  salaryMax   Float?
+  currency    String            @default("LKR")
+  location    String?
+  status      ApplicationStatus @default(SAVED)
+  appliedDate DateTime?
+  firstResponseDate DateTime?
+  deadline    DateTime?         // for SAVED postings
+  notes       String?
 
-  // Classification
-  jobType       String          // "Intern", "Trainee SE", "Junior Dev", or custom
-  workMode      String          // "on-site", "remote", "hybrid", "no-data"
-  appliedVia    String          // "RoosterJob", "LinkedIn", "Direct Mail", etc.
+  stages   PipelineStage[]
+  contacts Contact[]
+  documents Document[]
+  activity Activity[]
 
-  // Compensation
-  salaryMin     Float?
-  salaryMax     Float?
-  currency      String          @default("LKR")
-  location      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Status
-  status        ApplicationStatus @default(SAVED)
-
-  // Dates
-  appliedDate   DateTime?       // Null if status is SAVED (not yet applied)
-  firstResponseDate DateTime?   // When you first heard back
-  deadline      DateTime?       // For SAVED applications — when posting expires
-
-  // Notes
-  notes         String?         // General notes for this application
-
-  // Relations
-  stages        PipelineStage[]
-  contacts      Contact[]
-  documents     Document[]
-  activityLog   Activity[]
-
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-
-  @@index([profileId])
   @@index([profileId, status])
   @@index([profileId, appliedDate])
 }
 
 enum ApplicationStatus {
-  SAVED       // Wishlist — not yet applied
-  APPLIED     // Application submitted
-  IN_PROGRESS // At least one interview stage active
-  OFFER       // Received offer
-  ACCEPTED    // Accepted the offer
-  REJECTED    // Got rejected at any stage
-  GHOSTED     // No response after threshold (default 14 days)
-  WITHDRAWN   // You withdrew your application
+  SAVED
+  APPLIED
+  IN_PROGRESS
+  OFFER
+  ACCEPTED
+  REJECTED
+  GHOSTED
+  WITHDRAWN
 }
 
-// ─── PIPELINE STAGES ────────────────────────────────────
-// Each application has its own ordered pipeline of interview stages
+// ─── PIPELINE STAGE ─────────────────────────────────────
 model PipelineStage {
-  id            String        @id @default(cuid())
+  id            String      @id @default(cuid())
   applicationId String
-  application   Application   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
-  name          String        // "OA", "Phone Screen", "Technical Round 1", etc.
-  order         Int           // 1, 2, 3... determines display order
+  name          String        // "Technical", "HR", "CEO", or custom
+  order         Int           // position in the sequence
   status        StageStatus   @default(UPCOMING)
-  scheduledDate DateTime?     // When this stage is scheduled
-  completedDate DateTime?     // When this stage was completed
-  notes         String?       // "2 LC mediums", "Asked about Flutter", etc.
+  scheduledDate DateTime?
+  completedDate DateTime?
+  notify        Boolean       @default(false)   // reminder on/off
+  notifyAt      DateTime?                        // when to send reminder
+  notes         String?
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([applicationId])
   @@unique([applicationId, order])
+  @@index([applicationId])
 }
 
 enum StageStatus {
   UPCOMING
+  SCHEDULED
   COMPLETED
   PASSED
   FAILED
   SKIPPED
+}
+
+// ─── EMAIL TEMPLATE ─────────────────────────────────────
+model EmailTemplate {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  name      String    // "SE intern outreach"
+  subject   String    // supports {placeholders}
+  body      String    // supports {placeholders}
+  category  String   @default("General") // Outreach | Follow-up | Cold | Networking | General
+  order     Int      @default(0)         // manual drag-reorder position (not unique)
+
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, name])
 }
 
 // ─── CONTACTS ───────────────────────────────────────────
@@ -338,891 +664,190 @@ model Contact {
   applicationId String
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
-  name          String
-  role          String      // "Recruiter", "Hiring Manager", "Interviewer", "HR"
-  email         String?
-  phone         String?
-  linkedinUrl   String?
-  stageName     String?     // Which pipeline stage they were involved in
-  notes         String?
+  name        String
+  role        String    // Recruiter | Hiring Manager | Interviewer | HR | Other
+  email       String?
+  phone       String?
+  linkedinUrl String?
+  stageName   String?
+  notes       String?
 
-  createdAt     DateTime    @default(now())
-
-  @@index([applicationId])
+  createdAt DateTime @default(now())
 }
 
 // ─── DOCUMENTS ──────────────────────────────────────────
-// Links to CV versions, cover letters, portfolios (URLs only, no file uploads in MVP)
 model Document {
   id            String      @id @default(cuid())
   applicationId String
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
-  name          String      // "Mobile Dev CV v3", "Cover Letter", "Portfolio"
-  url           String      // Link to Google Drive, GitHub, etc.
-  type          String      // "cv", "cover-letter", "portfolio", "other"
+  name String   // "Mobile Dev CV v3"
+  url  String   // Google Drive / GitHub link
+  type String   // cv | cover-letter | portfolio | other
 
-  createdAt     DateTime    @default(now())
-
-  @@index([applicationId])
+  createdAt DateTime @default(now())
 }
 
-// ─── ACTIVITY LOG ───────────────────────────────────────
-// Auto-generated timeline of all events
+// ─── ACTIVITY ───────────────────────────────────────────
 model Activity {
   id            String      @id @default(cuid())
   applicationId String
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
-  type          String      // "status_change", "stage_update", "note_added", "contact_added"
-  description   String      // Human-readable: "Status changed from Applied to In Progress"
-  metadata      Json?       // Extra structured data (old/new values, etc.)
+  type        String   // status_change | stage_update | note_added | contact_added
+  description String   // "Status changed from Applied to In Progress"
+  metadata    Json?
 
-  createdAt     DateTime    @default(now())
+  createdAt DateTime @default(now())
 
-  @@index([applicationId])
   @@index([applicationId, createdAt])
 }
 
-// ─── REUSABLE PRESETS ───────────────────────────────────
-// User-specific custom values for dropdowns
+// ─── PRESETS ────────────────────────────────────────────
 model Source {
-  id        String   @id @default(cuid())
-  profileId String
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  name      String   // "RoosterJob", "Company HR Page", etc.
-  usageCount Int     @default(0)  // For sorting most-used to top
-
+  id         String  @id @default(cuid())
+  profileId  String
+  profile    Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name       String
+  usageCount Int     @default(0)
   @@unique([profileId, name])
 }
 
 model JobType {
-  id        String   @id @default(cuid())
-  profileId String
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  name      String   // "Flutter Intern", "Trainee SE", etc.
+  id         String  @id @default(cuid())
+  profileId  String
+  profile    Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name       String
   usageCount Int     @default(0)
-
   @@unique([profileId, name])
 }
 
-// ─── PIPELINE TEMPLATES ─────────────────────────────────
 model PipelineTemplate {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   profileId String
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  name      String   // "SL Company", "Standard Tech", "FAANG-style"
-  stages    Json     // Array of stage names: ["Applied", "OA", "Phone Screen", ...]
-  isDefault Boolean  @default(false)
-
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name      String
+  stages    Json    // ["Call", "Technical", "HR", "Offer"]
+  isDefault Boolean @default(false)
   createdAt DateTime @default(now())
-
   @@unique([profileId, name])
 }
 ```
 
-### 4.1 Default seed data
+### 7.1 Seed data
 
-Every new profile gets these presets seeded automatically:
+**Sources:** RoosterJob, LinkedIn, Direct Mail, BambooHR, Company Website, Referral, Indeed
 
-**Default sources:** RoosterJob, LinkedIn, Direct Mail, BambooHR, Company Website, Referral, Indeed, GitHub Jobs
-
-**Default job types:** Intern, Trainee SE, Junior Dev, Mid-level Dev, SE Intern
-
-**Default pipeline templates:**
-- "SL company" → ["Interview", "Offer"]
-- "Standard tech" → ["OA", "Phone Screen", "Technical", "HR", "Offer"]
-- "FAANG-style" → ["OA", "Phone Screen", "Technical 1", "Technical 2", "System Design", "Behavioral", "Team Match", "Offer"]
-
----
-
-## 5. Folder structure
-
-```
-intern-tracker/
-├── .env.local                    # DATABASE_URL, AUTH_PASSWORD
-├── .env.example                  # Template for env vars
-├── next.config.ts
-├── tailwind.config.ts
-├── tsconfig.json
-├── prisma/
-│   ├── schema.prisma             # Database schema (Section 4)
-│   ├── migrations/               # Auto-generated by Prisma
-│   └── seed.ts                   # Default presets seeder
-├── public/
-│   └── fonts/
-│       └── GeneralSans-Variable.woff2
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx            # Root layout: font loading, theme provider, sidebar
-│   │   ├── globals.css           # CSS variables (Section 3.2), Tailwind imports
-│   │   ├── login/
-│   │   │   └── page.tsx          # Password login page
-│   │   ├── (dashboard)/          # Route group — all authed pages share sidebar layout
-│   │   │   ├── layout.tsx        # Sidebar + main content area layout
-│   │   │   ├── page.tsx          # Dashboard home → redirects to /board
-│   │   │   ├── board/
-│   │   │   │   └── page.tsx      # Kanban board view
-│   │   │   ├── list/
-│   │   │   │   └── page.tsx      # Table/list view
-│   │   │   ├── analytics/
-│   │   │   │   └── page.tsx      # Analytics dashboard
-│   │   │   ├── timeline/
-│   │   │   │   └── page.tsx      # Global activity timeline
-│   │   │   └── settings/
-│   │   │       └── page.tsx      # Profile, templates, preferences
-│   │   └── api/
-│   │       ├── auth/
-│   │       │   └── login/
-│   │       │       └── route.ts  # POST: verify password, set cookie
-│   │       ├── applications/
-│   │       │   ├── route.ts      # GET (list), POST (create)
-│   │       │   └── [id]/
-│   │       │       ├── route.ts  # GET, PATCH, DELETE single application
-│   │       │       ├── stages/
-│   │       │       │   ├── route.ts      # GET, POST stages
-│   │       │       │   └── [stageId]/
-│   │       │       │       └── route.ts  # PATCH, DELETE single stage
-│   │       │       ├── contacts/
-│   │       │       │   └── route.ts      # GET, POST contacts
-│   │       │       ├── documents/
-│   │       │       │   └── route.ts      # GET, POST documents
-│   │       │       └── activity/
-│   │       │           └── route.ts      # GET activity log
-│   │       ├── analytics/
-│   │       │   └── route.ts      # GET aggregated analytics data
-│   │       ├── presets/
-│   │       │   ├── sources/
-│   │       │   │   └── route.ts  # GET, POST custom sources
-│   │       │   ├── job-types/
-│   │       │   │   └── route.ts  # GET, POST custom job types
-│   │       │   └── templates/
-│   │       │       └── route.ts  # GET, POST pipeline templates
-│   │       └── timeline/
-│   │           └── route.ts      # GET global activity feed
-│   ├── components/
-│   │   ├── ui/                   # Base UI primitives
-│   │   │   ├── button.tsx
-│   │   │   ├── input.tsx
-│   │   │   ├── select.tsx
-│   │   │   ├── modal.tsx
-│   │   │   ├── badge.tsx
-│   │   │   ├── tooltip.tsx
-│   │   │   ├── dropdown.tsx
-│   │   │   ├── pill-toggle.tsx   # Work mode selector (on-site/remote/hybrid)
-│   │   │   ├── searchable-select.tsx  # Applied via, job type selectors
-│   │   │   └── date-picker.tsx
-│   │   ├── layout/
-│   │   │   ├── sidebar.tsx       # Main navigation sidebar
-│   │   │   ├── header.tsx        # Page header with title + actions
-│   │   │   └── theme-toggle.tsx  # Dark/light theme switch
-│   │   ├── board/
-│   │   │   ├── kanban-board.tsx  # Full Kanban board container
-│   │   │   ├── kanban-column.tsx # Single column (Saved, Applied, etc.)
-│   │   │   └── application-card.tsx  # Draggable card in the board
-│   │   ├── list/
-│   │   │   ├── applications-table.tsx  # Sortable, filterable table
-│   │   │   ├── table-filters.tsx       # Filter bar
-│   │   │   └── table-row.tsx           # Single row with inline editing
-│   │   ├── application/
-│   │   │   ├── add-application-modal.tsx    # Create/edit form modal
-│   │   │   ├── application-detail.tsx       # Full detail view (slide-over or page)
-│   │   │   ├── pipeline-stages.tsx          # Horizontal step indicator
-│   │   │   ├── stage-editor.tsx             # Edit a single stage
-│   │   │   ├── contacts-list.tsx            # Contacts tab in detail
-│   │   │   ├── documents-list.tsx           # Documents tab in detail
-│   │   │   ├── activity-feed.tsx            # Timeline in detail view
-│   │   │   └── company-link.tsx             # Company name + external link icon
-│   │   └── analytics/
-│   │       ├── stat-cards.tsx        # Top-level metric cards
-│   │       ├── funnel-chart.tsx      # Applied → Reply → Interview → Offer
-│   │       ├── source-chart.tsx      # Response rate by source
-│   │       ├── timeline-chart.tsx    # Applications over time
-│   │       └── status-donut.tsx      # Current status distribution
-│   ├── lib/
-│   │   ├── prisma.ts             # Prisma client singleton
-│   │   ├── auth.ts               # Auth helpers (verify cookie, get profile)
-│   │   ├── utils.ts              # General utilities (cn, formatDate, etc.)
-│   │   ├── constants.ts          # Default presets, status colors, stage names
-│   │   └── analytics.ts          # Analytics calculation helpers
-│   ├── hooks/
-│   │   ├── use-applications.ts   # SWR/fetch hook for applications
-│   │   ├── use-analytics.ts      # SWR hook for analytics data
-│   │   └── use-presets.ts        # SWR hook for sources/types/templates
-│   ├── types/
-│   │   └── index.ts              # TypeScript types (Application, Stage, etc.)
-│   └── middleware.ts             # Auth middleware — check cookie on every request
-```
-
----
-
-## 6. Feature specifications
-
-### 6.1 Module 1: Add application
-
-**Route:** Modal overlay, accessible from any page via "+ Add" button in header
-
-**Form fields:**
-
-| Field | Type | Required | Default | Notes |
-|-------|------|----------|---------|-------|
-| Company name | text | yes | — | Free text |
-| Company URL | url | no | — | Website or LinkedIn. Shown as clickable icon |
-| Position | text | yes | — | Free text |
-| Job post URL | url | no | — | Original listing link |
-| Job type | searchable-select | yes | — | Presets + custom "Add new" option |
-| Work mode | pill-toggle | yes | "no-data" | on-site / remote / hybrid / no-data |
-| Applied via | searchable-select | yes | — | Presets sorted by usage count + "Add new" |
-| Salary min | number | no | — | — |
-| Salary max | number | no | — | — |
-| Currency | select | no | "LKR" | LKR, USD, EUR, GBP, AUD |
-| Location | text | no | — | Free text |
-| Applied date | date | no | today | Null if "Save for later" |
-| Status | auto | — | APPLIED | Or SAVED if "Save for later" toggle is on |
-| Pipeline template | select | no | — | Pick template → auto-creates stages |
-| Notes | textarea | no | — | — |
-
-**User flow:**
-1. User clicks "+ Add" button (always visible in header, top right)
-2. Modal opens with form
-3. "Save for later" toggle at top — if ON, minimal fields required (company + position + job URL), status = SAVED, no applied date
-4. If OFF (default), status = APPLIED, applied date = today
-5. Optional: pick a pipeline template → stages auto-created
-6. Save → card appears in correct Kanban column
-7. Activity log entry auto-created: "Application created"
-
-**Validation:**
-- Company name: required, 1-100 chars
-- Position: required, 1-100 chars
-- Salary: min must be <= max if both provided
-- URLs: basic URL format validation (starts with http/https)
-- Applied via: required, must select or create
-
-### 6.2 Module 2: Save for later (wishlist)
-
-**Not a separate feature — it's a toggle within the Add Application modal.**
-
-**Behavior:**
-- When "Save for later" is ON:
-  - Only company, position, and job post URL are required
-  - Status = SAVED
-  - Applied date = null
-  - Optional deadline field appears (when posting expires)
-- Saved cards appear in the "Saved" Kanban column (leftmost, dashed border, muted appearance)
-- Saved cards with deadlines show countdown badge: "3 days left" (amber), "Expired" (red)
-- Expired cards float to bottom of Saved column, not auto-deleted
-- "Mark as applied" action: opens pre-filled form to complete remaining fields → status changes to APPLIED
-
-**Deadline logic:**
-- If deadline is set and is in the future: show "X days left" badge
-- If deadline is within 48 hours: badge turns amber/warning
-- If deadline has passed: badge turns red "Expired"
-- Sort saved column: approaching deadlines first, then by creation date
-
-### 6.3 Module 3: Interview pipeline (per application)
-
-**This is the core differentiator.**
-
-**Accessing:** Click any application card → detail view → Pipeline section
-
-**Pipeline display:** Horizontal step indicator showing stages in order. Each step has:
-- Stage name (text)
-- Status icon (color-coded): upcoming (gray circle), completed (blue check), passed (green check), failed (red x), skipped (gray dash)
-- Date (if set)
-
-**Adding stages:**
-- Click "+" between any two stages → dropdown with presets: OA, Phone Screen, Technical Round, System Design, HR Round, Take-home, Behavioral, Team Match
-- Or type a custom name
-- Stage gets inserted at that position, others reorder
-
-**Editing a stage:**
-- Click any stage → inline editor opens below
-- Fields: status (dropdown), scheduled date, completed date, notes
-- When status changes to PASSED → next stage auto-sets to UPCOMING
-- When status changes to FAILED → application status auto-changes to REJECTED, with confirmation dialog: "Mark application as rejected?"
+**Job types:** Intern, Trainee SE, Junior Dev, SE Intern, App Dev, Fullstack
 
 **Pipeline templates:**
-- When creating application, optionally pick a template
-- Templates create stages in bulk
-- Users can save current application's pipeline as a new template: "Save as template" button
-- 3 built-in templates (seeded, described in 4.1)
 
-**Auto-calculations:**
-- Days between each stage (shown as subtle label between steps)
-- Total time from applied → current stage
-- These feed into the analytics module
-
-### 6.4 Module 4: Kanban board
-
-**Route:** `/board` (default view)
-
-**Columns (left to right):**
-1. **Saved** — dashed border, muted cards. For wishlist items
-2. **Applied** — submitted but no response yet
-3. **In progress** — at least one pipeline stage active
-4. **Offer** — received an offer
-5. **Accepted** — accepted the offer
-6. **Rejected** — rejected at any stage
-7. **Ghosted** — no response after 14 days (configurable)
-
-**Column headers:** Show count: "Applied (5)"
-
-**Card display:**
-- Company name (with external link icon if URL exists)
-- Position title
-- Work mode badge (colored pill)
-- Current pipeline stage (if in progress): "Technical Round 1"
-- Days since last activity: "5 days ago"
-- Upcoming interview indicator: if interview scheduled within 48 hours, subtle pulsing dot
-
-**Drag and drop:**
-- Cards can be dragged between columns
-- Dropping into "In progress" prompts: "Set up pipeline stages?" (if none exist)
-- Dropping into "Rejected" prompts: "Add rejection reason?" (optional)
-- Status updates reflected immediately, activity log auto-created
-
-**Ghosted auto-detection:**
-- Background check: applications in APPLIED status with no activity for 14+ days
-- Show subtle inline suggestion on the card: "No response for 14 days — mark as ghosted?"
-- User clicks to confirm or dismiss
-- Threshold configurable in settings (default 14 days)
-
-**Visual rules:**
-- Ghosted cards: reduced opacity (0.6)
-- Cards with upcoming interviews (next 48h): subtle left-border accent (info color)
-- Saved cards with approaching deadlines: warning left-border
-
-### 6.5 Module 5: Table/list view
-
-**Route:** `/list`
-
-**Features:**
-- All applications in a sortable table
-- Columns: Company (with link), Position, Type, Work Mode, Status, Applied Via, Applied Date, Current Stage, Salary, Location
-- Click any column header to sort (asc/desc toggle)
-- Filter bar above table:
-  - Status: multi-select checkboxes
-  - Work mode: pill filter
-  - Applied via: multi-select
-  - Date range: from/to date pickers
-  - Has salary: toggle
-- Quick inline editing: click any cell to edit in-place (text cells, status dropdown, date picker)
-- Bulk actions: checkbox column, select multiple → "Move to..." status, "Delete selected"
-- Click row to open application detail (same as clicking card in Kanban)
-- Pagination: 25 per page, with page numbers
-
-### 6.6 Module 6: Contacts
-
-**Accessed from:** Application detail view → "Contacts" tab
-
-**Fields per contact:**
-| Field | Type | Required |
-|-------|------|----------|
-| Name | text | yes |
-| Role | select | yes (Recruiter, Hiring Manager, Interviewer, HR, Other) |
-| Email | email | no |
-| Phone | tel | no |
-| LinkedIn URL | url | no |
-| Stage involvement | text | no ("Technical Round 1 interviewer") |
-| Notes | text | no |
-
-**Interactions:**
-- Click email → opens `mailto:` link
-- Click LinkedIn → opens in new tab
-- Click phone → opens `tel:` link
-- Contacts display as compact cards within the detail view
-
-### 6.7 Module 7: Documents
-
-**Accessed from:** Application detail view → "Documents" tab
-
-**No file uploads in MVP — URLs only.**
-
-**Fields per document:**
-| Field | Type | Required |
-|-------|------|----------|
-| Name | text | yes ("Mobile Dev CV v3") |
-| URL | url | yes (Google Drive link, GitHub, etc.) |
-| Type | select | yes (CV, Cover Letter, Portfolio, Other) |
-
-**Display:** List of document links, grouped by type. Click to open in new tab.
-
-### 6.8 Module 8: Analytics dashboard
-
-**Route:** `/analytics`
-
-**Stat cards (top row):**
-- Total applications (count)
-- Response rate (% that moved past APPLIED)
-- Interview rate (% that reached at least one interview stage)
-- Offer rate (% that received offers)
-- Avg days to first response
-
-**Each stat card is clickable — filters the table view to show matching applications.**
-
-**Charts:**
-
-1. **Funnel chart** (vertical bar/funnel):
-   - Applied → Got Response → Interview → Offer
-   - Shows count and % at each level
-   - Dropoff between levels highlighted
-
-2. **Source effectiveness** (horizontal bar chart):
-   - X-axis: response rate (%)
-   - Y-axis: each source (RoosterJob, LinkedIn, Direct Mail, etc.)
-   - Only show sources with 2+ applications
-   - Color-coded: green if above average, red if below
-
-3. **Applications over time** (line chart):
-   - X-axis: weeks/months
-   - Y-axis: count of applications
-   - Second line: responses received
-
-4. **Status distribution** (donut chart):
-   - Current breakdown: Applied, In Progress, Offer, Rejected, Ghosted, etc.
-   - Interactive: click a segment to filter
-
-5. **Ghosted analysis** (table or bar):
-   - Which sources have highest ghost rate
-   - Average ghost time by source
-
-**Data calculations (in `src/lib/analytics.ts`):**
-```typescript
-// Response rate = (total - APPLIED - SAVED - GHOSTED) / (total - SAVED)
-// Interview rate = (IN_PROGRESS + OFFER + ACCEPTED) / (total - SAVED)
-// Offer rate = (OFFER + ACCEPTED) / (total - SAVED)
-// Avg days to first response = avg(firstResponseDate - appliedDate) where firstResponseDate exists
-```
-
-### 6.9 Module 9: Activity timeline
-
-**Route:** `/timeline`
-
-**Global chronological feed of all activity across all applications.**
-
-**Each entry shows:**
-- Timestamp (relative: "2 hours ago", absolute on hover)
-- Application: company + position (clickable link to detail)
-- Event description: "Status changed from Applied to In Progress", "Added OA stage", "Logged contact: John (Recruiter)"
-- Event type icon (status change, stage update, note added, etc.)
-
-**Auto-generated events:**
-- Application created
-- Status changed (old → new)
-- Pipeline stage added/updated/completed
-- Contact added
-- Document added
-- Note added
-
-**Filtering:** By application, by event type, by date range
-
-### 6.10 Module 10: Settings
-
-**Route:** `/settings`
-
-**Sections:**
-
-1. **Profile:** Edit display name
-2. **Pipeline templates:** View, create, edit, delete templates
-3. **Custom presets:** Manage custom sources, job types
-4. **Preferences:**
-   - Ghost threshold (days, default 14)
-   - Default currency
-   - Default pipeline template for new applications
-5. **Theme:** Dark/Light toggle
-6. **Data:** Export all data as JSON (for backup)
+- "SL company" → `["Call", "Technical", "Offer"]`
+- "Standard tech" → `["OA", "Phone Screen", "Technical", "HR", "Offer"]`
+- "FAANG-style" → `["OA", "Phone Screen", "Technical 1", "Technical 2", "System Design", "Behavioral", "Offer"]`
 
 ---
 
-## 7. API design
+## 8. Email reminders
 
-### 7.1 Conventions
-
-- All API routes under `/api/`
-- All responses return JSON
-- Success: `{ data: ... }`
-- Error: `{ error: { message: string, code: string } }`
-- HTTP status codes: 200 (ok), 201 (created), 400 (bad request), 401 (unauthorized), 404 (not found), 500 (server error)
-- All mutations (POST, PATCH, DELETE) auto-create activity log entries
-- Profile ID extracted from cookie in every request via `getProfile()` helper
-
-### 7.2 Endpoints
-
-```
-GET    /api/applications              → List all (with filters: ?status=&source=&workMode=&from=&to=&sort=&order=&page=&limit=)
-POST   /api/applications              → Create new
-GET    /api/applications/:id          → Get single with stages, contacts, documents
-PATCH  /api/applications/:id          → Update fields
-DELETE /api/applications/:id          → Soft delete (or hard delete in MVP)
-
-GET    /api/applications/:id/stages   → List stages (ordered)
-POST   /api/applications/:id/stages   → Add stage (with order position)
-PATCH  /api/applications/:id/stages/:stageId → Update stage
-DELETE /api/applications/:id/stages/:stageId → Remove stage
-
-GET    /api/applications/:id/contacts → List contacts
-POST   /api/applications/:id/contacts → Add contact
-
-GET    /api/applications/:id/documents → List documents
-POST   /api/applications/:id/documents → Add document
-
-GET    /api/applications/:id/activity → Get activity log for this application
-
-GET    /api/analytics                 → Aggregated stats (funnel, source effectiveness, etc.)
-GET    /api/timeline                  → Global activity feed (paginated, filterable)
-
-GET    /api/presets/sources           → List sources (sorted by usage)
-POST   /api/presets/sources           → Add custom source
-GET    /api/presets/job-types         → List job types
-POST   /api/presets/job-types         → Add custom job type
-GET    /api/presets/templates         → List pipeline templates
-POST   /api/presets/templates         → Create template
-```
-
-### 7.3 Request/response examples
-
-**POST /api/applications**
-```json
-{
-  "companyName": "X4 Digital Labs (Pvt) Ltd",
-  "companyUrl": "https://x4digital.com",
-  "position": "Junior Flutter Developer",
-  "jobPostUrl": "https://roosterjob.com/job/12345",
-  "jobType": "Intern",
-  "workMode": "on-site",
-  "appliedVia": "RoosterJob",
-  "salaryMin": 40000,
-  "salaryMax": 60000,
-  "currency": "LKR",
-  "location": "Mawanella",
-  "appliedDate": "2026-03-08",
-  "status": "APPLIED",
-  "templateId": "cuid-of-standard-tech-template",
-  "notes": "Saw on RoosterJob, looks like a good fit"
-}
-```
-
-**Response: 201**
-```json
-{
-  "data": {
-    "id": "cuid...",
-    "companyName": "X4 Digital Labs (Pvt) Ltd",
-    "status": "APPLIED",
-    "stages": [
-      { "id": "...", "name": "OA", "order": 1, "status": "UPCOMING" },
-      { "id": "...", "name": "Phone Screen", "order": 2, "status": "UPCOMING" },
-      { "id": "...", "name": "Technical", "order": 3, "status": "UPCOMING" },
-      { "id": "...", "name": "HR", "order": 4, "status": "UPCOMING" },
-      { "id": "...", "name": "Offer", "order": 5, "status": "UPCOMING" }
-    ],
-    "contacts": [],
-    "documents": [],
-    "createdAt": "2026-03-23T..."
-  }
-}
-```
-
----
-
-## 8. Error handling
-
-### 8.1 API error handling
-
-Every API route follows this pattern:
-
-```typescript
-export async function POST(req: Request) {
-  try {
-    const profile = await getProfile(req);
-    if (!profile) {
-      return NextResponse.json(
-        { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      );
-    }
-
-    const body = await req.json();
-    // Validate with Zod schema
-    const parsed = createApplicationSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: { message: 'Validation failed', code: 'VALIDATION_ERROR', details: parsed.error.flatten() } },
-        { status: 400 }
-      );
-    }
-
-    // Business logic...
-    const application = await prisma.application.create({ ... });
-
-    return NextResponse.json({ data: application }, { status: 201 });
-
-  } catch (error) {
-    console.error('POST /api/applications error:', error);
-    return NextResponse.json(
-      { error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } },
-      { status: 500 }
-    );
-  }
-}
-```
-
-### 8.2 Validation (Zod)
-
-Use Zod for all input validation. Install: `zod`
-
-```typescript
-// src/lib/validations.ts
-import { z } from 'zod';
-
-export const createApplicationSchema = z.object({
-  companyName: z.string().min(1).max(100),
-  companyUrl: z.string().url().optional().or(z.literal('')),
-  position: z.string().min(1).max(100),
-  jobPostUrl: z.string().url().optional().or(z.literal('')),
-  jobType: z.string().min(1),
-  workMode: z.enum(['on-site', 'remote', 'hybrid', 'no-data']),
-  appliedVia: z.string().min(1),
-  salaryMin: z.number().positive().optional(),
-  salaryMax: z.number().positive().optional(),
-  currency: z.string().default('LKR'),
-  location: z.string().optional(),
-  appliedDate: z.string().datetime().optional(),
-  status: z.enum(['SAVED', 'APPLIED']).default('APPLIED'),
-  templateId: z.string().optional(),
-  notes: z.string().optional(),
-}).refine(
-  (data) => {
-    if (data.salaryMin && data.salaryMax) {
-      return data.salaryMin <= data.salaryMax;
-    }
-    return true;
-  },
-  { message: 'Salary min must be less than or equal to max' }
-);
-```
-
-### 8.3 Client-side error handling
-
-- All fetch calls wrapped in try/catch
-- Toast notifications for success/error using a simple toast system (no library needed, build a minimal one)
-- Optimistic updates for drag-and-drop (revert on API failure)
-- Form validation shown inline (red border + error message below field)
-- Loading states: skeleton loaders for initial page load, spinner for form submissions
-
-### 8.4 Error boundaries
-
-Wrap the dashboard layout in a React Error Boundary:
-```typescript
-// src/components/error-boundary.tsx
-// Catches render errors, shows fallback UI with "Retry" button
-```
-
----
-
-## 9. Security
-
-### 9.1 Authentication
-
-- `AUTH_PASSWORD` env var — never exposed to client
-- Password compared using timing-safe comparison (`crypto.timingSafeEqual`)
-- Auth token cookie: `httpOnly`, `secure` (in production), `sameSite: lax`, 30-day max-age
-- Token is a random UUID generated on login, stored as-is (no JWT needed for MVP)
-- Middleware checks cookie on every request except `/login` and `/api/auth/login`
-
-### 9.2 Data isolation
-
-- Every database query includes `WHERE profileId = ?`
-- Profile ID comes from cookie (set during profile selection)
-- No cross-profile data leakage possible — all queries scoped
-
-### 9.3 Input sanitization
-
-- All user inputs validated with Zod before DB operations
-- Prisma parameterized queries (no SQL injection possible)
-- URLs validated as proper format before storing
-- XSS prevention: React auto-escapes output. No `dangerouslySetInnerHTML` anywhere
-
-### 9.4 Rate limiting
-
-- Not needed for MVP (5 users max)
-- For SaaS: add rate limiting middleware using `@upstash/ratelimit`
-
-### 9.5 Environment variables
-
-```env
-# .env.local
-DATABASE_URL="postgresql://..."     # Supabase connection string
-AUTH_PASSWORD="your-password-here"  # Shared access password
-NODE_ENV="development"
-```
-
----
-
-## 10. Performance
-
-### 10.1 Database
-
-- Indexes defined in Prisma schema on all query-hot fields (profileId, status, appliedDate)
-- Compound indexes for common filter combinations
-- Use Prisma `select` to fetch only needed fields (not full relations every time)
-- Analytics queries: aggregate at the API level, not fetch-all-then-compute
-
-### 10.2 Frontend
-
-- Use SWR or React Query for data fetching with caching
-- Optimistic updates for drag-and-drop and inline edits
-- Lazy load analytics charts (dynamic import)
-- Debounce search/filter inputs (300ms)
-- Skeleton loaders instead of spinners for page-level loading
-
-### 10.3 Vercel-specific
-
-- API routes run as serverless functions (cold start ~200ms)
-- Static pages (login) pre-rendered at build time
-- Images: none in MVP (no company logos — just text)
-
----
-
-## 11. Deployment
-
-### 11.1 Setup steps
-
-1. Create Supabase project → get DATABASE_URL (connection pooler string)
-2. Create Vercel project → link to GitHub repo
-3. Add env vars in Vercel: DATABASE_URL, AUTH_PASSWORD
-4. Run `npx prisma migrate deploy` (or set up in build command)
-5. Run `npx prisma db seed` (seeds default presets)
-6. Deploy
-
-### 11.2 Build command
+The one piece needing backend beyond CRUD. A stage block with the bell on stores `notify = true` and a `notifyAt` time. A Vercel Cron job runs once a day:
 
 ```json
-// package.json
+// vercel.json
 {
-  "scripts": {
-    "build": "prisma generate && next build",
-    "postinstall": "prisma generate",
-    "db:migrate": "prisma migrate deploy",
-    "db:seed": "prisma db seed",
-    "dev": "next dev"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  }
+  "crons": [{ "path": "/api/cron/reminders", "schedule": "0 7 * * *" }]
 }
 ```
 
-### 11.3 Vercel settings
+```ts
+// /api/cron/reminders
+// 1. verify CRON_SECRET header
+// 2. find PipelineStages where notify = true
+//    and scheduledDate is between now and now + 24h
+//    and not already notified
+// 3. for each stage, send via nodemailer + Gmail SMTP:
+//    subject: "Interview reminder — {companyName} {stageName} at {time}"
+// 4. mark as notified (metadata flag) to prevent double-send
+```
 
-- Framework: Next.js (auto-detected)
-- Build command: `npm run build`
-- Install command: `npm install`
-- Node.js version: 20.x
-
----
-
-## 12. Build order (sprint plan)
-
-### Week 1: Foundation + core CRUD
-
-**Day 1-2:**
-- Init Next.js project with TypeScript, Tailwind
-- Set up Prisma + connect to Supabase
-- Create schema, run initial migration
-- Seed default data
-- Set up General Sans font
-- Create globals.css with all CSS variables
-- Build base UI components (button, input, modal, badge)
-
-**Day 3-4:**
-- Auth: login page + middleware + cookie handling
-- Profile selection page
-- Dashboard layout: sidebar + main area
-- API: applications CRUD
-- Add Application modal with full form
-
-**Day 5-7:**
-- Kanban board with drag-and-drop
-- Application cards with proper display
-- Status transitions (drag between columns)
-- Activity log auto-generation
-
-### Week 2: Pipeline + detail view
-
-**Day 8-9:**
-- Application detail view (slide-over panel or dedicated page)
-- Pipeline stages: display, add, edit, reorder
-- Stage status transitions with auto-calculations
-- Pipeline templates
-
-**Day 10-11:**
-- Contacts CRUD in detail view
-- Documents CRUD in detail view
-- Company link display (external link icon)
-
-**Day 12-14:**
-- Table/list view with sorting and filtering
-- Inline editing in table
-- Bulk actions
-- Save for later / wishlist functionality with deadlines
-
-### Week 3: Analytics + polish
-
-**Day 15-17:**
-- Analytics API (aggregation queries)
-- Stat cards
-- Funnel chart, source effectiveness, timeline chart, status donut
-- Clickable stats → filtered table
-
-**Day 18-19:**
-- Global activity timeline page
-- Settings page (profile, templates, preferences, theme toggle)
-- Ghosted auto-detection
-
-**Day 20-21:**
-- Polish: transitions, loading states, error handling
-- Mobile responsiveness (sidebar collapses)
-- Deploy to Vercel
-- Send to 4 friends for testing
+> A daily 7am check covering next-day events is enough for this scale. No queuing library needed.
 
 ---
 
-## 13. SaaS migration notes (for later)
+## 9. API surface
 
-When ready to convert to SaaS:
+**Conventions:**
 
-1. **Auth:** Replace env password with NextAuth or Supabase Auth (Google, GitHub, email/magic link)
-2. **Profiles → Users:** Rename Profile model to User, add email field, link to auth provider
-3. **Multi-tenancy:** Already scoped by profileId — just rename to userId
-4. **Billing:** Add Stripe integration for premium features
-5. **Browser extension:** Chrome extension that clips jobs from LinkedIn, RoosterJob, etc.
-6. **Public features:** Anonymous interview experience sharing per company
-7. **Email notifications:** Follow-up reminders, deadline alerts
-8. **Resume management:** File uploads to Supabase Storage
-9. **Domain:** Get a proper domain, set up on Vercel
+- All routes under `/api/`
+- Success: `{ data: ... }` · Error: `{ error: { message, code } }`
+- HTTP: 200 / 201 / 400 / 401 / 404 / 500
+- Profile id from `auth-token` cookie via `getProfile()` helper
+- All mutations auto-write an `Activity` entry
+- Input validation with Zod
 
-**Schema changes for SaaS = minimal.** The MVP schema is already designed for multi-user isolation. The only model change is Profile → User with auth fields added.
+```
+GET  POST              /api/applications                list (with filters) / create
+GET  PATCH  DELETE     /api/applications/:id            single
+GET  POST              /api/applications/:id/stages     list / add stage
+PATCH DELETE           /api/applications/:id/stages/:sid   edit / remove
+POST                   /api/applications/:id/stages/reorder  persist drag order
+GET  POST              /api/applications/:id/contacts
+GET  POST              /api/applications/:id/documents
+GET                    /api/applications/:id/activity
+
+GET                    /api/analytics                   aggregated stats
+GET                    /api/calendar                    dated stages + deadlines
+
+GET  POST              /api/templates/email             email templates list / upsert
+PATCH DELETE           /api/templates/email/[id]        edit / delete an email template
+PATCH                  /api/templates/email/reorder     persist drag order ({orderedIds})
+GET  POST  DELETE      /api/templates/pipeline          pipeline templates CRUD
+GET                    /api/profile                     current profile (name for {myName})
+
+GET  POST              /api/presets/sources
+GET  POST              /api/presets/job-types
+
+POST                   /api/auth/login
+GET                    /api/cron/reminders              (cron only, secret header)
+```
 
 ---
 
-## 14. Open questions / decisions for builder
+## 10. Security & performance (MVP)
 
-These are pre-answered so the AI agent doesn't need to ask:
+### Security
 
-| Question | Decision |
-|----------|----------|
-| Detail view: slide-over or separate page? | Slide-over panel (right side, 60% width) for quick editing. Full page if needed later |
-| Kanban: horizontal scroll or wrap? | Horizontal scroll with all columns visible. Min column width 240px |
-| Table: client-side or server-side pagination? | Server-side (API supports ?page=&limit=). Default 25 per page |
-| Date format | "Mar 8, 2026" for display, ISO strings for API/DB |
-| Time format | Relative ("5 days ago") with absolute on hover tooltip |
-| Theme default | Dark mode (matches Orchestra reference) |
-| Toast position | Bottom-right, stacked |
-| Empty states | Show helpful illustration + CTA. "No applications yet — add your first one!" |
-| Mobile support | Responsive but not mobile-first. Sidebar collapses to hamburger |
-| Keyboard shortcuts | Not in MVP |
+- `AUTH_PASSWORD` never sent to client; timing-safe comparison (`crypto.timingSafeEqual`)
+- `auth-token` cookie: `httpOnly`, `secure` (production), `sameSite: lax`, 30-day max-age
+- Every query scoped by `profileId` — no cross-profile data leakage possible
+- Cron route guarded by `CRON_SECRET` header
+- Zod validation on all inputs; Prisma parameterized queries (no SQL injection); React auto-escaping
+
+### Performance
+
+- Indexes on `(profileId, status)` and stage ordering
+- Fetch only needed fields with Prisma `select`
+- Analytics aggregated server-side, not fetch-all-then-compute
+- Optimistic drag updates (revert on failure)
+- Debounced filter inputs (300ms)
+- Skeleton loaders for initial load; lazy-loaded charts (`dynamic` import)
 
 ---
 
-*End of PRD. This document contains everything needed to build the complete MVP.*
+## 11. SaaS path (later)
+
+The schema is already multi-tenant by `profileId`. To go SaaS:
+
+1. **Auth:** swap env-password middleware for NextAuth or Supabase Auth (Google, GitHub, email)
+2. **Users:** rename `Profile` → `User`, add `email` + provider fields
+3. **Billing:** Stripe integration for premium tiers
+4. **Browser clipper:** Chrome extension that saves postings from LinkedIn / RoosterJob directly
+5. **CV uploads:** Supabase Storage instead of links
+6. **Public data:** per-company interview-experience sharing
+7. **More notifications:** email reminders for deadlines, weekly digest
+
+**Schema changes needed: minimal.** MVP is already designed for multi-user isolation.
+
+---
+
+_End of PRD v2.0 — build the UI first, make it calm, ship to friends._

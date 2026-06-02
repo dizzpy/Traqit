@@ -18,7 +18,7 @@ export function Header({ title, onAdd, addLabel = "Add Application", actions }: 
       <div className="flex items-center gap-2">
         {actions}
         {onAdd && (
-          <Button variant="cta" size="sm" onClick={onAdd}>
+          <Button variant="default" size="sm" onClick={onAdd}>
             <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2} />
             {addLabel}
           </Button>

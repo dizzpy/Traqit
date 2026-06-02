@@ -3,16 +3,22 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { cached, invalidate, cacheKey, TTL } from "@/lib/redis";
 
 export async function GET() {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
 
-  const types = await prisma.jobType.findMany({
-    where: { profileId: profile.id },
-    orderBy: [{ usageCount: "desc" }, { name: "asc" }],
-  });
-  return NextResponse.json({ data: types });
+  const types = await cached(cacheKey.jobTypes(profile.id), TTL.PRESETS, () =>
+    prisma.jobType.findMany({
+      where: { profileId: profile.id },
+      orderBy: [{ usageCount: "desc" }, { name: "asc" }],
+    })
+  );
+  return NextResponse.json(
+    { data: types },
+    { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } }
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -28,5 +34,6 @@ export async function POST(req: NextRequest) {
     update: {},
     create: { profileId: profile.id, name: parsed.data.name },
   });
+  await invalidate(cacheKey.jobTypes(profile.id));
   return NextResponse.json({ data: jobType }, { status: 201 });
 }

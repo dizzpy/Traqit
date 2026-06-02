@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { invalidateAppData } from "@/lib/redis";
 
 const updateSchema = z.object({
   name: z.string().optional(),
@@ -58,6 +59,7 @@ export async function PATCH(
       },
     });
 
+    await invalidateAppData(profile.id);
     return NextResponse.json({ data: updated });
   } catch (err) {
     console.error(err);
@@ -76,6 +78,10 @@ export async function DELETE(
   const app = await prisma.application.findFirst({ where: { id, profileId: profile.id } });
   if (!app) return apiError("Not found", "NOT_FOUND", 404);
 
-  await prisma.pipelineStage.delete({ where: { id: stageId } });
+  // Scope the delete to this application so a stage from another app can't be
+  // removed by passing an owned app id with a foreign stageId.
+  const { count } = await prisma.pipelineStage.deleteMany({ where: { id: stageId, applicationId: id } });
+  if (count === 0) return apiError("Stage not found", "NOT_FOUND", 404);
+  await invalidateAppData(profile.id);
   return NextResponse.json({ data: { ok: true } });
 }

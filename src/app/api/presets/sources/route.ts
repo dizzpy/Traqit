@@ -3,16 +3,22 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { cached, invalidate, cacheKey, TTL } from "@/lib/redis";
 
 export async function GET() {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
 
-  const sources = await prisma.source.findMany({
-    where: { profileId: profile.id },
-    orderBy: [{ usageCount: "desc" }, { name: "asc" }],
-  });
-  return NextResponse.json({ data: sources });
+  const sources = await cached(cacheKey.sources(profile.id), TTL.PRESETS, () =>
+    prisma.source.findMany({
+      where: { profileId: profile.id },
+      orderBy: [{ usageCount: "desc" }, { name: "asc" }],
+    })
+  );
+  return NextResponse.json(
+    { data: sources },
+    { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } }
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -28,5 +34,6 @@ export async function POST(req: NextRequest) {
     update: {},
     create: { profileId: profile.id, name: parsed.data.name },
   });
+  await invalidate(cacheKey.sources(profile.id));
   return NextResponse.json({ data: source }, { status: 201 });
 }

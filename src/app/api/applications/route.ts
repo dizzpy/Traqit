@@ -3,15 +3,17 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
+import { cached, cacheKey, invalidate, invalidateAppData, TTL } from "@/lib/redis";
 
 const createSchema = z.object({
   companyName: z.string().min(1).max(100),
-  companyUrl: z.string().url().optional().nullable(),
-  position: z.string().min(1).max(100),
-  jobPostUrl: z.string().url().optional().nullable(),
-  jobType: z.string().min(1),
-  workMode: z.enum(["on-site", "remote", "hybrid", "no-data"]),
-  appliedVia: z.string().min(1),
+  companyUrl: z.string().optional().nullable(),
+  // position/jobType/appliedVia can be filled in later (Notion-style quick add).
+  position: z.string().max(100).optional().default(""),
+  jobPostUrl: z.string().optional().nullable(),
+  jobType: z.string().optional().default(""),
+  workMode: z.enum(["on-site", "remote", "hybrid", "no-data"]).default("no-data"),
+  appliedVia: z.string().optional().default(""),
   salaryMin: z.number().optional().nullable(),
   salaryMax: z.number().optional().nullable(),
   currency: z.string().default("LKR"),
@@ -30,6 +32,33 @@ const include = {
   activityLog: { orderBy: { createdAt: "desc" as const }, take: 20 },
 };
 
+// List view renders summary fields + the pipeline stages only. Contacts,
+// documents and activity are fetched on demand by the detail panel
+// (GET /api/applications/[id]), so we omit those heavy relations here.
+const listSelect = {
+  id: true,
+  profileId: true,
+  companyName: true,
+  companyUrl: true,
+  position: true,
+  jobPostUrl: true,
+  jobType: true,
+  workMode: true,
+  appliedVia: true,
+  salaryMin: true,
+  salaryMax: true,
+  currency: true,
+  location: true,
+  status: true,
+  appliedDate: true,
+  firstResponseDate: true,
+  deadline: true,
+  notes: true,
+  createdAt: true,
+  updatedAt: true,
+  stages: { orderBy: { order: "asc" as const } },
+};
+
 export async function GET(req: NextRequest) {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
@@ -44,6 +73,9 @@ export async function GET(req: NextRequest) {
   const order = (searchParams.get("order") ?? "desc") as "asc" | "desc";
   const page = parseInt(searchParams.get("page") ?? "1");
   const limit = parseInt(searchParams.get("limit") ?? "25");
+  // ?full=1 returns the complete nested object (contacts/documents/activity) —
+  // used by the data export. The default list view stays trimmed for speed.
+  const full = searchParams.get("full") === "1";
 
   const where: Record<string, unknown> = { profileId: profile.id };
 
@@ -60,18 +92,50 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  const [apps, total] = await Promise.all([
-    prisma.application.findMany({
-      where,
-      include,
-      orderBy: { [sort]: order },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.application.count({ where }),
-  ]);
+  const findArgs = {
+    where,
+    orderBy: { [sort]: order },
+    skip: (page - 1) * limit,
+    take: limit,
+  };
 
-  return NextResponse.json({ data: apps, total, page, limit });
+  const queryDb = async () => {
+    const [apps, total] = await Promise.all([
+      full
+        ? prisma.application.findMany({ ...findArgs, include })
+        : prisma.application.findMany({ ...findArgs, select: listSelect }),
+      prisma.application.count({ where }),
+    ]);
+    return { data: apps, total };
+  };
+
+  // The full export is rare and large — never cache it. The trimmed list is
+  // cached per normalized query string (filters + sort + page) under APPS_LIST.
+  const result = full
+    ? await queryDb()
+    : await cached(
+        cacheKey.apps(
+          profile.id,
+          new URLSearchParams({
+            status: status ?? "",
+            source: source ?? "",
+            workMode: workMode ?? "",
+            from: from ?? "",
+            to: to ?? "",
+            sort,
+            order,
+            page: String(page),
+            limit: String(limit),
+          }).toString()
+        ),
+        TTL.APPS_LIST,
+        queryDb
+      );
+
+  return NextResponse.json(
+    { ...result, page, limit },
+    { headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" } }
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -87,50 +151,46 @@ export async function POST(req: NextRequest) {
 
     const { templateId, ...data } = parsed.data;
 
-    const app = await prisma.application.create({
-      data: {
-        ...data,
-        profileId: profile.id,
-        appliedDate: data.appliedDate ? new Date(data.appliedDate) : null,
-        deadline: data.deadline ? new Date(data.deadline) : null,
-        activityLog: {
-          create: {
-            type: "created",
-            description: "Application created",
-          },
-        },
-      },
-      include,
-    });
-
-    // Create stages from template if provided
+    // Resolve template stages up front so the application + its stages + the
+    // activity entry can all be created in a single round trip via nested writes.
+    let stageNames: string[] = [];
     if (templateId) {
       const template = await prisma.pipelineTemplate.findFirst({
         where: { id: templateId, profileId: profile.id },
       });
-      if (template) {
-        const stages = template.stages as string[];
-        await prisma.pipelineStage.createMany({
-          data: stages.map((name, i) => ({
-            applicationId: app.id,
-            name,
-            order: i + 1,
-          })),
-        });
-        // Bump source usage
-        await prisma.source.updateMany({
-          where: { profileId: profile.id, name: data.appliedVia },
-          data: { usageCount: { increment: 1 } },
-        });
-      }
+      if (template) stageNames = template.stages as string[];
     }
 
-    const final = await prisma.application.findUnique({
-      where: { id: app.id },
-      include,
-    });
+    // Create the application (with stages + activity nested) and bump the source
+    // usage in parallel — the source update doesn't depend on the new app.
+    const [app] = await Promise.all([
+      prisma.application.create({
+        data: {
+          ...data,
+          profileId: profile.id,
+          appliedDate: data.appliedDate ? new Date(data.appliedDate) : null,
+          deadline: data.deadline ? new Date(data.deadline) : null,
+          activityLog: {
+            create: { type: "created", description: "Application created" },
+          },
+          ...(stageNames.length > 0
+            ? { stages: { create: stageNames.map((name, i) => ({ name, order: i + 1 })) } }
+            : {}),
+        },
+        include,
+      }),
+      stageNames.length > 0
+        ? prisma.source.updateMany({
+            where: { profileId: profile.id, name: data.appliedVia },
+            data: { usageCount: { increment: 1 } },
+          })
+        : Promise.resolve(),
+    ]);
 
-    return NextResponse.json({ data: final }, { status: 201 });
+    await invalidateAppData(profile.id);
+    // A used template bumps the source's usageCount, changing the sources order.
+    if (stageNames.length > 0) await invalidate(cacheKey.sources(profile.id));
+    return NextResponse.json({ data: app }, { status: 201 });
   } catch (err) {
     console.error(err);
     return apiError("Server error", "SERVER_ERROR", 500);

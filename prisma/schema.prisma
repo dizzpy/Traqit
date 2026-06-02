@@ -9,13 +9,23 @@ datasource db {
 // ─── PROFILES ───────────────────────────────────────────────────────────────
 model Profile {
   id                String             @id @default(cuid())
-  name              String             @unique
+  userId            String             @unique // Supabase auth user UUID
+  email             String             @unique
+  name              String
+  defaultCurrency   String             @default("LKR")
+  defaultPipelineTemplateId String?    // pre-selected template in the Add form
+  ghostThresholdDays Int               @default(14) // days of silence before a job reads as "ghosting"
+  emailName         String?            // name used for the {myName} placeholder in email templates
+  remindersEnabled  Boolean            @default(false) // email me before scheduled interviews
+  reminderLeadTime  Int                @default(24) // hours before a scheduled stage to remind
+  onboardedAt       DateTime?          // set when the guided onboarding flow is completed; null = not yet onboarded
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   applications      Application[]
   customSources     Source[]
   customTypes       JobType[]
   pipelineTemplates PipelineTemplate[]
+  emailTemplates    EmailTemplate[]
 }
 
 // ─── APPLICATIONS ────────────────────────────────────────────────────────────
@@ -57,6 +67,7 @@ model Application {
   @@index([profileId])
   @@index([profileId, status])
   @@index([profileId, appliedDate])
+  @@index([profileId, createdAt])
 }
 
 enum ApplicationStatus {
@@ -178,6 +189,21 @@ model PipelineTemplate {
   stages    Json
   isDefault Boolean  @default(false)
 
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, name])
+}
+
+// ─── EMAIL TEMPLATE ──────────────────────────────────────
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name      String
+  subject   String
+  body      String
+  category  String   @default("General")
+  order     Int      @default(0)
   createdAt DateTime @default(now())
 
   @@unique([profileId, name])

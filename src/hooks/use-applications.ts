@@ -23,15 +23,42 @@ export function useApplications(opts: UseApplicationsOptions = {}) {
   if (opts.limit) params.set("limit", String(opts.limit));
 
   const url = `/api/applications?${params.toString()}`;
-  const { data, error, isLoading } = useSWR<{ data: Application[]; total: number }>(url, fetcher);
+  const { data, error, isLoading, mutate } = useSWR<{ data: Application[]; total: number }>(url, fetcher);
 
   return {
     applications: data?.data ?? [],
     total: data?.total ?? 0,
     isLoading,
     error,
-    mutate: () => globalMutate((key: string) => typeof key === "string" && key.startsWith("/api/applications")),
+    /** Bound SWR mutate for THIS key — pass optimistic data for instant UI. */
+    mutate,
+    /** Invalidate every `/api/applications*` key (use after writes that touch nested data). */
+    revalidateAll: () =>
+      globalMutate((key) => typeof key === "string" && key.startsWith("/api/applications")),
   };
+}
+
+/** Trimmed application shape returned by /api/applications/search (pickers). */
+export interface ComposeApplication {
+  id: string;
+  companyName: string;
+  position: string;
+  jobPostUrl: string | null;
+  status: ApplicationStatus;
+  contacts: { id: string; name: string; email: string | null; role: string }[];
+}
+
+/**
+ * Lightweight application list for the email-template compose/preview pickers.
+ * Replaces the old `useApplications({ limit: 1000 })` heavy fetch.
+ */
+export function useComposeApplications() {
+  const { data, error, isLoading } = useSWR<{ data: ComposeApplication[] }>(
+    "/api/applications/search",
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  return { applications: data?.data ?? [], isLoading, error };
 }
 
 export function useApplication(id: string | null) {
