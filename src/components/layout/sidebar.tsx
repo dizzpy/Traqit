@@ -10,7 +10,6 @@ import {
   BarChartIcon,
   Mail01Icon,
   Settings01Icon,
-  Briefcase01Icon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -19,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useShortcutHints } from "@/hooks/use-shortcut-hints";
 import { Kbd } from "@/components/ui/kbd";
+import { Logo } from "@/components/common/logo";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
@@ -132,7 +132,7 @@ export function Sidebar() {
           className={cn("flex items-center gap-2.5 min-w-0", !collapsed && "pl-2")}
         >
           <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={Briefcase01Icon} size={14} className="text-white" strokeWidth={1.5} />
+            <Logo size={15} className="text-white" />
           </div>
           {!collapsed && (
             <span

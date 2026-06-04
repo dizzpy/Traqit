@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { ArrowRight, ArrowLeft, Check } from "lucide-react";
-import { Briefcase01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +12,7 @@ import { createApplication } from "@/hooks/use-applications";
 import { useSources } from "@/hooks/use-presets";
 import { appPath } from "@/lib/urls";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/common/logo";
 
 interface TemplateOption {
   id: string;
@@ -141,7 +140,7 @@ export function OnboardingFlow({
       <aside className="hidden md:flex w-70 shrink-0 flex-col border-r border-border px-7 py-8">
         <div className="flex items-center gap-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent">
-            <HugeiconsIcon icon={Briefcase01Icon} size={14} strokeWidth={1.5} className="text-white" />
+            <Logo size={15} className="text-white" />
           </div>
           <span className="text-sm font-semibold text-text-primary" style={{ fontFamily: "var(--font-family-display)" }}>
             Traqit
