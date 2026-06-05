@@ -8,6 +8,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { APP_URL } from "@/lib/urls";
 import { SeeHowItWorksButton } from "@/components/marketing/see-how-it-works-button";
+import { HeroPreview } from "@/components/marketing/hero-preview";
 
 const PROBLEMS: { icon: IconSvgElement; text: string }[] = [
   {
@@ -46,30 +47,36 @@ export function Landing() {
   return (
     <div className="w-full">
       {/* Section 1 — Hero */}
-      <section className="relative flex flex-col items-center justify-center text-center px-6 min-h-[calc(100vh-68px)] overflow-hidden">
-        {/* Single allowed glow: --accent at 8% behind the hero text. */}
+      <section className="relative mx-auto mt-32 max-w-7xl px-6 text-center md:px-8">
+        {/* Radial glow behind the text */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 -z-10"
           style={{
             background:
-              "radial-gradient(circle at 50% 38%, color-mix(in oklab, var(--accent) 8%, transparent), transparent 60%)",
+              "radial-gradient(circle at 50% 38%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 65%)",
           }}
         />
 
+        {/* Heading */}
         <h1
-          className="text-[32px] sm:text-4xl lg:text-5xl font-semibold text-text-primary leading-[1.1] tracking-[-0.02em] max-w-2xl text-balance"
+          className="-translate-y-4 animate-fade-in opacity-0 [--animation-delay:0ms] mt-6 text-balance bg-gradient-to-br from-[#f6f5fa] from-30% to-[#c4b5fd]/60 bg-clip-text py-2 text-5xl font-semibold leading-none tracking-tighter text-transparent sm:text-6xl md:text-7xl"
           style={{ fontFamily: "var(--font-family-display)" }}
         >
-          Track every application. Nail every interview.
+          Track every application.
+          <br className="hidden md:block" />
+          Nail every interview.
         </h1>
 
-        <p className="mt-5 text-lg text-text-secondary max-w-125 leading-relaxed">
+        {/* Subtitle */}
+        <p className="-translate-y-4 animate-fade-in opacity-0 [--animation-delay:200ms] mb-12 mt-6 text-balance text-lg tracking-tight text-text-secondary md:text-xl">
           Traqit is a job tracker built for SE students — with custom interview
+          <br className="hidden md:block" />
           pipelines for every company, not a one-size-fits-all status column.
         </p>
 
-        <div className="mt-9 flex flex-col sm:flex-row items-center gap-3">
+        {/* CTAs */}
+        <div className="-translate-y-4 animate-fade-in opacity-0 [--animation-delay:400ms] flex flex-col sm:flex-row items-center justify-center gap-3">
           <a
             href={`${APP_URL}/login`}
             className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-[11px] bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-hover hover:-translate-y-0.5 transition-all duration-150"
@@ -78,10 +85,13 @@ export function Landing() {
           </a>
           <SeeHowItWorksButton />
         </div>
+
+        {/* Dashboard preview */}
+        <HeroPreview />
       </section>
 
       {/* Section 2 — The problem */}
-      <section className="max-w-5xl mx-auto px-6 py-20 md:py-28">
+      <section id="how-it-works" className="max-w-5xl mx-auto px-6 py-20 md:py-28 scroll-mt-20">
         <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-start">
           <h2
             className="text-2xl sm:text-3xl font-semibold text-text-primary leading-[1.15] tracking-[-0.01em]"
