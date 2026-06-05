@@ -6,13 +6,13 @@
 
 /** Single-key → route map for navigation shortcuts. */
 export const ROUTE_SHORTCUTS: Record<string, string> = {
-  a: "/applications",
-  s: "/saved",
-  c: "/calendar",
-  g: "/analytics",
-  t: "/templates",
-  p: "/profile",
-  ",": "/settings",
+  a: "/app/applications",
+  s: "/app/saved",
+  c: "/app/calendar",
+  g: "/app/analytics",
+  t: "/app/templates",
+  p: "/app/profile",
+  ",": "/app/settings",
 };
 
 export interface ShortcutItem {

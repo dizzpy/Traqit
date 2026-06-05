@@ -62,11 +62,11 @@ export function KeyboardShortcuts() {
       switch (key) {
         case "n":
           e.preventDefault();
-          runAction("new-application", "/applications");
+          runAction("new-application", "/app/applications");
           break;
         case "b":
           e.preventDefault();
-          runAction("save-job", "/saved");
+          runAction("save-job", "/app/saved");
           break;
         case "/": {
           const input = document.querySelector<HTMLInputElement>('input[data-search="true"]');

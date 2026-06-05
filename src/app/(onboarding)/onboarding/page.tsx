@@ -13,8 +13,8 @@ export const metadata = { title: "Welcome to Traqit" };
  */
 export default async function OnboardingPage() {
   const profile = await getProfile();
-  if (!profile) redirect(appPath("/login"));
-  if (profile.onboardedAt) redirect(appPath("/applications"));
+  if (!profile) redirect("/login");
+  if (profile.onboardedAt) redirect("/app/applications");
 
   const templates = await prisma.pipelineTemplate.findMany({
     where: { profileId: profile.id },

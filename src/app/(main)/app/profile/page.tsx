@@ -435,7 +435,7 @@ export default function ProfilePage() {
         onClose={() => setWipeOpen(false)}
         onWiped={() => {
           setWipeOpen(false);
-          window.location.href = appPath("/applications");
+          window.location.href = appPath("/app/applications");
         }}
       />
     </div>

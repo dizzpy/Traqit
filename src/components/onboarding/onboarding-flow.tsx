@@ -127,7 +127,7 @@ export function OnboardingFlow({
     try {
       await updateProfile({ onboardedAt: new Date().toISOString() });
       // Full navigation so the gated (main) layout re-reads the fresh profile.
-      window.location.assign(appPath("/applications"));
+      window.location.assign(appPath("/app/applications"));
     } catch {
       toast.error("Couldn't finish setup. Try again.");
       setSaving(false);
@@ -139,9 +139,7 @@ export function OnboardingFlow({
       {/* ── Left: step tracker (desktop) ─────────────────────────────────── */}
       <aside className="hidden md:flex w-70 shrink-0 flex-col border-r border-border px-7 py-8">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent">
-            <Logo size={15} className="text-white" />
-          </div>
+          <Logo size={22} className="text-white" />
           <span className="text-sm font-semibold text-text-primary" style={{ fontFamily: "var(--font-family-display)" }}>
             Traqit
           </span>

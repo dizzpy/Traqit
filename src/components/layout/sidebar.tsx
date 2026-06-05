@@ -22,11 +22,11 @@ import { Logo } from "@/components/common/logo";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
-  { href: "/applications", label: "Applications", icon: LayoutGridIcon, shortcut: "a" },
-  { href: "/saved",        label: "Saved jobs",   icon: BookmarkIcon,   shortcut: "s" },
-  { href: "/calendar",     label: "Calendar",     icon: Calendar01Icon, shortcut: "c" },
-  { href: "/analytics",    label: "Analytics",    icon: BarChartIcon,   shortcut: "g" },
-  { href: "/templates",    label: "Email templates", icon: Mail01Icon,  shortcut: "t" },
+  { href: "/app/applications", label: "Applications", icon: LayoutGridIcon, shortcut: "a" },
+  { href: "/app/saved",        label: "Saved jobs",   icon: BookmarkIcon,   shortcut: "s" },
+  { href: "/app/calendar",     label: "Calendar",     icon: Calendar01Icon, shortcut: "c" },
+  { href: "/app/analytics",    label: "Analytics",    icon: BarChartIcon,   shortcut: "g" },
+  { href: "/app/templates",    label: "Email templates", icon: Mail01Icon,  shortcut: "t" },
 ];
 
 const STORAGE_KEY = "it-sidebar-collapsed";
@@ -128,12 +128,10 @@ export function Sidebar() {
         )}
       >
         <Link
-          href="/applications"
+          href="/app/applications"
           className={cn("flex items-center gap-2.5 min-w-0", !collapsed && "pl-2")}
         >
-          <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center shrink-0">
-            <Logo size={15} className="text-white" />
-          </div>
+          <Logo size={22} className="text-white shrink-0" />
           {!collapsed && (
             <span
               className="text-sm font-semibold text-text-primary truncate"
@@ -185,12 +183,12 @@ export function Sidebar() {
       {/* Settings — bottom-aligned, styled like the top nav items */}
       <div className="px-3 pb-2">
         <Link
-          href="/settings"
+          href="/app/settings"
           title={collapsed ? "Settings" : undefined}
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150",
             collapsed && "justify-center px-0",
-            pathname === "/settings" || pathname.startsWith("/settings/")
+            pathname === "/app/settings" || pathname.startsWith("/app/settings/")
               ? "bg-surface-hover text-text-primary"
               : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
           )}
@@ -209,7 +207,7 @@ export function Sidebar() {
         )}
       >
         <Link
-          href="/profile"
+          href="/app/profile"
           title="My profile"
           className={cn(
             "flex items-center gap-2 min-w-0 rounded-lg transition-colors duration-150 hover:bg-surface-hover",

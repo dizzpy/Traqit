@@ -6,14 +6,11 @@ import { appPath } from "@/lib/urls";
 /**
  * OAuth / magic-link callback. Supabase redirects here with a `code` which we
  * exchange for a session (PKCE), then create the user's profile on first login.
- *
- * Always lands on the app subdomain (appPath) — the session cookie belongs to
- * `app.traqit.*`, so redirecting anywhere else would drop the user.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/applications";
+  const next = searchParams.get("next") ?? "/app/applications";
 
   if (!code) {
     return NextResponse.redirect(appPath("/login?error=auth"));

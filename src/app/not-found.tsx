@@ -15,7 +15,7 @@ export default function NotFound() {
         </p>
       </div>
       <Link
-        href="/applications"
+        href="/app/applications"
         className={buttonVariants({ variant: "secondary", size: "sm" })}
       >
         Back to applications
