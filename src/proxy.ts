@@ -4,8 +4,15 @@ import { updateSession } from "@/lib/supabase/middleware";
 // Paths reachable without an authenticated session.
 const PUBLIC_PATHS = ["/", "/login", "/auth", "/preview-landing"];
 
+// Static asset files (images, fonts, etc.) are always public. Next's image
+// optimizer fetches these source URLs through the middleware, so gating them
+// breaks <Image> on the marketing pages for signed-out visitors.
+const PUBLIC_FILE =
+  /\.(?:png|jpe?g|gif|svg|webp|avif|ico|css|js|map|woff2?|ttf|otf|eot|mp4|webm|txt|xml|json)$/i;
+
 function isPublic(pathname: string) {
   return (
+    PUBLIC_FILE.test(pathname) ||
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/fonts") ||
