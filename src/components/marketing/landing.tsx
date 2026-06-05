@@ -8,6 +8,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { APP_URL } from "@/lib/urls";
 import { HeroPreview } from "@/components/marketing/hero-preview";
+import { Particles } from "@/components/ui/particles";
 
 const PROBLEMS: { icon: IconSvgElement; text: string }[] = [
   {
@@ -45,19 +46,33 @@ const FEATURES: { icon: IconSvgElement; title: string; body: string }[] = [
 export function Landing() {
   return (
     <div className="w-full">
-      {/* Section 1 — Hero */}
-      <section className="relative mx-auto mt-32 max-w-7xl px-6 text-center md:px-8">
-        {/* Radial glow behind the text */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background:
-              "radial-gradient(circle at 50% 38%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 65%)",
-          }}
+      {/* Hero wrapper — isolates the particle layer so it sits behind the hero
+          content but above the page background, and fades at the edges via a
+          mask so there's no visible canvas box. */}
+      <div className="relative isolate pt-32">
+        {/* Particles spanning the full hero area */}
+        <Particles
+          className="pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_75%_65%_at_50%_42%,black_45%,transparent_92%)]"
+          quantity={180}
+          staticity={60}
+          ease={70}
+          size={0.5}
+          color="#c4b5fd"
         />
 
-        {/* Pill banner */}
+        {/* Section 1 — Hero */}
+        <section className="relative mx-auto max-w-7xl px-6 text-center md:px-8">
+          {/* Radial glow behind the text */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10"
+            style={{
+              background:
+                "radial-gradient(circle at 50% 38%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 65%)",
+            }}
+          />
+
+          {/* Pill banner */}
         <div className="relative z-10 -translate-y-4 animate-fade-in opacity-0 [--animation-delay:0ms] flex justify-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-text-secondary backdrop-blur-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
@@ -87,7 +102,8 @@ export function Landing() {
 
         {/* Dashboard preview */}
         <HeroPreview />
-      </section>
+        </section>
+      </div>
 
       {/* Section 2 — The problem */}
       <section id="how-it-works" className="max-w-5xl mx-auto px-6 py-20 md:py-28 scroll-mt-20">

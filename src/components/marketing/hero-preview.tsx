@@ -33,7 +33,7 @@ export function HeroPreview() {
       {/* Violet laser-flow beam descending into the top edge of the preview.
           Canvas renders on black, so `screen` blend drops the black and keeps
           only the light. Bright base lands just above the dashboard's top. */}
-      <div className="pointer-events-none absolute inset-x-0 -top-[346px] -z-10 h-[640px] mix-blend-screen">
+      <div className="pointer-events-none absolute inset-x-0 -top-[346px] -z-10 h-[640px] mix-blend-screen [mask-image:linear-gradient(to_bottom,transparent_0%,black_28%)]">
         <LaserFlow
           color="#8b5cf6"
           verticalBeamOffset={-0.04}
