@@ -1,9 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { motion, AnimatePresence } from "motion/react"
+import { useRef, useState, startTransition } from "react"
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent } from "motion/react"
 import { cn } from "@/lib/utils"
-import { BlurFade } from "@/components/ui/blur-fade"
 import { MagicCard } from "@/components/ui/magic-card"
 import { NumberTicker } from "@/components/ui/number-ticker"
 import { AnimatedList } from "@/components/ui/animated-list"
@@ -407,78 +406,199 @@ const STEPS = [
   },
 ]
 
-export function HowItWorks() {
+// Smooth ease curve — feels like silk
+const EASE = [0.22, 1, 0.36, 1] as const
+
+// Per-step progress bar driven directly by scrollYProgress (no React state)
+function StepPill({
+  index,
+  scrollYProgress,
+  activeStep,
+}: {
+  index: number
+  scrollYProgress: ReturnType<typeof useScroll>["scrollYProgress"]
+  activeStep: number
+}) {
+  const n = STEPS.length
+  const fill = useTransform(scrollYProgress, [index / n, (index + 1) / n], [0, 1])
+  const width = useTransform(fill, [0, 0.01, 1], [6, 24, 24])
+
   return (
-    <section className="max-w-5xl mx-auto px-6 py-20 md:py-28">
-      {/* Header */}
-      <BlurFade inView delay={0}>
-        <div className="text-center mb-16 space-y-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/8 px-3 py-1 text-xs font-semibold text-accent">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            How it works
-          </span>
-          <h2
-            className="text-2xl sm:text-3xl md:text-4xl font-semibold text-text-primary tracking-[-0.02em] leading-[1.15]"
-            style={{ fontFamily: "var(--font-family-display)" }}
-          >
-            From saved to signed —
-            <br />
-            in four steps.
-          </h2>
-          <p className="text-sm text-text-secondary max-w-md mx-auto leading-relaxed">
-            No spreadsheets. No Notion databases. Just a calm, focused tracker
-            built around how internship hiring actually works.
-          </p>
+    <div className="flex items-center gap-2">
+      <span
+        className={cn(
+          "text-[10px] font-semibold transition-colors duration-500",
+          index === activeStep ? "text-accent" : "text-text-tertiary"
+        )}
+      >
+        {STEPS[index].number}
+      </span>
+      <motion.div
+        className="rounded-full bg-border overflow-hidden h-1.5"
+        style={{ width }}
+      >
+        <motion.div
+          className="h-full bg-accent rounded-full origin-left"
+          style={{ scaleX: fill }}
+        />
+      </motion.div>
+    </div>
+  )
+}
+
+export function HowItWorks() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [activeStep, setActiveStep] = useState(0)
+
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"],
+  })
+
+  // Clamp + debounce step changes with startTransition so scroll animation
+  // is never blocked by a React re-render
+  useMotionValueEvent(scrollYProgress, "change", (latest) => {
+    const next = Math.min(Math.floor(latest * STEPS.length), STEPS.length - 1)
+    if (next !== activeStep) {
+      startTransition(() => setActiveStep(next))
+    }
+  })
+
+  return (
+    <div ref={containerRef} style={{ height: `${(STEPS.length + 1) * 100}vh` }}>
+      <div className="sticky top-0 h-screen flex flex-col justify-center overflow-hidden">
+
+        {/* Ambient glow */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            background:
+              "radial-gradient(ellipse 60% 50% at 50% 50%, color-mix(in oklab, var(--accent) 6%, transparent), transparent 80%)",
+          }}
+        />
+
+        {/* Continuous progress bar — driven directly by scroll, perfectly smooth */}
+        <div className="absolute top-0 inset-x-0 h-px bg-border">
+          <motion.div
+            className="h-full bg-accent origin-left"
+            style={{ scaleX: scrollYProgress }}
+          />
         </div>
-      </BlurFade>
 
-      {/* Steps */}
-      <div className="space-y-14 md:space-y-20">
-        {STEPS.map((step, i) => (
-          <BlurFade key={step.number} inView delay={0.1 + i * 0.1}>
-            <div className="grid md:grid-cols-2 gap-8 md:gap-14 items-center">
-              {/* Step info — always first in DOM for mobile */}
-              <div
-                className={cn(
-                  "space-y-3",
-                  i % 2 !== 0 && "md:order-last"
-                )}
+        <div className="max-w-5xl mx-auto w-full px-6">
+          {/* Header row */}
+          <div className="flex items-center justify-between mb-10">
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/8 px-3 py-1 text-xs font-semibold text-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                How it works
+              </span>
+              <h2
+                className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-[-0.02em] leading-[1.15] mt-2"
+                style={{ fontFamily: "var(--font-family-display)" }}
               >
-                <span
-                  className="block text-6xl font-black leading-none select-none"
-                  style={{
-                    fontFamily: "var(--font-family-display)",
-                    color: "color-mix(in oklab, var(--accent) 18%, transparent)",
-                  }}
-                >
-                  {step.number}
-                </span>
-                <h3
-                  className="text-xl font-semibold text-text-primary tracking-[-0.01em]"
-                  style={{ fontFamily: "var(--font-family-display)" }}
-                >
-                  {step.title}
-                </h3>
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  {step.body}
-                </p>
-              </div>
-
-              {/* Interactive card */}
-              <div className={cn(i % 2 !== 0 && "md:order-first")}>
-                {step.card}
-              </div>
+                From saved to signed —
+                <br className="hidden sm:block" />
+                in four steps.
+              </h2>
             </div>
 
-            {/* Connector */}
-            {i < STEPS.length - 1 && (
-              <div className="hidden md:flex justify-center mt-14">
-                <div className="w-px h-10 bg-linear-to-b from-accent/20 to-transparent" />
-              </div>
-            )}
-          </BlurFade>
-        ))}
+            {/* Per-step pills — width driven by scroll motion value, zero re-renders */}
+            <div className="hidden md:flex flex-col gap-2.5 items-end">
+              {STEPS.map((_, i) => (
+                <StepPill
+                  key={i}
+                  index={i}
+                  scrollYProgress={scrollYProgress}
+                  activeStep={activeStep}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Step content */}
+          <div className="grid md:grid-cols-2 gap-8 md:gap-14 items-center">
+
+            {/* Left: step info */}
+            <div className="relative min-h-40">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeStep}
+                  initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -12, filter: "blur(6px)" }}
+                  transition={{
+                    duration: 0.5,
+                    ease: EASE,
+                    filter: { duration: 0.35 },
+                  }}
+                  className="space-y-3"
+                >
+                  <span
+                    className="block text-7xl font-black leading-none select-none"
+                    style={{
+                      fontFamily: "var(--font-family-display)",
+                      color: "color-mix(in oklab, var(--accent) 20%, transparent)",
+                    }}
+                  >
+                    {STEPS[activeStep].number}
+                  </span>
+                  <h3
+                    className="text-xl sm:text-2xl font-semibold text-text-primary tracking-[-0.01em]"
+                    style={{ fontFamily: "var(--font-family-display)" }}
+                  >
+                    {STEPS[activeStep].title}
+                  </h3>
+                  <p className="text-sm text-text-secondary leading-relaxed max-w-xs">
+                    {STEPS[activeStep].body}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Right: all cards always mounted — state preserved across steps */}
+            <div className="relative">
+              {STEPS.map((step, i) => (
+                <motion.div
+                  key={step.number}
+                  className={cn(
+                    "transition-none",
+                    i !== activeStep && "absolute inset-0 pointer-events-none"
+                  )}
+                  animate={{
+                    opacity: i === activeStep ? 1 : 0,
+                    scale: i === activeStep ? 1 : 0.96,
+                    y: i === activeStep ? 0 : 10,
+                    filter: i === activeStep ? "blur(0px)" : "blur(4px)",
+                  }}
+                  transition={{ duration: 0.5, ease: EASE }}
+                >
+                  {step.card}
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mobile step dots */}
+          <div className="flex gap-1.5 md:hidden mt-10">
+            {STEPS.map((_, i) => (
+              <motion.div
+                key={i}
+                className="h-1 rounded-full bg-border overflow-hidden"
+                animate={{ width: i === activeStep ? 16 : 6 }}
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+              >
+                <motion.div
+                  className="h-full bg-accent"
+                  animate={{ opacity: i === activeStep ? 1 : 0 }}
+                  transition={{ duration: 0.3 }}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   )
 }
