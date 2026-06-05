@@ -9,6 +9,7 @@ import {
 import { APP_URL } from "@/lib/urls";
 import { HeroPreview } from "@/components/marketing/hero-preview";
 import { Particles } from "@/components/ui/particles";
+import { HowItWorks } from "@/components/marketing/how-it-works";
 
 const PROBLEMS: { icon: IconSvgElement; text: string }[] = [
   {
@@ -93,7 +94,7 @@ export function Landing() {
           {/* CTA */}
           <div className="relative z-10 mt-10 mb-12 -translate-y-4 animate-fade-in opacity-0 [--animation-delay:300ms] flex justify-center">
             <a
-              href={`${APP_URL}/login`}
+              href="/login"
               className="inline-flex items-center justify-center gap-2 h-11 px-7 rounded-[11px] bg-white text-[#0b0a0e] text-sm font-semibold hover:-translate-y-0.5 hover:bg-white/90 transition-all duration-150"
             >
               Start for Free
@@ -105,7 +106,10 @@ export function Landing() {
         </section>
       </div>
 
-      {/* Section 2 — The problem */}
+      {/* Section 2 — How it works */}
+      <HowItWorks />
+
+      {/* Section 3 — The problem */}
       <section id="how-it-works" className="max-w-5xl mx-auto px-6 py-20 md:py-28 scroll-mt-20">
         <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-start">
           <h2
