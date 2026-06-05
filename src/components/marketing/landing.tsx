@@ -65,7 +65,7 @@ export function Landing() {
           {/* Radial glow behind the text */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 -z-10"
+            className="pointer-events-none absolute -top-32 -bottom-32 inset-x-0 -z-10"
             style={{
               background:
                 "radial-gradient(circle at 50% 38%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 65%)",

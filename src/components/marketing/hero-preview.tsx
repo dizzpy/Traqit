@@ -28,12 +28,12 @@ export function HeroPreview() {
   return (
     <div
       ref={ref}
-      className="relative mx-auto mt-16 w-full max-w-5xl animate-fade-up opacity-0 [--animation-delay:600ms] [perspective:2000px] after:absolute after:inset-0 after:z-50 after:[background:linear-gradient(to_top,var(--bg)_30%,transparent)]"
+      className="relative mx-auto mt-16 w-full max-w-5xl animate-fade-up opacity-0 [--animation-delay:600ms] [perspective:2000px]"
     >
       {/* Violet laser-flow beam descending into the top edge of the preview.
           Canvas renders on black, so `screen` blend drops the black and keeps
           only the light. Bright base lands just above the dashboard's top. */}
-      <div className="pointer-events-none absolute inset-x-0 -top-[346px] -z-10 h-[640px] mix-blend-screen [mask-image:linear-gradient(to_bottom,transparent_0%,black_28%)]">
+      <div className="pointer-events-none absolute inset-x-0 -top-[346px] -z-10 h-[640px] mix-blend-screen [mask-image:linear-gradient(to_bottom,transparent_0%,transparent_15%,black_40%)]">
         <LaserFlow
           color="#8b5cf6"
           verticalBeamOffset={-0.04}
@@ -49,7 +49,7 @@ export function HeroPreview() {
 
       <div
         className={[
-          "relative rounded-xl border border-white/10 bg-surface/5",
+          "relative rounded-xl border border-white/10 bg-surface/5 [mask-image:linear-gradient(to_bottom,black_70%,transparent_100%)]",
           "before:absolute before:-top-8 before:left-0 before:h-[120%] before:w-full before:opacity-0",
           "before:[background-image:linear-gradient(to_bottom,var(--accent),var(--accent-soft-fg),transparent_50%)]",
           "before:[filter:blur(140px)]",
