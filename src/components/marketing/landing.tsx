@@ -7,7 +7,6 @@ import {
   BarChartIcon,
 } from "@hugeicons/core-free-icons";
 import { APP_URL } from "@/lib/urls";
-import { SeeHowItWorksButton } from "@/components/marketing/see-how-it-works-button";
 import { HeroPreview } from "@/components/marketing/hero-preview";
 
 const PROBLEMS: { icon: IconSvgElement; text: string }[] = [
@@ -58,9 +57,17 @@ export function Landing() {
           }}
         />
 
+        {/* Pill banner */}
+        <div className="relative z-10 -translate-y-4 animate-fade-in opacity-0 [--animation-delay:0ms] flex justify-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-text-secondary backdrop-blur-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            Built for SE students in Sri Lanka
+          </span>
+        </div>
+
         {/* Heading */}
         <h1
-          className="-translate-y-4 animate-fade-in opacity-0 [--animation-delay:0ms] mt-6 text-balance bg-gradient-to-br from-[#f6f5fa] from-30% to-[#c4b5fd]/60 bg-clip-text py-2 text-5xl font-semibold leading-none tracking-tighter text-transparent sm:text-6xl md:text-7xl"
+          className="relative z-10 -translate-y-4 animate-fade-in opacity-0 [--animation-delay:150ms] mt-6 text-balance bg-gradient-to-br from-[#f6f5fa] from-30% to-[#c4b5fd]/60 bg-clip-text py-2 text-5xl font-semibold leading-none tracking-tighter text-transparent sm:text-6xl md:text-7xl"
           style={{ fontFamily: "var(--font-family-display)" }}
         >
           Track every application.
@@ -68,22 +75,14 @@ export function Landing() {
           Nail every interview.
         </h1>
 
-        {/* Subtitle */}
-        <p className="-translate-y-4 animate-fade-in opacity-0 [--animation-delay:200ms] mb-12 mt-6 text-balance text-lg tracking-tight text-text-secondary md:text-xl">
-          Traqit is a job tracker built for SE students — with custom interview
-          <br className="hidden md:block" />
-          pipelines for every company, not a one-size-fits-all status column.
-        </p>
-
-        {/* CTAs */}
-        <div className="-translate-y-4 animate-fade-in opacity-0 [--animation-delay:400ms] flex flex-col sm:flex-row items-center justify-center gap-3">
+        {/* CTA */}
+        <div className="relative z-10 mt-10 mb-12 -translate-y-4 animate-fade-in opacity-0 [--animation-delay:300ms] flex justify-center">
           <a
             href={`${APP_URL}/login`}
-            className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-[11px] bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-hover hover:-translate-y-0.5 transition-all duration-150"
+            className="inline-flex items-center justify-center gap-2 h-11 px-7 rounded-[11px] bg-white text-[#0b0a0e] text-sm font-semibold hover:-translate-y-0.5 hover:bg-white/90 transition-all duration-150"
           >
-            Start for free →
+            Start for Free →
           </a>
-          <SeeHowItWorksButton />
         </div>
 
         {/* Dashboard preview */}
