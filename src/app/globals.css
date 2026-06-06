@@ -198,6 +198,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Smooth in-page navigation for nav/footer anchor links. scroll-padding-top
+   offsets the sticky header so targets aren't hidden underneath it. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
 h1, h2, h3, h4 {
   font-family: var(--font-family-display);
 }
