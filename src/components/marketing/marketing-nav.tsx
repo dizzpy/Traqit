@@ -5,7 +5,7 @@ const NAV_LINKS = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Features", href: "#features" },
   { label: "Pricing", href: "#pricing" },
-  { label: "FAQs", href: "#faqs" },
+  { label: "FAQs", href: "#faq" },
 ];
 
 export async function MarketingNav() {
@@ -13,10 +13,10 @@ export async function MarketingNav() {
   const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <header className="animate-fade-in opacity-0 [--animation-delay:0ms] w-full sticky top-0 z-50 bg-bg/80 backdrop-blur-md border-b border-border/50">
+    <header className="animate-fade-in [--animation-delay:0ms] w-full sticky top-0 z-50 bg-bg/80 backdrop-blur-md border-b border-border/50">
       <div className="max-w-5xl mx-auto flex items-center justify-between px-6 py-4">
         {/* Wordmark */}
-        <div className="flex items-center gap-2">
+        <a href="/" className="flex items-center gap-2">
           <Logo size={17} className="text-white" />
           <span
             className="text-sm font-semibold text-text-primary"
@@ -24,7 +24,7 @@ export async function MarketingNav() {
           >
             Traqit
           </span>
-        </div>
+        </a>
 
         {/* Center nav links */}
         <nav className="hidden md:flex items-center gap-7">

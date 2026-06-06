@@ -1,5 +1,7 @@
 "use client"
 
+import { FaArrowRight } from "react-icons/fa6"
+
 import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { cn } from "@/lib/utils"
@@ -20,8 +22,8 @@ const CARD = {
 
 const PIPELINE_STAGES = ["Applied", "OA", "Technical", "HR", "Offer 🎉"]
 const COMPANIES = [
-  { name: "Google STEP", color: "#4285F4", initial: "G" },
-  { name: "Stripe SWE", color: "#635BFF", initial: "S" },
+  { name: "Google STEP", color: "#2e2d38", initial: "G" },
+  { name: "Stripe SWE", color: "#2e2d38", initial: "S" },
 ]
 
 function PipelineCard() {
@@ -130,8 +132,8 @@ function PipelineCard() {
 // ─── Card 2: Save Jobs ────────────────────────────────────────────────────────
 
 const SAVE_JOBS = [
-  { company: "Stripe", role: "SWE Intern", deadline: "Aug 1", color: "#635BFF", initial: "S" },
-  { company: "Figma", role: "Design Intern", deadline: "Jul 20", color: "#F24E1E", initial: "F" },
+  { company: "Stripe", role: "SWE Intern", deadline: "Aug 1", color: "#2e2d38", initial: "S" },
+  { company: "Figma", role: "Design Intern", deadline: "Jul 20", color: "#2e2d38", initial: "F" },
 ]
 
 function SaveJobCard() {
@@ -246,7 +248,7 @@ const TEMPLATES = [
 function highlight(text: string) {
   return text.split(/(\{[^}]+\})/g).map((part, i) =>
     part.startsWith("{") ? (
-      <span key={i} className="text-accent font-semibold bg-accent/10 px-0.5 rounded">
+      <span key={i} className="text-text-secondary font-semibold bg-surface-elevated border border-border/60 px-0.5 rounded">
         {part}
       </span>
     ) : (
@@ -308,8 +310,8 @@ function OutreachCard() {
             />
           ))}
         </div>
-        <button className="text-[11px] text-accent font-semibold hover:underline underline-offset-2 transition-opacity">
-          Open Gmail draft →
+        <button className="text-[11px] text-text-secondary hover:text-text-primary font-semibold hover:underline underline-offset-2 transition-colors">
+          Open Gmail draft <FaArrowRight size={10} className="inline ml-0.5" />
         </button>
       </div>
 
@@ -326,10 +328,10 @@ function OutreachCard() {
 // ─── Card 4: Ghost Detection ──────────────────────────────────────────────────
 
 const GHOST_APPS = [
-  { company: "Stripe", initial: "S", color: "#635BFF", days: 14, stage: "HR" },
-  { company: "Google", initial: "G", color: "#4285F4", days: 3,  stage: "OA" },
-  { company: "Meta",   initial: "M", color: "#0081FB", days: 21, stage: "Applied" },
-  { company: "Amazon", initial: "A", color: "#FF9900", days: 6,  stage: "Technical" },
+  { company: "Stripe", initial: "S", color: "#2e2d38", days: 14, stage: "HR" },
+  { company: "Google", initial: "G", color: "#2e2d38", days: 3,  stage: "OA" },
+  { company: "Meta",   initial: "M", color: "#2e2d38", days: 21, stage: "Applied" },
+  { company: "Amazon", initial: "A", color: "#2e2d38", days: 6,  stage: "Technical" },
 ]
 
 function GhostCard() {
@@ -339,8 +341,8 @@ function GhostCard() {
         <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
           Ghost Detection
         </span>
-        <span className="flex items-center gap-1.5 text-[10px] text-amber-400 font-semibold bg-amber-400/10 px-2 py-0.5 rounded-full">
-          <span className="h-1 w-1 rounded-full bg-amber-400 animate-pulse" />
+        <span className="flex items-center gap-1.5 text-[10px] text-text-tertiary font-semibold bg-surface-elevated border border-border px-2 py-0.5 rounded-full">
+          <span className="h-1 w-1 rounded-full bg-text-tertiary/50 animate-pulse" />
           2 alerts
         </span>
       </div>
@@ -357,7 +359,7 @@ function GhostCard() {
               className={cn(
                 "flex items-center gap-2.5 rounded-lg border p-2.5 transition-colors duration-200",
                 isGhost
-                  ? "border-amber-400/20 bg-amber-400/5"
+                  ? "border-border/80 bg-surface-elevated/40"
                   : "border-border bg-background"
               )}
             >
@@ -372,14 +374,11 @@ function GhostCard() {
                 <p className="text-[10px] text-text-tertiary">{app.stage}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className={cn(
-                  "text-xs font-bold tabular-nums",
-                  isGhost ? "text-amber-400" : "text-text-secondary"
-                )}>
+                <p className="text-xs font-bold tabular-nums text-text-secondary">
                   {app.days}d
                 </p>
                 {isGhost
-                  ? <p className="text-[9px] text-amber-400 font-medium">ghosted?</p>
+                  ? <p className="text-[9px] text-text-tertiary font-medium">ghosted?</p>
                   : <p className="text-[9px] text-text-tertiary">active</p>
                 }
               </div>

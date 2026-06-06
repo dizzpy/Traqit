@@ -6,8 +6,7 @@ import { cn } from "@/lib/utils"
 import { MagicCard } from "@/components/ui/magic-card"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { ShineBorder } from "@/components/ui/shine-border"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
+import { FaArrowRight } from "react-icons/fa6"
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -32,20 +31,20 @@ const FREE_FEATURES = [
 
 const PRO_FEATURES = [
   "Everything in Free",
-  "Priority support",
-  "Advanced analytics",
-  "Export to CSV",
-  "Calendar sync",
-  "Custom reminders",
+  "Email reminders before interviews",
+  "Advanced analytics dashboard",
+  "Browser extension — save any job in one click",
+  "Data export (JSON)",
+  "Custom ghost detection threshold",
 ]
 
 const MAX_FEATURES = [
   "Everything in Pro",
-  "AI-powered suggestions",
-  "Team workspace",
-  "API access",
-  "White-label options",
-  "Dedicated account manager",
+  "Team workspace — up to 10 members",
+  "Shared pipeline templates across the team",
+  "Mentor view — read-only board access for coaches",
+  "Bulk export for reporting",
+  "Dedicated support",
 ]
 
 // ─── GlareHover (ReactBits — inlined) ────────────────────────────────────────
@@ -336,7 +335,7 @@ export function Pricing() {
                 className="w-full h-10 rounded-xl bg-accent text-white text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-accent/90 hover:-translate-y-0.5 transition-all duration-150 shadow-sm shadow-accent/20"
               >
                 Get started free
-                <HugeiconsIcon icon={ArrowRight01Icon} size={13} strokeWidth={2.5} />
+                <FaArrowRight size={11} />
               </a>
             </MagicCard>
           </motion.div>

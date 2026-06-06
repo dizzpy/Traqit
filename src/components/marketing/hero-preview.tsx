@@ -28,7 +28,7 @@ export function HeroPreview() {
   return (
     <div
       ref={ref}
-      className="relative mx-auto mt-16 w-full max-w-5xl animate-fade-up opacity-0 [--animation-delay:600ms] [perspective:2000px]"
+      className="relative mx-auto mt-16 w-full max-w-5xl animate-fade-up [--animation-delay:600ms] [perspective:2000px]"
     >
       {/* Violet laser-flow beam descending into the top edge of the preview.
           Canvas renders on black, so `screen` blend drops the black and keeps

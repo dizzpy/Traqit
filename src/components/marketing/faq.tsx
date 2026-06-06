@@ -9,16 +9,16 @@ import { cn } from "@/lib/utils"
 
 const FAQS = [
   {
-    q: "Is InternTracker really free?",
+    q: "Is Traqit really free?",
     a: "Yes, completely. No credit card required, no trial period that expires. The Free plan gives you unlimited applications, custom pipelines per company, ghost detection, and every core feature. Pro and Max tiers will come later for advanced stuff.",
   },
   {
     q: "How is this different from a Notion template or spreadsheet?",
-    a: "Spreadsheets are general-purpose — InternTracker is built specifically for job hunting. It auto-flags applications that go quiet after 14 days, lets you build a custom stage pipeline per company, and shows a real-time activity feed with no manual logging.",
+    a: "Spreadsheets are general-purpose — Traqit is built specifically for job hunting. It auto-flags applications that go quiet after 14 days, lets you build a custom stage pipeline per company, and shows a real-time activity feed with no manual logging.",
   },
   {
     q: "What is ghost detection?",
-    a: "When a company hasn't responded in 14 days, InternTracker automatically marks that application as a ghost — a soft amber alert in your feed. It's a gentle nudge so you know to follow up or mentally move on, without having to track dates yourself.",
+    a: "When a company hasn't responded in 14 days, Traqit automatically marks that application as a ghost — a soft alert in your feed. It's a gentle nudge so you know to follow up or mentally move on, without having to track dates yourself.",
   },
   {
     q: "Is my data private?",
@@ -124,10 +124,10 @@ export function FAQ() {
           <p className="text-sm text-text-secondary leading-relaxed">
             Still have questions?{" "}
             <a
-              href="mailto:hello@interntracker.app"
+              href="mailto:hello@encrivolabs.com"
               className="text-accent underline-offset-2 hover:underline"
             >
-              hello@interntracker.app
+              hello@encrivolabs.com
             </a>
           </p>
         </div>

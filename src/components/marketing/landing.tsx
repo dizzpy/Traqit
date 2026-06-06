@@ -5,6 +5,7 @@ import { Features } from "@/components/marketing/features";
 import { Pricing } from "@/components/marketing/pricing";
 import { FAQ } from "@/components/marketing/faq";
 import { FounderMemo } from "@/components/marketing/founder-memo";
+import { HeroCTA } from "@/components/marketing/hero-cta";
 
 export function Landing() {
   return (
@@ -30,7 +31,7 @@ export function Landing() {
             }}
           />
 
-          <div className="relative z-10 -translate-y-4 animate-fade-in opacity-0 [--animation-delay:0ms] flex justify-center">
+          <div className="relative z-10 animate-fade-in [--animation-delay:0ms] flex justify-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-text-secondary backdrop-blur-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" />
               Built for SE students in Sri Lanka
@@ -38,7 +39,7 @@ export function Landing() {
           </div>
 
           <h1
-            className="relative z-10 -translate-y-4 animate-fade-in opacity-0 [--animation-delay:150ms] mt-6 text-balance bg-gradient-to-br from-[#f6f5fa] from-30% to-[#c4b5fd]/60 bg-clip-text py-2 text-5xl font-semibold leading-none tracking-tighter text-transparent sm:text-6xl md:text-7xl"
+            className="relative z-10 animate-fade-in [--animation-delay:150ms] mt-6 text-balance bg-gradient-to-br from-[#f6f5fa] from-30% to-[#c4b5fd]/60 bg-clip-text py-2 text-5xl font-semibold leading-none tracking-tighter text-transparent sm:text-6xl md:text-7xl"
             style={{ fontFamily: "var(--font-family-display)" }}
           >
             Track every application.
@@ -46,13 +47,8 @@ export function Landing() {
             Nail every interview.
           </h1>
 
-          <div className="relative z-10 mt-10 mb-12 -translate-y-4 animate-fade-in opacity-0 [--animation-delay:300ms] flex justify-center">
-            <a
-              href="/login"
-              className="inline-flex items-center justify-center gap-2 h-11 px-7 rounded-[11px] bg-white text-[#0b0a0e] text-sm font-semibold hover:-translate-y-0.5 hover:bg-white/90 transition-all duration-150"
-            >
-              Start for Free
-            </a>
+          <div className="relative z-10 mt-10 mb-12 animate-fade-in [--animation-delay:300ms] flex justify-center">
+            <HeroCTA />
           </div>
 
           <HeroPreview />

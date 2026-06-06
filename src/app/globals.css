@@ -302,8 +302,8 @@ h1, h2, h3, h4 {
   /* Animations */
   --animate-border-beam: border-beam calc(var(--duration) * 1s) infinite linear;
   --animate-image-glow: image-glow 4100ms 600ms ease-out forwards;
-  --animate-fade-in: fade-in 1000ms var(--animation-delay, 0ms) ease forwards;
-  --animate-fade-up: fade-up 1000ms var(--animation-delay, 0ms) ease forwards;
+  --animate-fade-in: fade-in 1000ms var(--animation-delay, 0ms) ease both;
+  --animate-fade-up: fade-up 1000ms var(--animation-delay, 0ms) ease both;
   --animate-shimmer: shimmer 8s infinite;
   --animate-shine: shine var(--duration) infinite linear;
   --animate-ripple: ripple var(--duration,2s) ease calc(var(--i, 0)*.2s) infinite;

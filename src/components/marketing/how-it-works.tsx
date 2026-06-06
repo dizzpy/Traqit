@@ -17,7 +17,7 @@ const DEMO_JOBS = [
     deadline: "Aug 1, 2026",
     location: "San Francisco, CA",
     avatar: "S",
-    avatarBg: "bg-[#635BFF]",
+    avatarBg: "bg-[#2e2d38]",
   },
   {
     trigger: "careers.google.com",
@@ -26,7 +26,7 @@ const DEMO_JOBS = [
     deadline: "Jul 15, 2026",
     location: "Mountain View, CA",
     avatar: "G",
-    avatarBg: "bg-[#4285F4]",
+    avatarBg: "bg-[#2e2d38]",
   },
 ]
 
@@ -246,29 +246,29 @@ const NOTIFICATIONS = [
     icon: "👻",
     label: "Ghost alert",
     text: "Stripe hasn't responded in 14 days",
-    labelColor: "text-amber-400",
-    labelBg: "bg-amber-400/10",
+    labelColor: "text-text-tertiary",
+    labelBg: "bg-surface-elevated",
   },
   {
     icon: "⏰",
     label: "Reminder",
     text: "Amazon OA deadline in 2 days",
-    labelColor: "text-sky-400",
-    labelBg: "bg-sky-400/10",
+    labelColor: "text-text-tertiary",
+    labelBg: "bg-surface-elevated",
   },
   {
     icon: "✅",
     label: "Update",
     text: "Google interview confirmed for Thu",
-    labelColor: "text-green-400",
-    labelBg: "bg-green-400/10",
+    labelColor: "text-text-tertiary",
+    labelBg: "bg-surface-elevated",
   },
   {
     icon: "👻",
     label: "Ghost alert",
     text: "Meta hasn't responded in 21 days",
-    labelColor: "text-amber-400",
-    labelBg: "bg-amber-400/10",
+    labelColor: "text-text-tertiary",
+    labelBg: "bg-surface-elevated",
   },
 ]
 
@@ -286,8 +286,8 @@ function ActivityFeedCard() {
         <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
           Activity feed
         </p>
-        <span className="flex items-center gap-1.5 text-[11px] text-green-400 font-medium">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+        <span className="flex items-center gap-1.5 text-[11px] text-text-tertiary font-medium">
+          <span className="h-1.5 w-1.5 rounded-full bg-text-tertiary/50 animate-pulse" />
           Live
         </span>
       </div>
@@ -345,8 +345,8 @@ function StatsCard() {
             key={label}
             className="rounded-lg border border-border bg-background p-3 text-center"
           >
-            <p className="text-xl font-bold text-accent tabular-nums">
-              <NumberTicker value={value} className="text-accent" />
+            <p className="text-xl font-bold text-text-primary tabular-nums">
+              <NumberTicker value={value} className="text-text-primary" />
             </p>
             <p className="text-[11px] text-text-secondary mt-0.5">{label}</p>
           </div>
@@ -357,7 +357,7 @@ function StatsCard() {
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }}
         transition={{ delay: 0.4, type: "spring", stiffness: 300, damping: 25 }}
-        className="rounded-xl border border-accent/25 bg-accent/5 p-3 flex items-center gap-3"
+        className="rounded-xl border border-border bg-surface-elevated/60 p-3 flex items-center gap-3"
       >
         <motion.span
           animate={{ rotate: [0, -10, 10, -6, 6, 0] }}
@@ -383,7 +383,7 @@ const STEPS = [
   {
     number: "01",
     title: "Add your applications",
-    body: "Paste a job URL or type a title — InternTracker autofills the company, role, and deadline so you don't have to copy-paste anything.",
+    body: "Paste a job URL or type a title — Traqit autofills the company, role, and deadline so you don't have to copy-paste anything.",
     card: <AddApplicationCard />,
   },
   {
@@ -465,7 +465,7 @@ export function HowItWorks() {
   })
 
   return (
-    <div ref={containerRef} style={{ height: `${(STEPS.length + 1) * 100}vh` }}>
+    <div id="how-it-works" ref={containerRef} style={{ height: `${(STEPS.length + 1) * 100}vh` }}>
       <div className="sticky top-0 h-screen flex flex-col justify-center overflow-hidden">
 
         {/* Ambient glow */}
@@ -539,7 +539,7 @@ export function HowItWorks() {
                     className="block text-7xl font-black leading-none select-none"
                     style={{
                       fontFamily: "var(--font-family-display)",
-                      color: "color-mix(in oklab, var(--accent) 20%, transparent)",
+                      color: "rgba(255,255,255,0.06)",
                     }}
                   >
                     {STEPS[activeStep].number}

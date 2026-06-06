@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 // Paths reachable without an authenticated session.
-const PUBLIC_PATHS = ["/", "/login", "/auth", "/preview-landing"];
+const PUBLIC_PATHS = ["/", "/login", "/auth", "/preview-landing", "/privacy", "/terms", "/cookies"];
 
 // Static asset files (images, fonts, etc.) are always public. Next's image
 // optimizer fetches these source URLs through the middleware, so gating them

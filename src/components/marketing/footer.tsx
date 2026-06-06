@@ -3,8 +3,7 @@
 import { motion } from "motion/react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { LaserFlow } from "@/components/marketing/laser-flow"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
+import { FaArrowRight } from "react-icons/fa6"
 
 const NAV = {
   Product: [
@@ -14,9 +13,9 @@ const NAV = {
     { label: "FAQ", href: "#faq" },
   ],
   Legal: [
-    { label: "Privacy", href: "#" },
-    { label: "Terms", href: "#" },
-    { label: "Cookies", href: "#" },
+    { label: "Privacy", href: "/privacy" },
+    { label: "Terms", href: "/terms" },
+    { label: "Cookies", href: "/cookies" },
   ],
 }
 
@@ -75,7 +74,7 @@ export function MarketingFooter() {
                 transition={{ type: "spring", stiffness: 400, damping: 20 }}
               >
                 Start free today
-                <HugeiconsIcon icon={ArrowRight01Icon} size={12} strokeWidth={2.5} />
+                <FaArrowRight size={10} />
               </motion.a>
             </BlurFade>
           </div>
@@ -120,15 +119,6 @@ export function MarketingFooter() {
                 </a>
                 . All rights reserved.
               </p>
-              <span className="hidden sm:block text-text-tertiary/40 text-[11px]">·</span>
-              <a
-                href="https://www.encrivolabs.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] text-text-tertiary hover:text-accent transition-colors"
-              >
-                www.encrivolabs.com
-              </a>
             </div>
 
             <p className="text-[11px] text-text-tertiary flex items-center gap-1.5">
@@ -139,7 +129,7 @@ export function MarketingFooter() {
                 rel="noopener noreferrer"
                 className="text-text-secondary hover:text-accent transition-colors font-medium"
               >
-                www.dizzpy.dev
+                Dizzpy
               </a>
               <span
                 aria-hidden
