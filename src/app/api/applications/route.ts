@@ -71,8 +71,10 @@ export async function GET(req: NextRequest) {
   const to = searchParams.get("to");
   const sort = searchParams.get("sort") ?? "createdAt";
   const order = (searchParams.get("order") ?? "desc") as "asc" | "desc";
-  const page = parseInt(searchParams.get("page") ?? "1");
-  const limit = parseInt(searchParams.get("limit") ?? "25");
+  // Clamp pagination so a crafted ?page/?limit can't pull the whole table in
+  // one shot (which would bypass pagination + the cache) or yield NaN offsets.
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1") || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "25") || 25));
   // ?full=1 returns the complete nested object (contacts/documents/activity) —
   // used by the data export. The default list view stays trimmed for speed.
   const full = searchParams.get("full") === "1";

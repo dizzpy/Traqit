@@ -1,5 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { checkRateLimit } from "@/lib/ratelimit";
+
+// Methods that mutate state get the stricter `write` tier.
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function clientIp(req: NextRequest) {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
 
 // Paths reachable without an authenticated session.
 const PUBLIC_PATHS = ["/", "/login", "/auth", "/preview-landing", "/privacy", "/terms", "/cookies"];
@@ -27,6 +39,29 @@ function isPublic(pathname: string) {
 export async function proxy(req: NextRequest) {
   const { supabaseResponse, user } = await updateSession(req);
   const { pathname } = req.nextUrl;
+
+  // Rate-limit the API surface only (navigation + static assets are untouched).
+  // Key by user id when signed in (fair per-account limit), else by client IP.
+  if (pathname.startsWith("/api/")) {
+    const identifier = user?.id ?? `ip:${clientIp(req)}`;
+    const tier = WRITE_METHODS.has(req.method) ? "write" : "api";
+    const rl = await checkRateLimit(tier, identifier);
+    if (!rl.success) {
+      const retryAfter = Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000));
+      return NextResponse.json(
+        { error: "Too many requests", code: "RATE_LIMITED" },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(retryAfter),
+            "X-RateLimit-Limit": String(rl.limit),
+            "X-RateLimit-Remaining": String(rl.remaining),
+            "X-RateLimit-Reset": String(rl.reset),
+          },
+        }
+      );
+    }
+  }
 
   // Signed-in users have no reason to see the login page.
   if (user && pathname === "/login") {

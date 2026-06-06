@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { prisma } from "./prisma";
 import { seedProfile } from "./seed";
 import { createClient } from "./supabase/server";
+import { cached, cacheKey, TTL } from "./redis";
 
 /**
  * Returns the Profile for the currently authenticated user, or null.
@@ -14,7 +15,12 @@ export async function getProfile() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-  return prisma.profile.findUnique({ where: { userId: user.id } });
+  // Cache-backed: getProfile runs on every authenticated API request, so an
+  // uncached findUnique here was a Postgres round-trip per request. Shares the
+  // `cacheKey.profile` entry the /api/profile route already writes + invalidates.
+  return cached(cacheKey.profile(user.id), TTL.PROFILE, () =>
+    prisma.profile.findUnique({ where: { userId: user.id } })
+  );
 }
 
 /**

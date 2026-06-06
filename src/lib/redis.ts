@@ -79,10 +79,19 @@ export async function invalidate(...keys: string[]) {
 export async function invalidateAppsList(profileId: string) {
   if (!redis) return;
   try {
-    const keys = await redis.keys(`apps:${profileId}:*`);
-    if (keys.length) await redis.del(...keys);
+    // SCAN (cursor-based, non-blocking) instead of KEYS, which is O(keyspace)
+    // and stalls Redis for every user when called on each write.
+    const pattern = `apps:${profileId}:*`;
+    let cursor = "0";
+    const found: string[] = [];
+    do {
+      const [next, batch] = await redis.scan(cursor, { match: pattern, count: 100 });
+      cursor = next;
+      found.push(...batch);
+    } while (cursor !== "0");
+    if (found.length) await redis.del(...found);
   } catch {
-    // Non-fatal.
+    // Non-fatal — entries expire on their own via TTL.
   }
 }
 
