@@ -1,4 +1,5 @@
 import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { MarketingFooter } from "@/components/marketing/footer";
 
 /**
  * Structural wrapper for the marketing site: nav + full-width content, no
@@ -10,6 +11,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-bg flex flex-col">
       <MarketingNav />
       <main className="flex-1">{children}</main>
+      <MarketingFooter />
     </div>
   );
 }
