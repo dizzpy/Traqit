@@ -59,6 +59,17 @@ export async function deleteEmailTemplate(id: string) {
   return res.json();
 }
 
+/** Restore trashed email templates (Undo toast + Trash page). */
+export async function restoreEmailTemplates(ids: string[]) {
+  const res = await fetch("/api/trash/restore", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "emailTemplate", ids }),
+  });
+  if (!res.ok) throw new Error("Failed to restore template");
+  return res.json();
+}
+
 export async function reorderEmailTemplates(orderedIds: string[]) {
   const res = await fetch("/api/templates/email/reorder", {
     method: "PATCH",

@@ -32,7 +32,9 @@ const updateSchema = z.object({
 });
 
 async function getApp(id: string, profileId: string) {
-  return prisma.application.findFirst({ where: { id, profileId } });
+  // Scope to live (non-trashed) records — trashed apps are only reachable via
+  // the Trash endpoints.
+  return prisma.application.findFirst({ where: { id, profileId, deletedAt: null } });
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -98,7 +100,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const existing = await getApp(id, profile.id);
   if (!existing) return apiError("Not found", "NOT_FOUND", 404);
 
-  await prisma.application.delete({ where: { id } });
+  // Soft delete → moves to Trash (recoverable for 30 days), instead of a
+  // destructive delete. Restore via POST /api/trash/restore.
+  await prisma.application.update({ where: { id }, data: { deletedAt: new Date() } });
   await invalidateAppData(profile.id);
   return NextResponse.json({ data: { ok: true } });
 }

@@ -42,8 +42,10 @@ import {
   saveEmailTemplate,
   updateEmailTemplate,
   deleteEmailTemplate,
+  restoreEmailTemplates,
   reorderEmailTemplates,
 } from "@/hooks/use-email-templates";
+import { toastUndo, tempId } from "@/lib/optimistic";
 import { useComposeApplications, type ComposeApplication } from "@/hooks/use-applications";
 import {
   EMAIL_PLACEHOLDERS,
@@ -120,14 +122,52 @@ export default function TemplatesPage() {
     setEditorOpen(true);
   }
 
+  // Save (create or edit) optimistically: the list updates instantly, then we
+  // reconcile with the server record (or roll back on failure).
+  async function saveTemplate(payload: { name: string; subject: string; body: string; category: string }) {
+    if (editing) {
+      const id = editing.id;
+      mutate((cur) => (cur ? { data: cur.data.map((t) => (t.id === id ? { ...t, ...payload } : t)) } : cur), { revalidate: false });
+      try {
+        await updateEmailTemplate(id, payload);
+        toast.success("Template updated");
+        mutate();
+      } catch {
+        toast.error("Couldn't save template");
+        mutate();
+      }
+    } else {
+      const temp: EmailTemplate = {
+        id: tempId(),
+        profileId: "",
+        order: templates.length,
+        createdAt: new Date().toISOString(),
+        ...payload,
+      };
+      mutate((cur) => (cur ? { data: [...cur.data, temp] } : { data: [temp] }), { revalidate: false });
+      try {
+        const res = await saveEmailTemplate(payload);
+        const created = res.data as EmailTemplate;
+        mutate((cur) => (cur ? { data: cur.data.map((t) => (t.id === temp.id ? created : t)) } : cur), { revalidate: false });
+        toast.success("Template created");
+      } catch {
+        mutate((cur) => (cur ? { data: cur.data.filter((t) => t.id !== temp.id) } : cur), { revalidate: false });
+        toast.error("Couldn't save template");
+      }
+    }
+  }
+
   async function confirmDelete(t: EmailTemplate) {
+    mutate((cur) => (cur ? { data: cur.data.filter((x) => x.id !== t.id) } : cur), { revalidate: false });
+    if (selectedId === t.id) setSelectedId(null);
     try {
       await deleteEmailTemplate(t.id);
-      if (selectedId === t.id) setSelectedId(null);
-      mutate();
-      toast.success("Template deleted");
+      toastUndo("Template deleted", async () => {
+        try { await restoreEmailTemplates([t.id]); mutate(); } catch { toast.error("Couldn't restore"); }
+      });
     } catch {
       toast.error("Couldn't delete template");
+      mutate();
     }
   }
 
@@ -306,7 +346,7 @@ export default function TemplatesPage() {
           template={editing}
           apps={applications}
           myName={myName}
-          onSaved={mutate}
+          onSubmit={saveTemplate}
         />
       )}
 
@@ -315,7 +355,7 @@ export default function TemplatesPage() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && confirmDelete(deleteTarget)}
         title="Delete this template?"
-        message={deleteTarget ? `"${deleteTarget.name}" will be removed for good. This can't be undone.` : ""}
+        message={deleteTarget ? `"${deleteTarget.name}" will be moved to Trash. You can restore it within 30 days.` : ""}
         confirmLabel="Delete"
         tone="danger"
         icon={Delete02Icon}
@@ -473,17 +513,17 @@ interface EditorProps {
   template: EmailTemplate | null;
   apps: ComposeApplication[];
   myName: string;
-  onSaved: () => void;
+  /** Parent persists optimistically; the editor just validates + hands off. */
+  onSubmit: (payload: { name: string; subject: string; body: string; category: string }) => void;
 }
 
-function TemplateEditorModal({ onClose, template, apps, myName, onSaved }: EditorProps) {
+function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: EditorProps) {
   const [name, setName] = useState(template?.name ?? "");
   const [category, setCategory] = useState(template?.category ?? "General");
   const [subject, setSubject] = useState(template?.subject ?? "");
   const [body, setBody] = useState(template?.body ?? "");
   const [bodyView, setBodyView] = useState<"edit" | "preview">("edit");
   const [previewAppId, setPreviewAppId] = useState("");
-  const [saving, setSaving] = useState(false);
 
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -502,23 +542,14 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSaved }: Edito
     insertAtCursor(el, token, setValue);
   }
 
-  async function handleSave() {
+  function handleSave() {
     if (!name.trim() || !subject.trim() || !body.trim()) {
       toast.error("Name, subject and body are required");
       return;
     }
-    setSaving(true);
-    try {
-      if (template) await updateEmailTemplate(template.id, { name, subject, body, category });
-      else await saveEmailTemplate({ name, subject, body, category });
-      toast.success(template ? "Template updated" : "Template created");
-      onSaved();
-      onClose();
-    } catch {
-      toast.error("Couldn't save template");
-    } finally {
-      setSaving(false);
-    }
+    // Hand off to the parent (optimistic persist) and close instantly.
+    onSubmit({ name: name.trim(), subject, body, category });
+    onClose();
   }
 
   return (
@@ -618,7 +649,7 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSaved }: Edito
           <Button variant="outline" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Button size="sm" onClick={handleSave}>
             Save template
           </Button>
         </div>

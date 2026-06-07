@@ -13,7 +13,7 @@ export async function GET() {
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
 
   const applications = await prisma.application.findMany({
-    where: { profileId: profile.id },
+    where: { profileId: profile.id, deletedAt: null },
     orderBy: { createdAt: "desc" },
     include: {
       stages: { orderBy: { order: "asc" } },

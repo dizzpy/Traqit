@@ -61,6 +61,7 @@ const KanbanBoard = dynamic(
     ),
   }
 );
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AddApplicationPanel } from "@/components/application/add-application-modal";
 import { SaveJobModal } from "@/components/application/save-job-modal";
 import {
@@ -68,7 +69,11 @@ import {
   createApplication,
   updateApplication,
   deleteApplication,
+  bulkDeleteApplications,
+  restoreApplications,
+  optimisticApplication,
 } from "@/hooks/use-applications";
+import { toastUndo } from "@/lib/optimistic";
 import { useJobTypes, useSources, addJobType, addSource } from "@/hooks/use-presets";
 import {
   STATUS_LABELS,
@@ -440,6 +445,8 @@ function ApplicationsPageInner() {
   const [showHints] = useShortcutHints();
   const [showAdd, setShowAdd] = useState(false);
   const [showSave, setShowSave] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [confirmBulk, setConfirmBulk] = useState(false);
   const [filterStatus, setFilterStatus] = useState<ApplicationStatus | "ALL">("ALL");
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("appliedDate");
@@ -604,6 +611,37 @@ function ApplicationsPageInner() {
     });
   }
 
+  // Create from a modal: insert the row instantly, then reconcile with the
+  // server record (or roll it back on failure). Used by both the Add panel and
+  // the Save-job modal.
+  async function createOptimistic(fields: Record<string, unknown>) {
+    const temp = optimisticApplication(fields);
+    patchCache((list) => [temp, ...list]);
+    try {
+      const created = await createApplication(fields);
+      patchCache((list) => list.map((a) => (a.id === temp.id ? created : a)));
+    } catch {
+      patchCache((list) => list.filter((a) => a.id !== temp.id));
+      toast.error("Couldn't create application");
+    }
+  }
+
+  function restoreToast(ids: string[], label: string) {
+    toastUndo(label, async () => {
+      try {
+        await restoreApplications(ids);
+        mutate();
+      } catch {
+        toast.error("Couldn't restore");
+      }
+    });
+  }
+
+  function askDelete(id: string) {
+    const a = apps.find((x) => x.id === id);
+    setDeleteTarget({ id, name: a?.companyName || "this application" });
+  }
+
   async function deleteOne(id: string) {
     const name = apps.find((a) => a.id === id)?.companyName;
     patchCache((list) => list.filter((a) => a.id !== id));
@@ -611,7 +649,7 @@ function ApplicationsPageInner() {
     if (selectedId === id) setSelectedId(null);
     try {
       await deleteApplication(id);
-      toast(`Deleted ${name || "application"}`);
+      restoreToast([id], `Deleted ${name || "application"}`);
     } catch {
       toast.error("Couldn't delete");
       mutate();
@@ -625,10 +663,11 @@ function ApplicationsPageInner() {
     if (selectedId && selectedIds.has(selectedId)) setSelectedId(null);
     setSelectedIds(new Set());
     try {
-      await Promise.all(ids.map((id) => deleteApplication(id)));
-      toast(`Deleted ${count} application${count > 1 ? "s" : ""}`);
+      // One request + one DB write — no rate-limit storm, no partial failure.
+      await bulkDeleteApplications(ids);
+      restoreToast(ids, `Deleted ${count} application${count > 1 ? "s" : ""}`);
     } catch {
-      toast.error("Couldn't delete some applications");
+      toast.error("Couldn't delete applications");
       mutate();
     }
   }
@@ -737,7 +776,7 @@ function ApplicationsPageInner() {
               >
                 Clear
               </button>
-              <Button variant="danger" size="sm" onClick={deleteSelected}>
+              <Button variant="danger" size="sm" onClick={() => setConfirmBulk(true)}>
                 <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.5} />
                 Delete
               </Button>
@@ -865,7 +904,7 @@ function ApplicationsPageInner() {
                     typeOptions={typeOptions}
                     sourceOptions={sourceOptions}
                     onToggleSelect={toggleSelect}
-                    onDelete={deleteOne}
+                    onDelete={askDelete}
                     onPreview={openPreview}
                     onUpdate={updateApp}
                     onSelectType={selectType}
@@ -935,12 +974,33 @@ function ApplicationsPageInner() {
           application={selectedApp}
           initialTab={selectedTab}
           onUpdate={(patch) => updateApp(selectedApp.id, patch)}
-          onDelete={() => deleteOne(selectedApp.id)}
+          onDelete={() => askDelete(selectedApp.id)}
           onClose={() => setSelectedId(null)}
         />
       )}
-      {showAdd && <AddApplicationPanel onClose={() => setShowAdd(false)} onCreated={() => mutate()} />}
-      {showSave && <SaveJobModal onClose={() => setShowSave(false)} onCreated={() => mutate()} />}
+      {showAdd && <AddApplicationPanel onClose={() => setShowAdd(false)} onSubmit={createOptimistic} />}
+      {showSave && <SaveJobModal onClose={() => setShowSave(false)} onSubmit={createOptimistic} />}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteOne(deleteTarget.id)}
+        title="Move to Trash?"
+        message={deleteTarget ? `"${deleteTarget.name}" will be moved to Trash. You can restore it within 30 days.` : ""}
+        confirmLabel="Delete"
+        tone="danger"
+        icon={Delete02Icon}
+      />
+      <ConfirmDialog
+        open={confirmBulk}
+        onClose={() => setConfirmBulk(false)}
+        onConfirm={deleteSelected}
+        title={`Move ${selectedIds.size} application${selectedIds.size > 1 ? "s" : ""} to Trash?`}
+        message="They'll be moved to Trash. You can restore them within 30 days."
+        confirmLabel="Delete"
+        tone="danger"
+        icon={Delete02Icon}
+      />
 
       {/* One-time product tour — renders null, fires on first visit with apps */}
       <AppTour />

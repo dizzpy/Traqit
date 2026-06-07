@@ -17,7 +17,15 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SaveJobModal } from "@/components/application/save-job-modal";
 import { AddApplicationPanel } from "@/components/application/add-application-modal";
 import { ApplicationDetail } from "@/components/application/application-detail";
-import { useApplications, updateApplication, deleteApplication } from "@/hooks/use-applications";
+import {
+  useApplications,
+  createApplication,
+  updateApplication,
+  deleteApplication,
+  restoreApplications,
+  optimisticApplication,
+} from "@/hooks/use-applications";
+import { toastUndo } from "@/lib/optimistic";
 import { cn, deadlineBadge, hostnameOf, formatRelativeDate } from "@/lib/utils";
 import { consumePendingAction } from "@/lib/pending-action";
 import { useShortcutHints } from "@/hooks/use-shortcut-hints";
@@ -65,13 +73,41 @@ export default function SavedPage() {
     });
   }, [saved, query, sort]);
 
+  // Save a job: show the card instantly, then reconcile with the server record.
+  async function createSaved(fields: Record<string, unknown>) {
+    const temp = optimisticApplication(fields);
+    mutate((cur) => (cur ? { data: [temp, ...cur.data], total: cur.total + 1 } : cur), { revalidate: false });
+    try {
+      const created = await createApplication(fields);
+      mutate((cur) => (cur ? { ...cur, data: cur.data.map((a) => (a.id === temp.id ? created : a)) } : cur), { revalidate: false });
+    } catch {
+      mutate((cur) => (cur ? { data: cur.data.filter((a) => a.id !== temp.id), total: Math.max(0, cur.total - 1) } : cur), { revalidate: false });
+      toast.error("Couldn't save the job");
+    }
+  }
+
+  // Promote a saved job → APPLIED. It leaves the SAVED list immediately.
+  async function promoteApplied(fields: Record<string, unknown>) {
+    if (!promoteTarget) return;
+    const id = promoteTarget.id;
+    mutate((cur) => (cur ? { data: cur.data.filter((a) => a.id !== id), total: Math.max(0, cur.total - 1) } : cur), { revalidate: false });
+    try {
+      await updateApplication(id, { ...fields, status: "APPLIED" });
+      toast.success("Marked as applied");
+    } catch {
+      toast.error("Couldn't mark as applied");
+      mutate();
+    }
+  }
+
   async function removeSaved(app: Application) {
     mutate({ data: saved.filter((x) => x.id !== app.id), total: Math.max(0, total - 1) }, { revalidate: false });
     if (selectedId === app.id) setSelectedId(null);
     try {
       await deleteApplication(app.id);
-      mutate();
-      toast.success("Saved job removed");
+      toastUndo("Saved job removed", async () => {
+        try { await restoreApplications([app.id]); mutate(); } catch { toast.error("Couldn't restore"); }
+      });
     } catch {
       toast.error("Couldn't delete saved job");
       mutate();
@@ -185,15 +221,12 @@ export default function SavedPage() {
           onClose={() => setSelectedId(null)}
         />
       )}
-      {showSave && <SaveJobModal onClose={() => setShowSave(false)} onCreated={() => mutate()} />}
+      {showSave && <SaveJobModal onClose={() => setShowSave(false)} onSubmit={createSaved} />}
       {promoteTarget && (
         <AddApplicationPanel
           promote={promoteTarget}
           onClose={() => setPromoteTarget(null)}
-          onCreated={() => {
-            mutate();
-            toast.success("Marked as applied");
-          }}
+          onSubmit={promoteApplied}
         />
       )}
       <ConfirmDialog

@@ -11,7 +11,7 @@ export async function GET() {
 
   const templates = await cached(cacheKey.emailTemplates(profile.id), TTL.TEMPLATES, () =>
     prisma.emailTemplate.findMany({
-      where: { profileId: profile.id },
+      where: { profileId: profile.id, deletedAt: null },
       orderBy: [{ order: "asc" }, { name: "asc" }],
     })
   );
@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
 
   const template = await prisma.emailTemplate.upsert({
     where: { profileId_name: { profileId: profile.id, name: parsed.data.name } },
-    update: { subject: parsed.data.subject, body: parsed.data.body, category: parsed.data.category },
+    // Re-saving a name that's currently in Trash revives it (deletedAt → null).
+    update: { subject: parsed.data.subject, body: parsed.data.body, category: parsed.data.category, deletedAt: null },
     create: { profileId: profile.id, ...parsed.data, order: nextOrder },
   });
   await invalidate(cacheKey.emailTemplates(profile.id));

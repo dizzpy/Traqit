@@ -7,9 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import { DatePicker } from "@/components/ui/date-picker";
-import { toast } from "sonner";
 import { CURRENCIES, DEFAULT_JOB_TYPES, DEFAULT_SOURCES } from "@/lib/constants";
-import { createApplication, updateApplication } from "@/hooks/use-applications";
 import { useTemplates } from "@/hooks/use-presets";
 import { useProfile } from "@/hooks/use-profile";
 import type { Application, WorkMode } from "@/types";
@@ -17,9 +15,14 @@ import { cn } from "@/lib/utils";
 
 interface AddApplicationPanelProps {
   onClose: () => void;
-  /** Called after a successful create/promote so the list can revalidate. */
-  onCreated: () => void;
-  /** When set, the panel promotes this saved job to APPLIED (updates it) instead of creating a new one. */
+  /**
+   * Receives the validated form fields. The parent owns persistence so it can
+   * apply the change optimistically (instant row) and reconcile/rollback. For a
+   * promote, the parent reads its own `promote` target; `templateId` is included
+   * for the create path. The panel closes itself right after calling this.
+   */
+  onSubmit: (fields: Record<string, unknown>) => void;
+  /** When set, the panel promotes this saved job to APPLIED instead of creating a new one. */
   promote?: Application;
 }
 
@@ -37,12 +40,11 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-[11px] text-[var(--status-rejected-fg)]">{message}</p>;
 }
 
-export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicationPanelProps) {
+export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicationPanelProps) {
   const today = new Date().toISOString().split("T")[0];
   const isPromote = !!promote;
   const { templates } = useTemplates();
   const { profile } = useProfile();
-  const [submitting, setSubmitting] = useState(false);
 
   const [companyName, setCompanyName] = useState(promote?.companyName ?? "");
   const [position, setPosition] = useState(promote?.position ?? "");
@@ -75,10 +77,9 @@ export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicat
     return Object.keys(e).length === 0;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate() || submitting) return;
-    setSubmitting(true);
+    if (!validate()) return;
     const fields = {
       companyName: companyName.trim(),
       position: position.trim(),
@@ -93,20 +94,12 @@ export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicat
       location: location.trim() || null,
       appliedDate: appliedDate || null,
       notes: notes.trim() || null,
+      // Only meaningful for the create path; the promote handler ignores it.
+      templateId: isPromote ? null : effectiveTemplateId || null,
     };
-    try {
-      if (promote) {
-        // Promote the existing saved record → APPLIED (no duplicate, no stage seeding).
-        await updateApplication(promote.id, { ...fields, status: "APPLIED" });
-      } else {
-        await createApplication({ ...fields, templateId: effectiveTemplateId || null });
-      }
-      onCreated();
-      onClose();
-    } catch {
-      toast.error(promote ? "Couldn't mark as applied" : "Couldn't create application");
-      setSubmitting(false);
-    }
+    // Hand off to the parent (optimistic + persist) and close instantly.
+    onSubmit(fields);
+    onClose();
   }
 
   return (
@@ -315,16 +308,12 @@ export function AddApplicationPanel({ onClose, onCreated, promote }: AddApplicat
 
           {/* Footer */}
           <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={submitting} className="h-9 px-5 text-sm font-semibold shadow-sm shadow-accent/25">
-              {submitting ? (
-                <span className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              ) : (
-                <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
-              )}
-              {submitting ? (isPromote ? "Applying…" : "Adding…") : isPromote ? "Mark as applied" : "Add application"}
+            <Button type="submit" size="sm" className="h-9 px-5 text-sm font-semibold shadow-sm shadow-accent/25">
+              <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
+              {isPromote ? "Mark as applied" : "Add application"}
             </Button>
           </div>
         </form>

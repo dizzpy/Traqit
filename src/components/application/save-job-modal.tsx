@@ -6,14 +6,15 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import { toast } from "sonner";
-import { createApplication } from "@/hooks/use-applications";
 import { cn, deadlineBadge, hostnameOf } from "@/lib/utils";
 
 interface SaveJobModalProps {
   onClose: () => void;
-  /** Called after a successful save so the list can revalidate. */
-  onCreated: () => void;
+  /**
+   * Receives the validated fields for a SAVED job. The parent persists it
+   * optimistically (instant card) and reconciles; the modal closes right after.
+   */
+  onSubmit: (fields: Record<string, unknown>) => void;
 }
 
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
@@ -25,39 +26,30 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
   );
 }
 
-export function SaveJobModal({ onClose, onCreated }: SaveJobModalProps) {
+export function SaveJobModal({ onClose, onSubmit }: SaveJobModalProps) {
   const [url, setUrl] = useState("");
   const [company, setCompany] = useState("");
   const [position, setPosition] = useState("");
   const [note, setNote] = useState("");
   const [deadline, setDeadline] = useState("");
   const [urlError, setUrlError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const badge = deadline ? deadlineBadge(deadline) : null;
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!url.trim()) { setUrlError("Job posting URL is required"); return; }
     setUrlError("");
-    if (submitting) return;
-    setSubmitting(true);
-    try {
-      await createApplication({
-        companyName: company.trim() || hostnameOf(url) || "Saved job",
-        position: position.trim(),
-        jobPostUrl: url.trim(),
-        status: "SAVED",
-        workMode: "no-data",
-        deadline: deadline || null,
-        notes: note.trim() || null,
-      });
-      onCreated();
-      onClose();
-    } catch {
-      toast.error("Couldn't save the job");
-      setSubmitting(false);
-    }
+    onSubmit({
+      companyName: company.trim() || hostnameOf(url) || "Saved job",
+      position: position.trim(),
+      jobPostUrl: url.trim(),
+      status: "SAVED",
+      workMode: "no-data",
+      deadline: deadline || null,
+      notes: note.trim() || null,
+    });
+    onClose();
   }
 
   return (
@@ -145,16 +137,12 @@ export function SaveJobModal({ onClose, onCreated }: SaveJobModalProps) {
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 pt-1">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={submitting}>
-              {submitting ? (
-                <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              ) : (
-                <HugeiconsIcon icon={BookmarkIcon} size={13} strokeWidth={1.5} />
-              )}
-              {submitting ? "Saving…" : "Save job"}
+            <Button type="submit" size="sm">
+              <HugeiconsIcon icon={BookmarkIcon} size={13} strokeWidth={1.5} />
+              Save job
             </Button>
           </div>
         </form>

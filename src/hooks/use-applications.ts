@@ -1,5 +1,6 @@
 import useSWR, { mutate as globalMutate } from "swr";
-import type { Application, ApplicationStatus } from "@/types";
+import type { Application, ApplicationStatus, WorkMode } from "@/types";
+import { tempId } from "@/lib/optimistic";
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -94,4 +95,66 @@ export async function updateApplication(id: string, body: Record<string, unknown
 export async function deleteApplication(id: string) {
   const res = await fetch(`/api/applications/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete");
+}
+
+/**
+ * Trash many applications in ONE request + one DB write. Replaces the old
+ * `Promise.all(ids.map(deleteApplication))`, which fired N requests, hit the
+ * write rate-limiter and failed partially.
+ */
+export async function bulkDeleteApplications(ids: string[]) {
+  const res = await fetch("/api/applications/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) throw new Error("Failed to delete");
+  return res.json();
+}
+
+/** Restore trashed applications (used by the Undo toast + the Trash page). */
+export async function restoreApplications(ids: string[]) {
+  const res = await fetch("/api/trash/restore", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "application", ids }),
+  });
+  if (!res.ok) throw new Error("Failed to restore");
+  return res.json();
+}
+
+/**
+ * Build a fully-shaped placeholder Application from form fields, with a temp id,
+ * for instant optimistic insertion. Reconcile by replacing it with the server
+ * record once the POST resolves.
+ */
+export function optimisticApplication(fields: Record<string, unknown>): Application {
+  const now = new Date().toISOString();
+  const str = (v: unknown) => (v == null ? null : String(v));
+  return {
+    id: tempId(),
+    profileId: "",
+    companyName: String(fields.companyName ?? ""),
+    companyUrl: str(fields.companyUrl),
+    position: String(fields.position ?? ""),
+    jobPostUrl: str(fields.jobPostUrl),
+    jobType: String(fields.jobType ?? ""),
+    workMode: (fields.workMode as WorkMode) ?? "no-data",
+    appliedVia: String(fields.appliedVia ?? ""),
+    salaryMin: (fields.salaryMin as number | null) ?? null,
+    salaryMax: (fields.salaryMax as number | null) ?? null,
+    currency: String(fields.currency ?? "LKR"),
+    location: str(fields.location),
+    status: (fields.status as ApplicationStatus) ?? "APPLIED",
+    appliedDate: str(fields.appliedDate),
+    firstResponseDate: null,
+    deadline: str(fields.deadline),
+    notes: str(fields.notes),
+    stages: [],
+    contacts: [],
+    documents: [],
+    activityLog: [],
+    createdAt: now,
+    updatedAt: now,
+  };
 }

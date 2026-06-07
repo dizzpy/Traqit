@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const appId = searchParams.get("applicationId");
 
   const where: Record<string, unknown> = {
-    application: { profileId: profile.id },
+    application: { profileId: profile.id, deletedAt: null },
   };
   if (type) where.type = type;
   if (appId) where.applicationId = appId;

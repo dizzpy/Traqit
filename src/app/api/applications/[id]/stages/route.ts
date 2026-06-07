@@ -41,28 +41,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
-    // Shift existing stages to make room
+    // Shift existing stages to make room, then insert — atomically, so a failure
+    // can't leave a gap or a half-applied shift. The unique(applicationId, order)
+    // constraint was removed (it tripped Postgres's per-row check during the
+    // increment), so this no longer 500s on inserts between stages.
     const { order, ...data } = parsed.data;
-    await prisma.pipelineStage.updateMany({
-      where: { applicationId: id, order: { gte: order } },
-      data: { order: { increment: 1 } },
-    });
-
-    const stage = await prisma.pipelineStage.create({
-      data: {
-        ...data,
-        applicationId: id,
-        order,
-        scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
-      },
-    });
-
-    await prisma.activity.create({
-      data: {
-        applicationId: id,
-        type: "stage_added",
-        description: `Pipeline stage "${data.name}" added`,
-      },
+    const stage = await prisma.$transaction(async (tx) => {
+      await tx.pipelineStage.updateMany({
+        where: { applicationId: id, order: { gte: order } },
+        data: { order: { increment: 1 } },
+      });
+      const created = await tx.pipelineStage.create({
+        data: {
+          ...data,
+          applicationId: id,
+          order,
+          scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
+        },
+      });
+      await tx.activity.create({
+        data: {
+          applicationId: id,
+          type: "stage_added",
+          description: `Pipeline stage "${data.name}" added`,
+        },
+      });
+      return created;
     });
 
     await invalidateAppData(profile.id);

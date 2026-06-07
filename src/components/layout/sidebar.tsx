@@ -10,6 +10,7 @@ import {
   BarChartIcon,
   Mail01Icon,
   Settings01Icon,
+  Delete02Icon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -180,8 +181,22 @@ export function Sidebar() {
         <div className="flex-1" />
       )}
 
-      {/* Settings — bottom-aligned, styled like the top nav items */}
-      <div className="px-3 pb-2">
+      {/* Trash + Settings — bottom-aligned, styled like the top nav items */}
+      <div className="px-3 pb-2 flex flex-col gap-0.5">
+        <Link
+          href="/app/trash"
+          title={collapsed ? "Trash" : undefined}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150",
+            collapsed && "justify-center px-0",
+            pathname === "/app/trash" || pathname.startsWith("/app/trash/")
+              ? "bg-surface-hover text-text-primary"
+              : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+          )}
+        >
+          <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.5} className="shrink-0" />
+          {!collapsed && <span className="truncate">Trash</span>}
+        </Link>
         <Link
           href="/app/settings"
           title={collapsed ? "Settings" : undefined}

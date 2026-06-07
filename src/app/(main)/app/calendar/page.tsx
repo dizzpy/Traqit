@@ -6,6 +6,7 @@ import {
   endOfMonth,
   startOfWeek,
   endOfWeek,
+  startOfDay,
   eachDayOfInterval,
   isSameMonth,
   isToday,
@@ -18,14 +19,18 @@ import {
   Calendar03Icon,
   AlarmClockIcon,
   FlowSquareIcon,
+  Delete02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ApplicationDetail } from "@/components/application/application-detail";
 import { useApplications, updateApplication, deleteApplication } from "@/hooks/use-applications";
+import { deleteStage } from "@/hooks/use-stages";
+import { formatRelativeDate } from "@/lib/utils";
 import type { Application, StageStatus } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +43,7 @@ type CalEvent = {
   label: string;
   app: Application;
   status?: StageStatus;
+  stageId?: string; // present for stage events — used to delete the stage
 };
 
 function buildEvents(apps: Application[]): CalEvent[] {
@@ -52,6 +58,7 @@ function buildEvents(apps: Application[]): CalEvent[] {
           label: `${s.name} · ${app.companyName}`,
           app,
           status: s.status,
+          stageId: s.id,
         });
       }
     }
@@ -87,6 +94,7 @@ export default function CalendarPage() {
   const { applications: apps, mutate } = useApplications();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<CalEvent | null>(null);
 
   function patchCache(updater: (list: Application[]) => Application[]) {
     mutate((cur) => (cur ? { ...cur, data: updater(cur.data) } : cur), { revalidate: false });
@@ -109,6 +117,27 @@ export default function CalendarPage() {
       toast(`Deleted ${name || "application"}`);
     } catch {
       toast.error("Couldn't delete");
+      mutate();
+    }
+  }
+
+  // Remove a single scheduled item from the agenda (optimistic). Stage events
+  // delete the stage; deadline events just clear the application's deadline.
+  async function removeEvent(ev: CalEvent) {
+    if (ev.kind === "deadline") {
+      updateApp(ev.app.id, { deadline: null });
+      return;
+    }
+    if (!ev.stageId) return;
+    patchCache((list) =>
+      list.map((a) =>
+        a.id === ev.app.id ? { ...a, stages: a.stages.filter((s) => s.id !== ev.stageId) } : a
+      )
+    );
+    try {
+      await deleteStage(ev.app.id, ev.stageId);
+    } catch {
+      toast.error("Couldn't delete schedule");
       mutate();
     }
   }
@@ -139,6 +168,14 @@ export default function CalendarPage() {
     () => events.filter((e) => isSameMonth(e.date, month)).length,
     [events, month]
   );
+
+  // Agenda: everything scheduled from today onward, soonest first.
+  const upcoming = useMemo(() => {
+    const today = startOfDay(new Date()).getTime();
+    return events
+      .filter((e) => e.date.getTime() >= today)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [events]);
 
   const selectedApp = apps.find((a) => a.id === selectedId) ?? null;
 
@@ -188,6 +225,9 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      {/* Body: month grid + agenda panel */}
+      <div className="flex-1 flex overflow-hidden">
+        <div className="relative flex-1 flex flex-col overflow-hidden">
       {/* Weekday header */}
       <div className="grid grid-cols-7 border-b border-border shrink-0">
         {WEEKDAYS.map((d) => (
@@ -287,13 +327,59 @@ export default function CalendarPage() {
         })}
       </div>
 
-      {monthEventCount === 0 && (
-        <div className="absolute inset-x-0 bottom-6 flex justify-center pointer-events-none">
-          <p className="text-xs text-text-muted bg-surface-elevated border border-border px-3 py-1.5 rounded-full">
-            No scheduled stages or deadlines this month
-          </p>
+          {monthEventCount === 0 && (
+            <div className="absolute inset-x-0 bottom-6 flex justify-center pointer-events-none">
+              <p className="text-xs text-text-muted bg-surface-elevated border border-border px-3 py-1.5 rounded-full">
+                No scheduled stages or deadlines this month
+              </p>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Agenda panel */}
+        <aside className="hidden lg:flex flex-col w-80 shrink-0 border-l border-border bg-surface/30 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+            <h2 className="text-sm font-semibold text-text-primary">Upcoming</h2>
+            <span className="text-xs text-text-muted bg-surface-elevated border border-border px-2 py-0.5 rounded-full">
+              {upcoming.length}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-1.5">
+            {upcoming.length === 0 ? (
+              <p className="text-xs text-text-muted text-center py-8">Nothing scheduled ahead.</p>
+            ) : (
+              upcoming.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="group flex items-start gap-2 rounded-lg border border-border bg-surface-elevated/50 p-2.5 transition-colors duration-150 hover:bg-surface-elevated"
+                >
+                  <button onClick={() => setSelectedId(ev.app.id)} className="min-w-0 flex-1 text-left">
+                    <div className="flex items-center gap-1.5">
+                      <HugeiconsIcon
+                        icon={ev.kind === "deadline" ? AlarmClockIcon : FlowSquareIcon}
+                        size={12}
+                        strokeWidth={1.5}
+                        className={cn("shrink-0", ev.kind === "deadline" ? "text-[#f59e0b]" : "text-accent-soft-fg")}
+                      />
+                      <span className="text-xs font-medium text-text-primary truncate">{ev.label}</span>
+                    </div>
+                    <span className="text-[11px] text-text-muted mt-0.5 block">
+                      {format(ev.date, "EEE, MMM d")} · {formatRelativeDate(ev.date.toISOString())}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setEventToDelete(ev)}
+                    title={ev.kind === "deadline" ? "Remove deadline" : "Delete schedule"}
+                    className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-[var(--status-rejected-fg)] transition-colors p-1 shrink-0"
+                  >
+                    <HugeiconsIcon icon={Delete02Icon} size={13} strokeWidth={1.5} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </aside>
+      </div>
 
       {selectedApp && (
         <ApplicationDetail
@@ -304,6 +390,23 @@ export default function CalendarPage() {
           onClose={() => setSelectedId(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
+        onConfirm={() => eventToDelete && removeEvent(eventToDelete)}
+        title={eventToDelete?.kind === "deadline" ? "Remove this deadline?" : "Delete this schedule?"}
+        message={
+          eventToDelete
+            ? eventToDelete.kind === "deadline"
+              ? `The deadline for ${eventToDelete.app.companyName} will be cleared.`
+              : `"${eventToDelete.label}" will be removed from the pipeline.`
+            : ""
+        }
+        confirmLabel={eventToDelete?.kind === "deadline" ? "Remove" : "Delete"}
+        tone="danger"
+        icon={Delete02Icon}
+      />
     </div>
   );
 }

@@ -61,6 +61,10 @@ model Application {
   documents         Document[]
   activityLog       Activity[]
 
+  // Soft delete: non-null = in Trash. Lists filter on `deletedAt: null`; a
+  // daily purge (pg_cron) + a lazy sweep hard-delete rows older than 30 days.
+  deletedAt         DateTime?
+
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -68,6 +72,7 @@ model Application {
   @@index([profileId, status])
   @@index([profileId, appliedDate])
   @@index([profileId, createdAt])
+  @@index([profileId, deletedAt])
 }
 
 enum ApplicationStatus {
@@ -97,8 +102,12 @@ model PipelineStage {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
+  // No @@unique([applicationId, order]): shifting orders with an UPDATE …
+  // increment trips Postgres's per-row unique check mid-statement, which was the
+  // intermittent "couldn't add stage" 500. Order is just a sort key — lists sort
+  // by (order, createdAt), so transient duplicates are harmless.
   @@index([applicationId])
-  @@unique([applicationId, order])
+  @@index([applicationId, order])
 }
 
 enum StageStatus {
@@ -204,7 +213,9 @@ model EmailTemplate {
   body      String
   category  String   @default("General")
   order     Int      @default(0)
+  deletedAt DateTime? // soft delete — see Application.deletedAt
   createdAt DateTime @default(now())
 
   @@unique([profileId, name])
+  @@index([profileId, deletedAt])
 }

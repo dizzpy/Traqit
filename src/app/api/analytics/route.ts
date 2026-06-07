@@ -12,7 +12,7 @@ export async function GET() {
 
   const analytics = await cached(cacheKey.analytics(profile.id), TTL.ANALYTICS, async () => {
     const applications = await prisma.application.findMany({
-      where: { profileId: profile.id },
+      where: { profileId: profile.id, deletedAt: null },
       include: {
         stages: { orderBy: { order: "asc" } },
         contacts: true,

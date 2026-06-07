@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
   const result = await prisma.emailTemplate.updateMany({
-    where: { id, profileId: profile.id },
+    where: { id, profileId: profile.id, deletedAt: null },
     data: parsed.data,
   });
   if (result.count === 0) return apiError("Not found", "NOT_FOUND", 404);
@@ -35,7 +35,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
   const { id } = await params;
 
-  await prisma.emailTemplate.deleteMany({ where: { id, profileId: profile.id } });
+  // Soft delete → Trash (recoverable for 30 days). Restore via /api/trash/restore.
+  const result = await prisma.emailTemplate.updateMany({
+    where: { id, profileId: profile.id, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  if (result.count === 0) return apiError("Not found", "NOT_FOUND", 404);
   await invalidate(cacheKey.emailTemplates(profile.id));
   return NextResponse.json({ data: { id } });
 }

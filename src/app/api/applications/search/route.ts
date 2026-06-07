@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const apps = await prisma.application.findMany({
     where: {
       profileId: profile.id,
+      deletedAt: null,
       ...(q
         ? {
             OR: [

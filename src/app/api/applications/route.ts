@@ -79,7 +79,8 @@ export async function GET(req: NextRequest) {
   // used by the data export. The default list view stays trimmed for speed.
   const full = searchParams.get("full") === "1";
 
-  const where: Record<string, unknown> = { profileId: profile.id };
+  // `deletedAt: null` hides trashed applications from every list view.
+  const where: Record<string, unknown> = { profileId: profile.id, deletedAt: null };
 
   if (status) {
     const statuses = status.split(",");
