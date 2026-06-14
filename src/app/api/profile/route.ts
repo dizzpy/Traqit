@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/utils";
 import { cached, invalidate, cacheKey, TTL } from "@/lib/redis";
+import type { Plan } from "@prisma/client";
 
 function serialize(p: {
   id: string;
@@ -19,6 +20,7 @@ function serialize(p: {
   reminderLeadTime: number;
   onboardedAt: Date | null;
   createdAt: Date;
+  subscription?: { plan: Plan } | null;
 }) {
   return {
     id: p.id,
@@ -32,6 +34,8 @@ function serialize(p: {
     reminderLeadTime: p.reminderLeadTime,
     onboardedAt: p.onboardedAt,
     createdAt: p.createdAt,
+    // Defensive default: any profile missing a subscription row reads as FREE.
+    plan: p.subscription?.plan ?? "FREE",
   };
 }
 
@@ -47,7 +51,7 @@ export async function GET() {
 
   // Cache only the DB-backed profile — avatar/provider come from the live session.
   const profile = await cached(cacheKey.profile(user.id), TTL.PROFILE, () =>
-    prisma.profile.findUnique({ where: { userId: user.id } })
+    prisma.profile.findUnique({ where: { userId: user.id }, include: { subscription: true } })
   );
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
 
@@ -93,6 +97,7 @@ export async function PATCH(req: NextRequest) {
   const updated = await prisma.profile.update({
     where: { id: profile.id },
     data,
+    include: { subscription: true },
   });
   await invalidate(cacheKey.profile(updated.userId));
   return NextResponse.json({ data: serialize(updated) });

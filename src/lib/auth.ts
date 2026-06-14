@@ -10,7 +10,7 @@ const profileByUserId = (userId: string) =>
   // uncached findUnique here was a Postgres round-trip per request. Shares the
   // `cacheKey.profile` entry the /api/profile route already writes + invalidates.
   cached(cacheKey.profile(userId), TTL.PROFILE, () =>
-    prisma.profile.findUnique({ where: { userId } })
+    prisma.profile.findUnique({ where: { userId }, include: { subscription: true } })
   );
 
 /**
@@ -65,8 +65,10 @@ export async function getOrCreateProfileForUser(user: User) {
     email.split("@")[0] ||
     "User";
 
+  // Nest-create a FREE subscription so every new account has a plan row from
+  // the start (relies on Subscription.plan @default(FREE)).
   const profile = await prisma.profile.create({
-    data: { userId: user.id, email, name },
+    data: { userId: user.id, email, name, subscription: { create: {} } },
   });
   await seedProfile(profile.id);
   return profile;

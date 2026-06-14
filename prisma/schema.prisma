@@ -26,6 +26,26 @@ model Profile {
   customTypes       JobType[]
   pipelineTemplates PipelineTemplate[]
   emailTemplates    EmailTemplate[]
+  subscription      Subscription?
+}
+
+// ─── SUBSCRIPTION ────────────────────────────────────────────────────────────
+// One-per-profile plan tier. Kept in its own table (not a column on Profile) so
+// it can grow into a full subscription record later — billing provider id,
+// period dates, status, etc. For now it only carries `plan`, defaulting to FREE.
+model Subscription {
+  id        String   @id @default(cuid())
+  profileId String   @unique // 1:1 with Profile
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Plan {
+  FREE
+  PRO
+  MAX
 }
 
 // ─── APPLICATIONS ────────────────────────────────────────────────────────────
