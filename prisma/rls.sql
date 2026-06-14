@@ -11,6 +11,7 @@
 -- Re-run safe: ENABLE ROW LEVEL SECURITY is idempotent.
 
 ALTER TABLE public."Profile"          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Subscription"     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."Application"      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."PipelineStage"    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."Contact"          ENABLE ROW LEVEL SECURITY;
