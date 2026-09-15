@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# local scratch/output, not part of the repo
+cv_se_intern.html
+cv-template-preview.html
+.claude/settings.json.graphify-bak
