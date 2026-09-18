@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
         },
         include,
       }),
-      stageNames.length > 0
+      data.appliedVia
         ? prisma.source.updateMany({
             where: { profileId: profile.id, name: data.appliedVia },
             data: { usageCount: { increment: 1 } },
@@ -191,8 +191,8 @@ export async function POST(req: NextRequest) {
     ]);
 
     await invalidateAppData(profile.id);
-    // A used template bumps the source's usageCount, changing the sources order.
-    if (stageNames.length > 0) await invalidate(cacheKey.sources(profile.id));
+    // A used source bumps its usageCount, changing the sources order.
+    if (data.appliedVia) await invalidate(cacheKey.sources(profile.id));
     return NextResponse.json({ data: app }, { status: 201 });
   } catch (err) {
     console.error(err);
