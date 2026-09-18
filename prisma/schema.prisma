@@ -174,8 +174,16 @@ model Document {
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   name          String
+  // For source="link": an arbitrary external URL. For source="upload": our own
+  // download-redirect path (stable; never expires, unlike a signed URL).
   url           String
   type          String
+
+  source        String      @default("link") // "link" | "upload"
+  // Supabase Storage object path — only set when source="upload".
+  storagePath   String?
+  fileSize      Int?
+  mimeType      String?
 
   createdAt     DateTime    @default(now())
 

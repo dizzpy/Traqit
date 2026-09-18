@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
-import { deleteDocumentFile } from "@/lib/storage";
+import { signDocumentUrl } from "@/lib/storage";
 
-export async function DELETE(
+/**
+ * Stable, never-expiring path stored as an uploaded Document's `url`. Checks
+ * ownership, then redirects to a freshly-minted short-lived signed URL —
+ * the private bucket is never reachable without going through here.
+ */
+export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; documentId: string }> },
 ) {
@@ -20,15 +25,15 @@ export async function DELETE(
   const doc = await prisma.document.findFirst({
     where: { id: documentId, applicationId: id },
   });
-  if (!doc) return apiError("Document not found", "NOT_FOUND", 404);
-
-  await prisma.document.deleteMany({
-    where: { id: documentId, applicationId: id },
-  });
-  // Best-effort — the DB row is already gone either way; an orphaned blob in
-  // a private bucket nobody can browse to isn't worth failing the delete over.
-  if (doc.source === "upload" && doc.storagePath) {
-    await deleteDocumentFile(doc.storagePath);
+  if (!doc || doc.source !== "upload" || !doc.storagePath) {
+    return apiError("Document not found", "NOT_FOUND", 404);
   }
-  return NextResponse.json({ data: { ok: true } });
+
+  try {
+    const signedUrl = await signDocumentUrl(doc.storagePath);
+    return NextResponse.redirect(signedUrl);
+  } catch (err) {
+    console.error(err);
+    return apiError("Couldn't retrieve the file", "SERVER_ERROR", 500);
+  }
 }

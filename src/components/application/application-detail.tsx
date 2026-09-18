@@ -53,15 +53,19 @@ import {
   updateContact,
   deleteContact,
   createDocument,
+  uploadDocument,
   deleteDocument,
   type ContactInput,
   type DocumentInput,
+  type DocumentUploadMeta,
 } from "@/hooks/use-detail";
 import {
   STATUS_LABELS,
   STATUS_BG,
   WORK_MODE_LABELS,
   WORK_MODE_COLORS,
+  MAX_UPLOAD_BYTES,
+  ALLOWED_UPLOAD_MIME_TYPES,
 } from "@/lib/constants";
 import type {
   Application,
@@ -266,6 +270,10 @@ export function ApplicationDetail({
       name: input.name,
       url: input.url,
       type: input.type,
+      source: "link",
+      storagePath: null,
+      fileSize: null,
+      mimeType: null,
       createdAt: now,
     };
     patchDetail((a) => ({ ...a, documents: [...a.documents, temp] }));
@@ -282,6 +290,14 @@ export function ApplicationDetail({
       }));
       toast.error("Couldn't add document. Changes reverted.");
     }
+  }
+
+  async function uploadDocumentFile(file: File, meta: DocumentUploadMeta) {
+    // Not optimistic like addDocument — an upload isn't instant, and the
+    // caller (the form) needs the real error message to show inline and
+    // decide whether to keep itself open, rather than a fire-and-forget call.
+    const real = await uploadDocument(app.id, file, meta);
+    patchDetail((a) => ({ ...a, documents: [...a.documents, real] }));
   }
 
   async function removeDocument(id: string) {
@@ -815,6 +831,7 @@ export function ApplicationDetail({
               {addingDoc && (
                 <AddDocumentForm
                   onCreate={addDocument}
+                  onUpload={uploadDocumentFile}
                   onDone={() => setAddingDoc(false)}
                 />
               )}
@@ -1086,22 +1103,65 @@ const DOC_TYPES = [
   { value: "other", label: "Other" },
 ] as const;
 
+const UPLOAD_ACCEPT = ".pdf,.docx,.png,.jpg,.jpeg";
+
+function validateUploadFile(file: File): string | null {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return `File is too large (max ${(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(0)}MB)`;
+  }
+  if (!ALLOWED_UPLOAD_MIME_TYPES.includes(file.type)) {
+    return "Unsupported file type — use PDF, DOCX, PNG or JPG";
+  }
+  return null;
+}
+
 function AddDocumentForm({
   onCreate,
+  onUpload,
   onDone,
 }: {
   onCreate: (input: DocumentInput) => void;
+  onUpload: (file: File, meta: DocumentUploadMeta) => Promise<void>;
   onDone: () => void;
 }) {
+  const [mode, setMode] = useState<"link" | "upload">("link");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [type, setType] = useState<(typeof DOC_TYPES)[number]["value"]>("cv");
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  const isLink = mode === "link";
+  const valid = isLink ? name.trim() && url.trim() : !!file && !uploading;
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !url.trim()) return;
-    onCreate({ name: name.trim(), url: url.trim(), type });
-    onDone();
+    setError(null);
+    if (isLink) {
+      if (!name.trim() || !url.trim()) return;
+      onCreate({ name: name.trim(), url: url.trim(), type });
+      onDone();
+      return;
+    }
+
+    if (!file) return;
+    const validationError = validateUploadFile(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setUploading(true);
+    try {
+      await onUpload(file, { name: name.trim() || file.name, type });
+      onDone();
+    } catch (err) {
+      // Stays open on failure — the user should see why and be able to
+      // retry without losing what they'd already filled in.
+      setError(err instanceof Error ? err.message : "Couldn't upload the file");
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -1109,20 +1169,61 @@ function AddDocumentForm({
       onSubmit={submit}
       className="bg-surface-elevated border border-border rounded-card p-3 mb-3 flex flex-col gap-2"
     >
+      <div className="flex gap-1 p-1 bg-surface rounded-input border border-border w-full">
+        {(["link", "upload"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setMode(m);
+              setError(null);
+            }}
+            className={cn(
+              "flex-1 py-1.5 text-xs font-medium rounded transition-colors duration-150",
+              mode === m
+                ? "bg-surface-elevated text-text-primary border border-border"
+                : "text-text-muted hover:text-text-secondary",
+            )}
+          >
+            {m === "link" ? "Link" : "Upload file"}
+          </button>
+        ))}
+      </div>
       <input
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Label * (e.g. CV — Sysco)"
+        placeholder={
+          isLink ? "Label * (e.g. CV — Sysco)" : "Label (defaults to filename)"
+        }
         className={fieldClass}
       />
-      <input
-        type="url"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="Link * — https://drive.google.com/…"
-        className={fieldClass}
-      />
+      {isLink ? (
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Link * — https://drive.google.com/…"
+          className={fieldClass}
+        />
+      ) : (
+        <input
+          type="file"
+          accept={UPLOAD_ACCEPT}
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            setFile(f);
+            setError(f ? validateUploadFile(f) : null);
+          }}
+          className={cn(
+            fieldClass,
+            "cursor-pointer file:mr-3 file:cursor-pointer file:border-0 file:bg-transparent file:text-text-secondary",
+          )}
+        />
+      )}
+      {error && (
+        <p className="text-[11px] text-[var(--status-rejected-fg)]">{error}</p>
+      )}
       <select
         value={type}
         onChange={(e) => setType(e.target.value as typeof type)}
@@ -1138,8 +1239,8 @@ function AddDocumentForm({
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" disabled={!name.trim() || !url.trim()}>
-          Add document
+        <Button type="submit" size="sm" disabled={!valid}>
+          {uploading ? "Uploading…" : isLink ? "Add document" : "Upload"}
         </Button>
       </div>
     </form>

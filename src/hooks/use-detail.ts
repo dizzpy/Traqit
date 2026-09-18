@@ -88,3 +88,24 @@ export async function deleteDocument(
   );
   if (!res.ok) throw new Error("Failed to delete document");
 }
+
+export type DocumentUploadMeta = {
+  name: string;
+  type: "cv" | "cover-letter" | "portfolio" | "other";
+};
+
+export async function uploadDocument(
+  appId: string,
+  file: File,
+  meta: DocumentUploadMeta,
+): Promise<Document> {
+  const form = new FormData();
+  form.set("file", file);
+  form.set("name", meta.name);
+  form.set("type", meta.type);
+  const res = await fetch(`/api/applications/${appId}/documents/upload`, {
+    method: "POST",
+    body: form,
+  });
+  return jsonOrThrow(res, "Failed to upload document");
+}

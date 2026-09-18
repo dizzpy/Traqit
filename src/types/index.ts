@@ -43,12 +43,18 @@ export interface Contact {
   createdAt: string;
 }
 
+export type DocumentSource = "link" | "upload";
+
 export interface Document {
   id: string;
   applicationId: string;
   name: string;
   url: string;
   type: string;
+  source: DocumentSource;
+  storagePath: string | null;
+  fileSize: number | null;
+  mimeType: string | null;
   createdAt: string;
 }
 

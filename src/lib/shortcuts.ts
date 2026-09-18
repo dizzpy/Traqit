@@ -11,7 +11,6 @@ export const ROUTE_SHORTCUTS: Record<string, string> = {
   c: "/app/calendar",
   g: "/app/analytics",
   t: "/app/templates",
-  p: "/app/profile",
   ",": "/app/settings",
 };
 
@@ -35,7 +34,6 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ["c"], label: "Calendar" },
       { keys: ["g"], label: "Analytics" },
       { keys: ["t"], label: "Email templates" },
-      { keys: ["p"], label: "Profile" },
       { keys: [","], label: "Settings" },
     ],
   },
