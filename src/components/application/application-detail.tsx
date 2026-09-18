@@ -50,6 +50,7 @@ import {
 import { useApplication } from "@/hooks/use-applications";
 import {
   createContact,
+  updateContact,
   deleteContact,
   createDocument,
   deleteDocument,
@@ -135,6 +136,7 @@ export function ApplicationDetail({
   const [activeTab, setActiveTab] = useState(initialTab);
   const [editingLinks, setEditingLinks] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [addingDoc, setAddingDoc] = useState(false);
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
   const { jobTypes, mutate: mutateTypes } = useJobTypes();
@@ -221,6 +223,24 @@ export function ApplicationDetail({
         contacts: a.contacts.filter((c) => c.id !== temp.id),
       }));
       toast.error("Couldn't add contact. Changes reverted.");
+    }
+  }
+
+  async function editContact(id: string, input: ContactInput) {
+    const snapshot = contacts;
+    patchDetail((a) => ({
+      ...a,
+      contacts: a.contacts.map((c) => (c.id === id ? { ...c, ...input } : c)),
+    }));
+    try {
+      const real = await updateContact(app.id, id, input);
+      patchDetail((a) => ({
+        ...a,
+        contacts: a.contacts.map((c) => (c.id === id ? real : c)),
+      }));
+    } catch {
+      patchDetail((a) => ({ ...a, contacts: snapshot }));
+      toast.error("Couldn't save contact. Changes reverted.");
     }
   }
 
@@ -600,8 +620,8 @@ export function ApplicationDetail({
               </div>
 
               {addingContact && (
-                <AddContactForm
-                  onCreate={addContact}
+                <ContactForm
+                  onSubmit={addContact}
                   onDone={() => setAddingContact(false)}
                 />
               )}
@@ -613,135 +633,161 @@ export function ApplicationDetail({
                 />
               ) : (
                 <div className="flex flex-col gap-3">
-                  {contacts.map((c) => (
-                    <div
-                      key={c.id}
-                      className="group bg-surface-elevated border border-border rounded-card p-4"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">
-                            {c.name}
-                          </p>
-                          {(c.role || c.stageName) && (
-                            <p className="text-xs text-text-muted mt-0.5">
-                              {c.role}
-                              {c.role && c.stageName ? " · " : ""}
-                              {c.stageName}
+                  {contacts.map((c) =>
+                    c.id === editingContactId ? (
+                      <ContactForm
+                        key={c.id}
+                        initial={c}
+                        submitLabel="Save changes"
+                        onSubmit={(input) => {
+                          editContact(c.id, input);
+                          setEditingContactId(null);
+                        }}
+                        onDone={() => setEditingContactId(null)}
+                      />
+                    ) : (
+                      <div
+                        key={c.id}
+                        className="group bg-surface-elevated border border-border rounded-card p-4"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="text-sm font-medium text-text-primary">
+                              {c.name}
                             </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => setDraftContact(c)}
-                            title="Draft email"
-                            className="text-text-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-all duration-150"
-                          >
-                            <HugeiconsIcon
-                              icon={Mail01Icon}
-                              size={14}
-                              strokeWidth={1.5}
-                            />
-                          </button>
-                          <button
-                            onClick={() => removeContact(c.id)}
-                            title="Delete contact"
-                            className="text-text-muted hover:text-[var(--status-rejected-fg)] opacity-0 group-hover:opacity-100 transition-all duration-150"
-                          >
-                            <HugeiconsIcon
-                              icon={Delete02Icon}
-                              size={14}
-                              strokeWidth={1.5}
-                            />
-                          </button>
-                          <div
-                            className={cn(
-                              "w-8 h-8 rounded-full flex items-center justify-center",
-                              c.type === "COMPANY"
-                                ? "bg-surface-hover"
-                                : "bg-accent-soft",
+                            {(c.role || c.stageName) && (
+                              <p className="text-xs text-text-muted mt-0.5">
+                                {c.role}
+                                {c.role && c.stageName ? " · " : ""}
+                                {c.stageName}
+                              </p>
                             )}
-                          >
-                            <HugeiconsIcon
-                              icon={
-                                c.type === "COMPANY" ? Building06Icon : UserIcon
-                              }
-                              size={14}
-                              className={
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => setDraftContact(c)}
+                              title="Draft email"
+                              className="text-text-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-all duration-150"
+                            >
+                              <HugeiconsIcon
+                                icon={Mail01Icon}
+                                size={14}
+                                strokeWidth={1.5}
+                              />
+                            </button>
+                            <button
+                              onClick={() => setEditingContactId(c.id)}
+                              title="Edit contact"
+                              className="text-text-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-all duration-150"
+                            >
+                              <HugeiconsIcon
+                                icon={Edit02Icon}
+                                size={14}
+                                strokeWidth={1.5}
+                              />
+                            </button>
+                            <button
+                              onClick={() => removeContact(c.id)}
+                              title="Delete contact"
+                              className="text-text-muted hover:text-[var(--status-rejected-fg)] opacity-0 group-hover:opacity-100 transition-all duration-150"
+                            >
+                              <HugeiconsIcon
+                                icon={Delete02Icon}
+                                size={14}
+                                strokeWidth={1.5}
+                              />
+                            </button>
+                            <div
+                              className={cn(
+                                "w-8 h-8 rounded-full flex items-center justify-center",
                                 c.type === "COMPANY"
-                                  ? "text-text-secondary"
-                                  : "text-accent-soft-fg"
-                              }
-                              strokeWidth={1.5}
-                            />
+                                  ? "bg-surface-hover"
+                                  : "bg-accent-soft",
+                              )}
+                            >
+                              <HugeiconsIcon
+                                icon={
+                                  c.type === "COMPANY"
+                                    ? Building06Icon
+                                    : UserIcon
+                                }
+                                size={14}
+                                className={
+                                  c.type === "COMPANY"
+                                    ? "text-text-secondary"
+                                    : "text-accent-soft-fg"
+                                }
+                                strokeWidth={1.5}
+                              />
+                            </div>
                           </div>
                         </div>
+                        <div className="flex flex-wrap gap-3 mt-2">
+                          {c.email && (
+                            <a
+                              href={`mailto:${c.email}`}
+                              className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
+                            >
+                              <HugeiconsIcon
+                                icon={Mail01Icon}
+                                size={12}
+                                strokeWidth={1.5}
+                              />
+                              {c.email}
+                            </a>
+                          )}
+                          {c.phone && (
+                            <a
+                              href={`tel:${c.phone}`}
+                              className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
+                            >
+                              <HugeiconsIcon
+                                icon={Call02Icon}
+                                size={12}
+                                strokeWidth={1.5}
+                              />
+                              {c.phone}
+                            </a>
+                          )}
+                          {c.linkedinUrl && (
+                            <a
+                              href={c.linkedinUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
+                            >
+                              <HugeiconsIcon
+                                icon={Linkedin01Icon}
+                                size={12}
+                                strokeWidth={1.5}
+                              />
+                              LinkedIn
+                            </a>
+                          )}
+                          {c.websiteUrl && (
+                            <a
+                              href={c.websiteUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
+                            >
+                              <HugeiconsIcon
+                                icon={Link01Icon}
+                                size={12}
+                                strokeWidth={1.5}
+                              />
+                              Website
+                            </a>
+                          )}
+                        </div>
+                        {c.notes && (
+                          <p className="text-xs text-text-muted mt-2 border-t border-border pt-2">
+                            {c.notes}
+                          </p>
+                        )}
                       </div>
-                      <div className="flex flex-wrap gap-3 mt-2">
-                        {c.email && (
-                          <a
-                            href={`mailto:${c.email}`}
-                            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
-                          >
-                            <HugeiconsIcon
-                              icon={Mail01Icon}
-                              size={12}
-                              strokeWidth={1.5}
-                            />
-                            {c.email}
-                          </a>
-                        )}
-                        {c.phone && (
-                          <a
-                            href={`tel:${c.phone}`}
-                            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
-                          >
-                            <HugeiconsIcon
-                              icon={Call02Icon}
-                              size={12}
-                              strokeWidth={1.5}
-                            />
-                            {c.phone}
-                          </a>
-                        )}
-                        {c.linkedinUrl && (
-                          <a
-                            href={c.linkedinUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
-                          >
-                            <HugeiconsIcon
-                              icon={Linkedin01Icon}
-                              size={12}
-                              strokeWidth={1.5}
-                            />
-                            LinkedIn
-                          </a>
-                        )}
-                        {c.websiteUrl && (
-                          <a
-                            href={c.websiteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
-                          >
-                            <HugeiconsIcon
-                              icon={Link01Icon}
-                              size={12}
-                              strokeWidth={1.5}
-                            />
-                            Website
-                          </a>
-                        )}
-                      </div>
-                      {c.notes && (
-                        <p className="text-xs text-text-muted mt-2 border-t border-border pt-2">
-                          {c.notes}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               )}
             </TabsContent>
@@ -903,21 +949,26 @@ function EmptyState({ message, hint }: { message: string; hint: string }) {
 const fieldClass =
   "h-8 w-full rounded-input bg-surface border border-border px-2.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-border-hover transition-colors duration-150";
 
-function AddContactForm({
-  onCreate,
+function ContactForm({
+  initial,
+  submitLabel = "Add contact",
+  onSubmit,
   onDone,
 }: {
-  onCreate: (input: ContactInput) => void;
+  /** When set, prefills the form for editing that contact instead of creating a new one. */
+  initial?: Contact;
+  submitLabel?: string;
+  onSubmit: (input: ContactInput) => void;
   onDone: () => void;
 }) {
-  const [type, setType] = useState<ContactType>("PERSON");
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [linkedinUrl, setLinkedinUrl] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
-  const [notes, setNotes] = useState("");
+  const [type, setType] = useState<ContactType>(initial?.type ?? "PERSON");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [role, setRole] = useState(initial?.role ?? "");
+  const [email, setEmail] = useState(initial?.email ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [linkedinUrl, setLinkedinUrl] = useState(initial?.linkedinUrl ?? "");
+  const [websiteUrl, setWebsiteUrl] = useState(initial?.websiteUrl ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
 
   const isPerson = type === "PERSON";
   const valid = name.trim() && (!isPerson || role.trim());
@@ -925,9 +976,10 @@ function AddContactForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid) return;
-    // Optimistic — the parent inserts the row immediately and persists in the
-    // background, so we close the form right away.
-    onCreate({
+    // Optimistic — the parent applies the change immediately and persists in
+    // the background, so we close the form right away. Canceling (onDone
+    // without calling this) never touches the parent's state at all.
+    onSubmit({
       type,
       name: name.trim(),
       role: isPerson ? role.trim() : null,
@@ -1020,7 +1072,7 @@ function AddContactForm({
           Cancel
         </Button>
         <Button type="submit" size="sm" disabled={!valid}>
-          Add contact
+          {submitLabel}
         </Button>
       </div>
     </form>

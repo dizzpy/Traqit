@@ -37,6 +37,19 @@ export async function createContact(
   return jsonOrThrow(res, "Failed to add contact");
 }
 
+export async function updateContact(
+  appId: string,
+  contactId: string,
+  patch: Partial<ContactInput>,
+): Promise<Contact> {
+  const res = await fetch(`/api/applications/${appId}/contacts/${contactId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  return jsonOrThrow(res, "Failed to update contact");
+}
+
 export async function deleteContact(
   appId: string,
   contactId: string,
