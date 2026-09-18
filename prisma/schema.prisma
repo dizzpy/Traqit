@@ -65,6 +65,7 @@ model Application {
 
   salaryMin         Float?
   salaryMax         Float?
+  isNonPaid         Boolean           @default(false)
   currency          String            @default("LKR")
   location          String?
 

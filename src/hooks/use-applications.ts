@@ -24,7 +24,10 @@ export function useApplications(opts: UseApplicationsOptions = {}) {
   if (opts.limit) params.set("limit", String(opts.limit));
 
   const url = `/api/applications?${params.toString()}`;
-  const { data, error, isLoading, mutate } = useSWR<{ data: Application[]; total: number }>(url, fetcher);
+  const { data, error, isLoading, mutate } = useSWR<{
+    data: Application[];
+    total: number;
+  }>(url, fetcher);
 
   return {
     applications: data?.data ?? [],
@@ -35,7 +38,9 @@ export function useApplications(opts: UseApplicationsOptions = {}) {
     mutate,
     /** Invalidate every `/api/applications*` key (use after writes that touch nested data). */
     revalidateAll: () =>
-      globalMutate((key) => typeof key === "string" && key.startsWith("/api/applications")),
+      globalMutate(
+        (key) => typeof key === "string" && key.startsWith("/api/applications"),
+      ),
   };
 }
 
@@ -57,7 +62,7 @@ export function useComposeApplications() {
   const { data, error, isLoading } = useSWR<{ data: ComposeApplication[] }>(
     "/api/applications/search",
     fetcher,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false },
   );
   return { applications: data?.data ?? [], isLoading, error };
 }
@@ -65,7 +70,7 @@ export function useComposeApplications() {
 export function useApplication(id: string | null) {
   const { data, error, isLoading, mutate } = useSWR<{ data: Application }>(
     id ? `/api/applications/${id}` : null,
-    fetcher
+    fetcher,
   );
   return { application: data?.data ?? null, isLoading, error, mutate };
 }
@@ -81,7 +86,10 @@ export async function createApplication(body: Record<string, unknown>) {
   return json.data as Application;
 }
 
-export async function updateApplication(id: string, body: Record<string, unknown>) {
+export async function updateApplication(
+  id: string,
+  body: Record<string, unknown>,
+) {
   const res = await fetch(`/api/applications/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -128,7 +136,9 @@ export async function restoreApplications(ids: string[]) {
  * for instant optimistic insertion. Reconcile by replacing it with the server
  * record once the POST resolves.
  */
-export function optimisticApplication(fields: Record<string, unknown>): Application {
+export function optimisticApplication(
+  fields: Record<string, unknown>,
+): Application {
   const now = new Date().toISOString();
   const str = (v: unknown) => (v == null ? null : String(v));
   return {
@@ -143,6 +153,7 @@ export function optimisticApplication(fields: Record<string, unknown>): Applicat
     appliedVia: String(fields.appliedVia ?? ""),
     salaryMin: (fields.salaryMin as number | null) ?? null,
     salaryMax: (fields.salaryMax as number | null) ?? null,
+    isNonPaid: Boolean(fields.isNonPaid),
     currency: String(fields.currency ?? "LKR"),
     location: str(fields.location),
     status: (fields.status as ApplicationStatus) ?? "APPLIED",

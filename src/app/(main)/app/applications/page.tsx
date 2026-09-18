@@ -191,6 +191,7 @@ function relativeLabel(date: string): string {
 }
 
 function formatSalary(app: Application): string {
+  if (app.isNonPaid) return "Non-paid";
   if (!app.salaryMin && !app.salaryMax) return "";
   const fmt = (n: number) =>
     app.currency === "LKR" ? `${(n / 1000).toFixed(0)}k` : n.toLocaleString();
@@ -466,7 +467,13 @@ function ApplicationRow({
             }
             onCommit={(v) => {
               const n = v ? Number(v) : null;
-              onUpdate(app.id, { salaryMax: n, salaryMin: app.salaryMin ?? n });
+              // Entering a real number on a Non-paid row clears the flag
+              // instead of erroring — the backend rejects the two together.
+              onUpdate(app.id, {
+                salaryMax: n,
+                salaryMin: app.salaryMin ?? n,
+                isNonPaid: n != null ? false : app.isNonPaid,
+              });
             }}
           />
         </td>
@@ -653,6 +660,7 @@ function ApplicationsPageInner() {
       appliedVia: "",
       salaryMin: null,
       salaryMax: null,
+      isNonPaid: false,
       currency: "LKR",
       location: null,
       status: "APPLIED",

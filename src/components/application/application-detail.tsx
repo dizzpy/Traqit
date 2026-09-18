@@ -94,6 +94,7 @@ const WORKMODE_OPTIONS = (Object.keys(WORK_MODE_LABELS) as WorkMode[]).map(
 );
 
 function formatSalary(app: Application): string {
+  if (app.isNonPaid) return "Non-paid";
   if (!app.salaryMin && !app.salaryMax) return "";
   const fmt = (n: number) =>
     app.currency === "LKR" ? `${(n / 1000).toFixed(0)}k` : n.toLocaleString();
@@ -483,22 +484,41 @@ export function ApplicationDetail({
             </PropertyRow>
 
             <PropertyRow icon={Coins01Icon} label="Salary">
-              <EditableCell
-                value={app.salaryMax != null ? String(app.salaryMax) : ""}
-                type="number"
-                placeholder="Add salary"
-                display={
-                  formatSalary(app) ? (
-                    <span className="text-text-secondary">
-                      {formatSalary(app)}
-                    </span>
-                  ) : undefined
-                }
-                onCommit={(v) => {
-                  const n = v ? Number(v) : null;
-                  update({ salaryMax: n, salaryMin: app.salaryMin ?? n });
-                }}
-              />
+              <div className="flex items-center gap-2">
+                {app.isNonPaid ? (
+                  <span className="text-text-secondary text-sm">Non-paid</span>
+                ) : (
+                  <EditableCell
+                    value={app.salaryMax != null ? String(app.salaryMax) : ""}
+                    type="number"
+                    placeholder="Add salary"
+                    display={
+                      formatSalary(app) ? (
+                        <span className="text-text-secondary">
+                          {formatSalary(app)}
+                        </span>
+                      ) : undefined
+                    }
+                    onCommit={(v) => {
+                      const n = v ? Number(v) : null;
+                      update({ salaryMax: n, salaryMin: app.salaryMin ?? n });
+                    }}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    update(
+                      app.isNonPaid
+                        ? { isNonPaid: false }
+                        : { isNonPaid: true, salaryMin: null, salaryMax: null },
+                    )
+                  }
+                  className="text-[11px] text-text-muted hover:text-accent transition-colors duration-150"
+                >
+                  {app.isNonPaid ? "Set salary" : "Mark non-paid"}
+                </button>
+              </div>
             </PropertyRow>
 
             <PropertyRow icon={Calendar03Icon} label="Applied date">

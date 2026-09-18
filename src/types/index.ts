@@ -9,11 +9,7 @@ export type ApplicationStatus =
   | "WITHDRAWN";
 
 export type StageStatus =
-  | "UPCOMING"
-  | "COMPLETED"
-  | "PASSED"
-  | "FAILED"
-  | "SKIPPED";
+  "UPCOMING" | "COMPLETED" | "PASSED" | "FAILED" | "SKIPPED";
 
 export type WorkMode = "on-site" | "remote" | "hybrid" | "no-data";
 
@@ -73,6 +69,7 @@ export interface Application {
   appliedVia: string;
   salaryMin: number | null;
   salaryMax: number | null;
+  isNonPaid: boolean;
   currency: string;
   location: string | null;
   status: ApplicationStatus;
@@ -145,6 +142,10 @@ export interface AnalyticsData {
     total: number;
     responseRate: number;
   }>;
-  applicationsOverTime: Array<{ date: string; count: number; responses: number }>;
+  applicationsOverTime: Array<{
+    date: string;
+    count: number;
+    responses: number;
+  }>;
   funnelData: Array<{ stage: string; count: number; pct: number }>;
 }

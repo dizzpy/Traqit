@@ -3,11 +3,21 @@
 import { useState } from "react";
 import { Cancel01Icon, Add01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { PillToggle } from "@/components/ui/pill-toggle";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
-import { CURRENCIES, DEFAULT_JOB_TYPES, DEFAULT_SOURCES } from "@/lib/constants";
+import {
+  CURRENCIES,
+  DEFAULT_JOB_TYPES,
+  DEFAULT_SOURCES,
+} from "@/lib/constants";
 import { useTemplates } from "@/hooks/use-presets";
 import { useProfile } from "@/hooks/use-profile";
 import type { Application, WorkMode } from "@/types";
@@ -26,21 +36,35 @@ interface AddApplicationPanelProps {
   promote?: Application;
 }
 
-function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
+function Label({
+  children,
+  required,
+}: {
+  children: React.ReactNode;
+  required?: boolean;
+}) {
   return (
     <label className="text-xs font-medium text-text-secondary">
       {children}
-      {required && <span className="text-[var(--status-rejected-fg)] ml-0.5">*</span>}
+      {required && (
+        <span className="text-[var(--status-rejected-fg)] ml-0.5">*</span>
+      )}
     </label>
   );
 }
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="text-[11px] text-[var(--status-rejected-fg)]">{message}</p>;
+  return (
+    <p className="text-[11px] text-[var(--status-rejected-fg)]">{message}</p>
+  );
 }
 
-export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicationPanelProps) {
+export function AddApplicationPanel({
+  onClose,
+  onSubmit,
+  promote,
+}: AddApplicationPanelProps) {
   const today = new Date().toISOString().split("T")[0];
   const isPromote = !!promote;
   const { templates } = useTemplates();
@@ -51,10 +75,17 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
   const [companyUrl, setCompanyUrl] = useState(promote?.companyUrl ?? "");
   const [jobPostUrl, setJobPostUrl] = useState(promote?.jobPostUrl ?? "");
   const [jobType, setJobType] = useState(promote?.jobType ?? "");
-  const [workMode, setWorkMode] = useState<WorkMode>(promote?.workMode ?? "no-data");
+  const [workMode, setWorkMode] = useState<WorkMode>(
+    promote?.workMode ?? "no-data",
+  );
   const [appliedVia, setAppliedVia] = useState(promote?.appliedVia ?? "");
-  const [salaryMin, setSalaryMin] = useState(promote?.salaryMin != null ? String(promote.salaryMin) : "");
-  const [salaryMax, setSalaryMax] = useState(promote?.salaryMax != null ? String(promote.salaryMax) : "");
+  const [salaryMin, setSalaryMin] = useState(
+    promote?.salaryMin != null ? String(promote.salaryMin) : "",
+  );
+  const [salaryMax, setSalaryMax] = useState(
+    promote?.salaryMax != null ? String(promote.salaryMax) : "",
+  );
+  const [isNonPaid, setIsNonPaid] = useState(promote?.isNonPaid ?? false);
   const [currency, setCurrency] = useState(promote?.currency ?? "");
   const [location, setLocation] = useState(promote?.location ?? "");
   const [appliedDate, setAppliedDate] = useState(promote?.appliedDate ?? today);
@@ -65,7 +96,10 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
 
   // Fall back to the profile's saved preferences without a reset effect.
   const effectiveCurrency = currency || profile?.defaultCurrency || "LKR";
-  const effectiveTemplateId = templateId === null ? profile?.defaultPipelineTemplateId ?? "" : templateId;
+  const effectiveTemplateId =
+    templateId === null
+      ? (profile?.defaultPipelineTemplateId ?? "")
+      : templateId;
 
   function validate() {
     const e: Record<string, string> = {};
@@ -88,8 +122,9 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
       jobType: jobType.trim(),
       workMode,
       appliedVia: appliedVia.trim(),
-      salaryMin: salaryMin ? Number(salaryMin) : null,
-      salaryMax: salaryMax ? Number(salaryMax) : null,
+      salaryMin: isNonPaid ? null : salaryMin ? Number(salaryMin) : null,
+      salaryMax: isNonPaid ? null : salaryMax ? Number(salaryMax) : null,
+      isNonPaid,
       currency: effectiveCurrency,
       location: location.trim() || null,
       appliedDate: appliedDate || null,
@@ -103,7 +138,12 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
   }
 
   return (
-    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Sheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <SheetContent
         side="right"
         showCloseButton={false}
@@ -138,7 +178,7 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
                   placeholder="e.g. Sysco LABS"
                   className={cn(
                     "h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover",
-                    errors.companyName && "border-[var(--status-rejected-fg)]"
+                    errors.companyName && "border-[var(--status-rejected-fg)]",
                   )}
                 />
                 <FieldError message={errors.companyName} />
@@ -151,7 +191,7 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
                   placeholder="e.g. SE Intern"
                   className={cn(
                     "h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover",
-                    errors.position && "border-[var(--status-rejected-fg)]"
+                    errors.position && "border-[var(--status-rejected-fg)]",
                   )}
                 />
                 <FieldError message={errors.position} />
@@ -193,11 +233,13 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
                   placeholder="Select or type…"
                   className={cn(
                     "h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover",
-                    errors.jobType && "border-[var(--status-rejected-fg)]"
+                    errors.jobType && "border-[var(--status-rejected-fg)]",
                   )}
                 />
                 <datalist id="job-types-list">
-                  {DEFAULT_JOB_TYPES.map((t) => <option key={t} value={t} />)}
+                  {DEFAULT_JOB_TYPES.map((t) => (
+                    <option key={t} value={t} />
+                  ))}
                 </datalist>
                 <FieldError message={errors.jobType} />
               </div>
@@ -210,11 +252,13 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
                   placeholder="Select or type…"
                   className={cn(
                     "h-9 w-full rounded-input bg-surface-elevated border border-border px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:border-border-hover",
-                    errors.appliedVia && "border-[var(--status-rejected-fg)]"
+                    errors.appliedVia && "border-[var(--status-rejected-fg)]",
                   )}
                 />
                 <datalist id="sources-list">
-                  {DEFAULT_SOURCES.map((s) => <option key={s} value={s} />)}
+                  {DEFAULT_SOURCES.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
                 </datalist>
                 <FieldError message={errors.appliedVia} />
               </div>
@@ -228,35 +272,72 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
 
             {/* Salary range — single combined control */}
             <div className="flex flex-col gap-1.5">
-              <Label>Salary range</Label>
-              <div className="flex items-stretch rounded-input border border-border bg-surface-elevated overflow-hidden transition-colors duration-150 focus-within:border-border-hover">
+              <div className="flex items-center justify-between">
+                <Label>Salary range</Label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <Checkbox
+                    checked={isNonPaid}
+                    onChange={() => {
+                      const next = !isNonPaid;
+                      setIsNonPaid(next);
+                      if (next) {
+                        setSalaryMin("");
+                        setSalaryMax("");
+                      }
+                    }}
+                    aria-label="Non-paid role"
+                  />
+                  <span className="text-xs text-text-secondary">Non-paid</span>
+                </label>
+              </div>
+              <div
+                className={cn(
+                  "flex items-stretch rounded-input border border-border bg-surface-elevated overflow-hidden transition-colors duration-150 focus-within:border-border-hover",
+                  isNonPaid && "opacity-50",
+                )}
+              >
                 <select
                   value={effectiveCurrency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="h-9 shrink-0 bg-surface-hover/40 border-r border-border pl-3 pr-2 text-sm font-medium text-text-secondary outline-none cursor-pointer"
+                  disabled={isNonPaid}
+                  className="h-9 shrink-0 bg-surface-hover/40 border-r border-border pl-3 pr-2 text-sm font-medium text-text-secondary outline-none cursor-pointer disabled:cursor-not-allowed"
                 >
-                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
                 </select>
                 <input
                   type="number"
                   inputMode="numeric"
                   value={salaryMin}
                   onChange={(e) => setSalaryMin(e.target.value)}
+                  disabled={isNonPaid}
                   placeholder="35,000"
-                  className="h-9 w-full min-w-0 flex-1 bg-transparent px-3 text-sm text-text-primary placeholder:text-text-muted outline-none"
+                  className="h-9 w-full min-w-0 flex-1 bg-transparent px-3 text-sm text-text-primary placeholder:text-text-muted outline-none disabled:cursor-not-allowed"
                 />
-                <span className="flex items-center px-1 text-text-muted select-none">–</span>
+                <span className="flex items-center px-1 text-text-muted select-none">
+                  –
+                </span>
                 <input
                   type="number"
                   inputMode="numeric"
                   value={salaryMax}
                   onChange={(e) => setSalaryMax(e.target.value)}
+                  disabled={isNonPaid}
                   placeholder="55,000"
-                  className="h-9 w-full min-w-0 flex-1 bg-transparent px-3 text-sm text-text-primary placeholder:text-text-muted outline-none"
+                  className="h-9 w-full min-w-0 flex-1 bg-transparent px-3 text-sm text-text-primary placeholder:text-text-muted outline-none disabled:cursor-not-allowed"
                 />
-                <span className="flex items-center pl-1 pr-3 text-xs text-text-muted select-none">/mo</span>
+                <span className="flex items-center pl-1 pr-3 text-xs text-text-muted select-none">
+                  /mo
+                </span>
               </div>
-              <p className="text-[11px] text-text-muted">Leave blank if undisclosed</p>
+              <p className="text-[11px] text-text-muted">
+                {isNonPaid
+                  ? "Marked as non-paid"
+                  : "Leave blank if undisclosed"}
+              </p>
             </div>
 
             {/* Location + applied date */}
@@ -287,7 +368,9 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
                 >
                   <option value="">No template — build from scratch</option>
                   {templates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name} ({(t.stages as string[]).join(" → ")})</option>
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({(t.stages as string[]).join(" → ")})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -311,7 +394,11 @@ export function AddApplicationPanel({ onClose, onSubmit, promote }: AddApplicati
             <Button type="button" variant="ghost" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" className="h-9 px-5 text-sm font-semibold shadow-sm shadow-accent/25">
+            <Button
+              type="submit"
+              size="sm"
+              className="h-9 px-5 text-sm font-semibold shadow-sm shadow-accent/25"
+            >
               <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
               {isPromote ? "Mark as applied" : "Add application"}
             </Button>
