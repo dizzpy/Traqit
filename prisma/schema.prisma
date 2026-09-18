@@ -139,17 +139,26 @@ enum StageStatus {
   SKIPPED
 }
 
+enum ContactType {
+  PERSON
+  COMPANY
+}
+
 // ─── CONTACTS ────────────────────────────────────────────────────────────────
 model Contact {
   id            String      @id @default(cuid())
   applicationId String
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
+  type          ContactType @default(PERSON)
   name          String
-  role          String
+  // Required for PERSON, optional for COMPANY (enforced at the API layer).
+  role          String?
   email         String?
   phone         String?
   linkedinUrl   String?
+  // COMPANY-only: careers page / company site link.
+  websiteUrl    String?
   stageName     String?
   notes         String?
 

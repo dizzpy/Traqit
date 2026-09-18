@@ -26,14 +26,18 @@ export interface PipelineStage {
   updatedAt: string;
 }
 
+export type ContactType = "PERSON" | "COMPANY";
+
 export interface Contact {
   id: string;
   applicationId: string;
+  type: ContactType;
   name: string;
-  role: string;
+  role: string | null;
   email: string | null;
   phone: string | null;
   linkedinUrl: string | null;
+  websiteUrl: string | null;
   stageName: string | null;
   notes: string | null;
   createdAt: string;

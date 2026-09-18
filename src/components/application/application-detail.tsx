@@ -22,6 +22,7 @@ import {
   Delete02Icon,
   Edit02Icon,
   Add01Icon,
+  Building06Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
@@ -66,6 +67,7 @@ import type {
   ApplicationStatus,
   WorkMode,
   Contact,
+  ContactType,
   Document,
 } from "@/types";
 import { cn } from "@/lib/utils";
@@ -195,11 +197,13 @@ export function ApplicationDetail({
     const temp: Contact = {
       id: `temp-${now}`,
       applicationId: app.id,
+      type: input.type ?? "PERSON",
       name: input.name,
-      role: input.role,
+      role: input.role ?? null,
       email: input.email ?? null,
       phone: input.phone ?? null,
       linkedinUrl: input.linkedinUrl ?? null,
+      websiteUrl: input.websiteUrl ?? null,
       stageName: input.stageName ?? null,
       notes: input.notes ?? null,
       createdAt: now,
@@ -619,10 +623,13 @@ export function ApplicationDetail({
                           <p className="text-sm font-medium text-text-primary">
                             {c.name}
                           </p>
-                          <p className="text-xs text-text-muted mt-0.5">
-                            {c.role}
-                            {c.stageName ? ` · ${c.stageName}` : ""}
-                          </p>
+                          {(c.role || c.stageName) && (
+                            <p className="text-xs text-text-muted mt-0.5">
+                              {c.role}
+                              {c.role && c.stageName ? " · " : ""}
+                              {c.stageName}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
@@ -647,11 +654,24 @@ export function ApplicationDetail({
                               strokeWidth={1.5}
                             />
                           </button>
-                          <div className="w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center">
+                          <div
+                            className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center",
+                              c.type === "COMPANY"
+                                ? "bg-surface-hover"
+                                : "bg-accent-soft",
+                            )}
+                          >
                             <HugeiconsIcon
-                              icon={UserIcon}
+                              icon={
+                                c.type === "COMPANY" ? Building06Icon : UserIcon
+                              }
                               size={14}
-                              className="text-accent-soft-fg"
+                              className={
+                                c.type === "COMPANY"
+                                  ? "text-text-secondary"
+                                  : "text-accent-soft-fg"
+                              }
                               strokeWidth={1.5}
                             />
                           </div>
@@ -697,6 +717,21 @@ export function ApplicationDetail({
                               strokeWidth={1.5}
                             />
                             LinkedIn
+                          </a>
+                        )}
+                        {c.websiteUrl && (
+                          <a
+                            href={c.websiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
+                          >
+                            <HugeiconsIcon
+                              icon={Link01Icon}
+                              size={12}
+                              strokeWidth={1.5}
+                            />
+                            Website
                           </a>
                         )}
                       </div>
@@ -875,24 +910,31 @@ function AddContactForm({
   onCreate: (input: ContactInput) => void;
   onDone: () => void;
 }) {
+  const [type, setType] = useState<ContactType>("PERSON");
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [notes, setNotes] = useState("");
+
+  const isPerson = type === "PERSON";
+  const valid = name.trim() && (!isPerson || role.trim());
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !role.trim()) return;
+    if (!valid) return;
     // Optimistic — the parent inserts the row immediately and persists in the
     // background, so we close the form right away.
     onCreate({
+      type,
       name: name.trim(),
-      role: role.trim(),
+      role: isPerson ? role.trim() : null,
       email: email.trim() || null,
       phone: phone.trim() || null,
-      linkedinUrl: linkedinUrl.trim() || null,
+      linkedinUrl: isPerson ? linkedinUrl.trim() || null : null,
+      websiteUrl: isPerson ? null : websiteUrl.trim() || null,
       notes: notes.trim() || null,
     });
     onDone();
@@ -903,25 +945,52 @@ function AddContactForm({
       onSubmit={submit}
       className="bg-surface-elevated border border-border rounded-card p-3 mb-3 flex flex-col gap-2"
     >
+      <div className="flex gap-1 p-1 bg-surface rounded-input border border-border w-full">
+        {(["PERSON", "COMPANY"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setType(t)}
+            className={cn(
+              "flex-1 py-1.5 text-xs font-medium rounded transition-colors duration-150",
+              type === t
+                ? "bg-surface-elevated text-text-primary border border-border"
+                : "text-text-muted hover:text-text-secondary",
+            )}
+          >
+            {t === "PERSON" ? "Person" : "Company"}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Name *"
+          placeholder={isPerson ? "Name *" : "Company name *"}
           className={fieldClass}
         />
-        <input
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          placeholder="Role * (e.g. Recruiter)"
-          className={fieldClass}
-        />
+        {isPerson ? (
+          <input
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            placeholder="Role * (e.g. Recruiter)"
+            className={fieldClass}
+          />
+        ) : (
+          <input
+            type="url"
+            value={websiteUrl}
+            onChange={(e) => setWebsiteUrl(e.target.value)}
+            placeholder="Website / careers link"
+            className={fieldClass}
+          />
+        )}
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
+          placeholder={isPerson ? "Email" : "General email"}
           className={fieldClass}
         />
         <input
@@ -931,13 +1000,15 @@ function AddContactForm({
           className={fieldClass}
         />
       </div>
-      <input
-        type="url"
-        value={linkedinUrl}
-        onChange={(e) => setLinkedinUrl(e.target.value)}
-        placeholder="LinkedIn URL"
-        className={fieldClass}
-      />
+      {isPerson && (
+        <input
+          type="url"
+          value={linkedinUrl}
+          onChange={(e) => setLinkedinUrl(e.target.value)}
+          placeholder="LinkedIn URL"
+          className={fieldClass}
+        />
+      )}
       <input
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
@@ -948,7 +1019,7 @@ function AddContactForm({
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" disabled={!name.trim() || !role.trim()}>
+        <Button type="submit" size="sm" disabled={!valid}>
           Add contact
         </Button>
       </div>
