@@ -74,17 +74,25 @@ export default function SettingsPage() {
   async function handleAddSource(e: React.FormEvent) {
     e.preventDefault();
     if (!newSource.trim()) return;
-    await addSource(newSource.trim());
-    mutateSources();
-    setNewSource("");
+    try {
+      await addSource(newSource.trim());
+      mutateSources();
+      setNewSource("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't add source");
+    }
   }
 
   async function handleAddJobType(e: React.FormEvent) {
     e.preventDefault();
     if (!newJobType.trim()) return;
-    await addJobType(newJobType.trim());
-    mutateJobTypes();
-    setNewJobType("");
+    try {
+      await addJobType(newJobType.trim());
+      mutateJobTypes();
+      setNewJobType("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't add job type");
+    }
   }
 
   async function removeSource(id: string) {

@@ -43,7 +43,11 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { StatusBadge, WorkModeBadge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { EditableCell } from "@/components/application/editable-cell";
@@ -57,9 +61,11 @@ const KanbanBoard = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex-1 flex items-center justify-center text-text-muted text-sm">Loading board…</div>
+      <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
+        Loading board…
+      </div>
     ),
-  }
+  },
 );
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AddApplicationPanel } from "@/components/application/add-application-modal";
@@ -74,7 +80,12 @@ import {
   optimisticApplication,
 } from "@/hooks/use-applications";
 import { toastUndo } from "@/lib/optimistic";
-import { useJobTypes, useSources, addJobType, addSource } from "@/hooks/use-presets";
+import {
+  useJobTypes,
+  useSources,
+  addJobType,
+  addSource,
+} from "@/hooks/use-presets";
 import {
   STATUS_LABELS,
   STATUS_BG,
@@ -104,26 +115,50 @@ const FILTER_STATUSES: { value: ApplicationStatus | "ALL"; label: string }[] = [
   { value: "GHOSTED", label: "Ghosted" },
 ];
 
-const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as ApplicationStatus[]).map((s) => ({
-  value: s,
-  label: STATUS_LABELS[s],
-  className: STATUS_BG[s],
-}));
-const WORKMODE_OPTIONS = (Object.keys(WORK_MODE_LABELS) as WorkMode[]).map((m) => ({
-  value: m,
-  label: WORK_MODE_LABELS[m],
-  className: WORK_MODE_COLORS[m],
-}));
+const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as ApplicationStatus[]).map(
+  (s) => ({
+    value: s,
+    label: STATUS_LABELS[s],
+    className: STATUS_BG[s],
+  }),
+);
+const WORKMODE_OPTIONS = (Object.keys(WORK_MODE_LABELS) as WorkMode[]).map(
+  (m) => ({
+    value: m,
+    label: WORK_MODE_LABELS[m],
+    className: WORK_MODE_COLORS[m],
+  }),
+);
 
-const COLUMNS: { key: string; label: string; icon: typeof Add01Icon; sortKey?: SortKey }[] = [
-  { key: "company", label: "Company", icon: Building06Icon, sortKey: "companyName" },
-  { key: "position", label: "Position", icon: Briefcase01Icon, sortKey: "position" },
+const COLUMNS: {
+  key: string;
+  label: string;
+  icon: typeof Add01Icon;
+  sortKey?: SortKey;
+}[] = [
+  {
+    key: "company",
+    label: "Company",
+    icon: Building06Icon,
+    sortKey: "companyName",
+  },
+  {
+    key: "position",
+    label: "Position",
+    icon: Briefcase01Icon,
+    sortKey: "position",
+  },
   { key: "type", label: "Type", icon: Tag01Icon },
   { key: "workMode", label: "Work mode", icon: Home01Icon },
   { key: "stage", label: "Current stage", icon: FlowSquareIcon },
   { key: "status", label: "Status", icon: Loading03Icon, sortKey: "status" },
   { key: "via", label: "Via", icon: Link01Icon },
-  { key: "applied", label: "Applied", icon: Calendar03Icon, sortKey: "appliedDate" },
+  {
+    key: "applied",
+    label: "Applied",
+    icon: Calendar03Icon,
+    sortKey: "appliedDate",
+  },
   { key: "salary", label: "Salary", icon: Coins01Icon },
   { key: "location", label: "Location", icon: Location01Icon },
 ];
@@ -131,7 +166,13 @@ const COLUMNS: { key: string; label: string; icon: typeof Add01Icon; sortKey?: S
 function hasUpcomingInterview(app: Application): boolean {
   const now = new Date();
   return app.stages.some((s) => {
-    if (!s.scheduledDate || s.status === "COMPLETED" || s.status === "PASSED" || s.status === "FAILED") return false;
+    if (
+      !s.scheduledDate ||
+      s.status === "COMPLETED" ||
+      s.status === "PASSED" ||
+      s.status === "FAILED"
+    )
+      return false;
     const hrs = differenceInHours(new Date(s.scheduledDate), now);
     return hrs >= 0 && hrs <= 48;
   });
@@ -139,7 +180,9 @@ function hasUpcomingInterview(app: Application): boolean {
 
 function currentStageLabel(app: Application): string {
   if (!app.stages.length) return "—";
-  const active = app.stages.filter((s) => s.status === "UPCOMING").sort((a, b) => a.order - b.order)[0];
+  const active = app.stages
+    .filter((s) => s.status === "UPCOMING")
+    .sort((a, b) => a.order - b.order)[0];
   return active?.name ?? app.stages[app.stages.length - 1]?.name ?? "—";
 }
 
@@ -149,7 +192,8 @@ function relativeLabel(date: string): string {
 
 function formatSalary(app: Application): string {
   if (!app.salaryMin && !app.salaryMax) return "";
-  const fmt = (n: number) => (app.currency === "LKR" ? `${(n / 1000).toFixed(0)}k` : n.toLocaleString());
+  const fmt = (n: number) =>
+    app.currency === "LKR" ? `${(n / 1000).toFixed(0)}k` : n.toLocaleString();
   if (app.salaryMin && app.salaryMax && app.salaryMin !== app.salaryMax)
     return `${fmt(app.salaryMin)}–${fmt(app.salaryMax)} ${app.currency}`;
   return `${fmt(app.salaryMin ?? app.salaryMax ?? 0)} ${app.currency}`;
@@ -203,9 +247,13 @@ function ApplicationRow({
   const upcoming = hasUpcomingInterview(app);
   const ghosted = app.status === "GHOSTED";
   // Silent for longer than the profile's ghost threshold → flag it gently.
-  const daysSinceApplied = app.appliedDate ? -(daysUntil(app.appliedDate) ?? 0) : 0;
+  const daysSinceApplied = app.appliedDate
+    ? -(daysUntil(app.appliedDate) ?? 0)
+    : 0;
   const atRisk =
-    app.status === "APPLIED" && !app.firstResponseDate && daysSinceApplied >= ghostThreshold;
+    app.status === "APPLIED" &&
+    !app.firstResponseDate &&
+    daysSinceApplied >= ghostThreshold;
 
   return (
     <tr
@@ -218,14 +266,16 @@ function ApplicationRow({
         // ends at Location instead of spanning the whole screen.
         "[&>td:not(:first-child):not(:last-child)]:border-b [&>td:not(:first-child):not(:last-child)]:border-border",
         ghosted ? "opacity-60" : "hover:bg-surface-hover/40",
-        isDragging && "z-20 bg-surface-elevated shadow-lg opacity-90"
+        isDragging && "z-20 bg-surface-elevated shadow-lg opacity-90",
       )}
     >
       {/* Row controls — accent bar + drag handle + checkbox.
           The accent bar lives INSIDE this cell (as an absolute span) so it
           doesn't add an extra <td> column and shift the whole row. */}
       <td className="relative pl-3 pr-1 w-[54px] whitespace-nowrap">
-        {upcoming && <span className="absolute left-0 top-0 h-full w-0.5 bg-accent" />}
+        {upcoming && (
+          <span className="absolute left-0 top-0 h-full w-0.5 bg-accent" />
+        )}
         <div className="flex items-center gap-0.5">
           <button
             ref={setActivatorNodeRef}
@@ -234,7 +284,11 @@ function ApplicationRow({
             aria-label="Drag to reorder"
             className="flex items-center justify-center w-4 text-text-muted hover:text-text-secondary cursor-grab active:cursor-grabbing opacity-0 group-hover/row:opacity-100 transition-opacity duration-150 touch-none"
           >
-            <HugeiconsIcon icon={DragDropVerticalIcon} size={15} strokeWidth={1.5} />
+            <HugeiconsIcon
+              icon={DragDropVerticalIcon}
+              size={15}
+              strokeWidth={1.5}
+            />
           </button>
           <Checkbox
             checked={selected}
@@ -242,7 +296,9 @@ function ApplicationRow({
             aria-label={`Select ${app.companyName}`}
             className={cn(
               "transition-opacity duration-150",
-              selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"
+              selected
+                ? "opacity-100"
+                : "opacity-0 group-hover/row:opacity-100",
             )}
           />
         </div>
@@ -280,7 +336,12 @@ function ApplicationRow({
             onSelect={(v) => onSelectType(app.id, v)}
           >
             {app.jobType ? (
-              <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", tagBadgeClass(app.jobType))}>
+              <span
+                className={cn(
+                  "text-xs font-medium px-2 py-0.5 rounded-full",
+                  tagBadgeClass(app.jobType),
+                )}
+              >
                 {app.jobType}
               </span>
             ) : (
@@ -326,7 +387,9 @@ function ApplicationRow({
             <OptionPicker
               value={app.status}
               options={STATUS_OPTIONS}
-              onSelect={(v) => onUpdate(app.id, { status: v as ApplicationStatus })}
+              onSelect={(v) =>
+                onUpdate(app.id, { status: v as ApplicationStatus })
+              }
             >
               <StatusBadge status={app.status} />
             </OptionPicker>
@@ -352,7 +415,12 @@ function ApplicationRow({
             onSelect={(v) => onSelectSource(app.id, v)}
           >
             {app.appliedVia ? (
-              <span className="block max-w-[130px] truncate text-xs text-text-secondary" title={app.appliedVia}>{app.appliedVia}</span>
+              <span
+                className="block max-w-[130px] truncate text-xs text-text-secondary"
+                title={app.appliedVia}
+              >
+                {app.appliedVia}
+              </span>
             ) : (
               <span className="text-text-muted">Add source</span>
             )}
@@ -369,7 +437,10 @@ function ApplicationRow({
             placeholder="Set date"
             display={
               app.appliedDate ? (
-                <span className="text-xs text-text-muted" title={new Date(app.appliedDate).toLocaleDateString()}>
+                <span
+                  className="text-xs text-text-muted"
+                  title={new Date(app.appliedDate).toLocaleDateString()}
+                >
                   {relativeLabel(app.appliedDate)}
                 </span>
               ) : undefined
@@ -386,7 +457,13 @@ function ApplicationRow({
             value={app.salaryMax != null ? String(app.salaryMax) : ""}
             type="number"
             placeholder="Add salary"
-            display={formatSalary(app) ? <span className="text-xs text-text-muted">{formatSalary(app)}</span> : undefined}
+            display={
+              formatSalary(app) ? (
+                <span className="text-xs text-text-muted">
+                  {formatSalary(app)}
+                </span>
+              ) : undefined
+            }
             onCommit={(v) => {
               const n = v ? Number(v) : null;
               onUpdate(app.id, { salaryMax: n, salaryMin: app.salaryMin ?? n });
@@ -429,12 +506,18 @@ function ApplicationsPageInner() {
   const { jobTypes, mutate: mutateTypes } = useJobTypes();
   const { sources, mutate: mutateSources } = useSources();
   const typeOptions = useMemo(
-    () => jobTypes.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) })),
-    [jobTypes]
+    () =>
+      jobTypes.map((n) => ({
+        value: n,
+        label: n,
+        className: tagBadgeClass(n),
+      })),
+    [jobTypes],
   );
   const sourceOptions = useMemo(
-    () => sources.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) })),
-    [sources]
+    () =>
+      sources.map((n) => ({ value: n, label: n, className: tagBadgeClass(n) })),
+    [sources],
   );
 
   const { applications: apps, isLoading, mutate } = useApplications();
@@ -445,9 +528,14 @@ function ApplicationsPageInner() {
   const [showHints] = useShortcutHints();
   const [showAdd, setShowAdd] = useState(false);
   const [showSave, setShowSave] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [confirmBulk, setConfirmBulk] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<ApplicationStatus | "ALL">("ALL");
+  const [filterStatus, setFilterStatus] = useState<ApplicationStatus | "ALL">(
+    "ALL",
+  );
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("appliedDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -463,7 +551,9 @@ function ApplicationsPageInner() {
       const saved = localStorage.getItem(HIDDEN_COLS_KEY);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (saved) setHidden(new Set(JSON.parse(saved)));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   // "n" shortcut → open the New application panel (from here or after navigating in).
@@ -477,7 +567,8 @@ function ApplicationsPageInner() {
     if (key === "company") return; // Company is the locked anchor column
     setHidden((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       localStorage.setItem(HIDDEN_COLS_KEY, JSON.stringify([...next]));
       return next;
     });
@@ -489,21 +580,22 @@ function ApplicationsPageInner() {
   const [newCompany, setNewCompany] = useState("");
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
   const selectedApp = apps.find((a) => a.id === selectedId) ?? null;
 
   // Optimistically transform the cached applications list without revalidating.
   function patchCache(updater: (list: Application[]) => Application[]) {
-    mutate(
-      (cur) => (cur ? { ...cur, data: updater(cur.data) } : cur),
-      { revalidate: false }
-    );
+    mutate((cur) => (cur ? { ...cur, data: updater(cur.data) } : cur), {
+      revalidate: false,
+    });
   }
 
   async function updateApp(id: string, patch: Partial<Application>) {
-    patchCache((list) => list.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+    patchCache((list) =>
+      list.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+    );
     try {
       await updateApplication(id, patch as Record<string, unknown>);
     } catch {
@@ -513,36 +605,75 @@ function ApplicationsPageInner() {
   }
 
   // Persist the app field AND save the value as a reusable preset if it's new.
+  // The field update above already applied regardless, so a failure here
+  // (e.g. a stale-cache race on the preset's uniqueness) is silent — nothing
+  // for the user to act on.
   async function selectType(id: string, value: string) {
     updateApp(id, { jobType: value });
-    if (value && !jobTypes.includes(value)) { await addJobType(value); mutateTypes(); }
+    if (value && !jobTypes.includes(value)) {
+      try {
+        await addJobType(value);
+        mutateTypes();
+      } catch {
+        /* preset save failed; the field value itself is already set */
+      }
+    }
   }
   async function selectSource(id: string, value: string) {
     updateApp(id, { appliedVia: value });
-    if (value && !sources.includes(value)) { await addSource(value); mutateSources(); }
+    if (value && !sources.includes(value)) {
+      try {
+        await addSource(value);
+        mutateSources();
+      } catch {
+        /* preset save failed; the field value itself is already set */
+      }
+    }
   }
 
   async function commitInlineAdd() {
     const name = newCompany.trim();
-    if (!name) { setAddingInline(false); return; }
+    if (!name) {
+      setAddingInline(false);
+      return;
+    }
     setNewCompany("");
     setAddingInline(false);
 
     const now = new Date().toISOString();
     const temp: Application = {
-      id: `temp-${now}`, profileId: "",
-      companyName: name, companyUrl: null,
-      position: "", jobPostUrl: null,
-      jobType: "", workMode: "no-data", appliedVia: "",
-      salaryMin: null, salaryMax: null, currency: "LKR", location: null,
-      status: "APPLIED", appliedDate: now.split("T")[0], firstResponseDate: null,
-      deadline: null, notes: null,
-      stages: [], contacts: [], documents: [], activityLog: [],
-      createdAt: now, updatedAt: now,
+      id: `temp-${now}`,
+      profileId: "",
+      companyName: name,
+      companyUrl: null,
+      position: "",
+      jobPostUrl: null,
+      jobType: "",
+      workMode: "no-data",
+      appliedVia: "",
+      salaryMin: null,
+      salaryMax: null,
+      currency: "LKR",
+      location: null,
+      status: "APPLIED",
+      appliedDate: now.split("T")[0],
+      firstResponseDate: null,
+      deadline: null,
+      notes: null,
+      stages: [],
+      contacts: [],
+      documents: [],
+      activityLog: [],
+      createdAt: now,
+      updatedAt: now,
     };
     patchCache((list) => [...list, temp]); // optimistic row
     try {
-      await createApplication({ companyName: name, status: "APPLIED", appliedDate: temp.appliedDate });
+      await createApplication({
+        companyName: name,
+        status: "APPLIED",
+        appliedDate: temp.appliedDate,
+      });
     } catch {
       toast.error("Couldn't add application");
     } finally {
@@ -553,31 +684,43 @@ function ApplicationsPageInner() {
   const filtered = useMemo(() => {
     // Saved postings live on their own /saved page — keep them out of Applications.
     let list = apps.filter((a) => a.status !== "SAVED");
-    if (filterStatus !== "ALL") list = list.filter((a) => a.status === filterStatus);
+    if (filterStatus !== "ALL")
+      list = list.filter((a) => a.status === filterStatus);
     const q = query.trim().toLowerCase();
     if (q) list = list.filter((a) => a.companyName.toLowerCase().includes(q));
     if (orderedIds) {
       // Manual (drag) order overlay — sort by the saved id sequence.
       const rank = new Map(orderedIds.map((id, i) => [id, i]));
-      return [...list].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+      return [...list].sort(
+        (a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0),
+      );
     }
     return [...list].sort((a, b) => {
       let av: string, bv: string;
-      if (sortKey === "appliedDate") { av = a.appliedDate ?? a.createdAt; bv = b.appliedDate ?? b.createdAt; }
-      else { av = String(a[sortKey] ?? ""); bv = String(b[sortKey] ?? ""); }
+      if (sortKey === "appliedDate") {
+        av = a.appliedDate ?? a.createdAt;
+        bv = b.appliedDate ?? b.createdAt;
+      } else {
+        av = String(a[sortKey] ?? "");
+        bv = String(b[sortKey] ?? "");
+      }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
     });
   }, [apps, filterStatus, query, sortKey, sortDir, orderedIds]);
 
   const visibleIds = filtered.map((a) => a.id);
-  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const allSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
   const someSelected = visibleIds.some((id) => selectedIds.has(id));
 
   function toggleSort(key?: SortKey) {
     if (!key) return;
     setOrderedIds(null); // leaving manual order
     if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("asc"); }
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   }
 
   function handleDragEnd(e: DragEndEvent) {
@@ -597,7 +740,8 @@ function ApplicationsPageInner() {
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -645,7 +789,11 @@ function ApplicationsPageInner() {
   async function deleteOne(id: string) {
     const name = apps.find((a) => a.id === id)?.companyName;
     patchCache((list) => list.filter((a) => a.id !== id));
-    setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      n.delete(id);
+      return n;
+    });
     if (selectedId === id) setSelectedId(null);
     try {
       await deleteApplication(id);
@@ -688,7 +836,10 @@ function ApplicationsPageInner() {
       {/* Page header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-bg shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-text-primary" style={{ fontFamily: "var(--font-family-display)" }}>
+          <h1
+            className="text-xl font-semibold text-text-primary"
+            style={{ fontFamily: "var(--font-family-display)" }}
+          >
             Applications
           </h1>
           <span className="text-xs text-text-muted bg-surface-elevated border border-border px-2 py-0.5 rounded-full">
@@ -696,7 +847,12 @@ function ApplicationsPageInner() {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" data-tour="save-job-btn" onClick={() => setShowSave(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            data-tour="save-job-btn"
+            onClick={() => setShowSave(true)}
+          >
             <HugeiconsIcon icon={BookmarkIcon} size={14} strokeWidth={1.5} />
             Save job
             {showHints && <Kbd className="ml-1">b</Kbd>}
@@ -708,7 +864,11 @@ function ApplicationsPageInner() {
           >
             <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
             Add application
-            {showHints && <Kbd className="ml-1 border-white/25 bg-white/10 text-white/90">n</Kbd>}
+            {showHints && (
+              <Kbd className="ml-1 border-white/25 bg-white/10 text-white/90">
+                n
+              </Kbd>
+            )}
           </Button>
         </div>
       </div>
@@ -737,11 +897,17 @@ function ApplicationsPageInner() {
                 aria-label="Clear search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors duration-150"
               >
-                <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={1.5} />
+                <HugeiconsIcon
+                  icon={Cancel01Icon}
+                  size={13}
+                  strokeWidth={1.5}
+                />
               </button>
             )}
             {!query && showHints && (
-              <Kbd className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">/</Kbd>
+              <Kbd className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                /
+              </Kbd>
             )}
           </div>
 
@@ -754,7 +920,7 @@ function ApplicationsPageInner() {
                   "px-3 py-1 rounded-full text-xs font-medium transition-colors duration-150",
                   filterStatus === value
                     ? "bg-accent text-white"
-                    : "bg-surface-elevated text-text-secondary hover:bg-surface-hover hover:text-text-primary border border-border"
+                    : "bg-surface-elevated text-text-secondary hover:bg-surface-hover hover:text-text-primary border border-border",
                 )}
               >
                 {label}
@@ -776,8 +942,16 @@ function ApplicationsPageInner() {
               >
                 Clear
               </button>
-              <Button variant="danger" size="sm" onClick={() => setConfirmBulk(true)}>
-                <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.5} />
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setConfirmBulk(true)}
+              >
+                <HugeiconsIcon
+                  icon={Delete02Icon}
+                  size={14}
+                  strokeWidth={1.5}
+                />
                 Delete
               </Button>
             </div>
@@ -789,13 +963,19 @@ function ApplicationsPageInner() {
               <PopoverTrigger
                 render={
                   <button className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border bg-surface-elevated text-xs font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors duration-150 outline-none">
-                    <HugeiconsIcon icon={PreferenceHorizontalIcon} size={14} strokeWidth={1.5} />
+                    <HugeiconsIcon
+                      icon={PreferenceHorizontalIcon}
+                      size={14}
+                      strokeWidth={1.5}
+                    />
                     Columns
                   </button>
                 }
               />
               <PopoverContent align="end" className="w-52 p-1.5">
-                <p className="px-2 py-1 text-[11px] text-text-muted">Show columns</p>
+                <p className="px-2 py-1 text-[11px] text-text-muted">
+                  Show columns
+                </p>
                 {COLUMNS.map((col) => {
                   const locked = col.key === "company";
                   const visible = locked || !hidden.has(col.key);
@@ -805,13 +985,30 @@ function ApplicationsPageInner() {
                       onClick={() => toggleColumn(col.key)}
                       className={cn(
                         "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors duration-150",
-                        locked ? "opacity-60 cursor-default" : "hover:bg-surface-hover cursor-pointer"
+                        locked
+                          ? "opacity-60 cursor-default"
+                          : "hover:bg-surface-hover cursor-pointer",
                       )}
                     >
-                      <Checkbox checked={visible} onChange={() => toggleColumn(col.key)} aria-label={col.label} />
-                      <HugeiconsIcon icon={col.icon} size={13} className="text-text-muted shrink-0" strokeWidth={1.5} />
-                      <span className="text-xs text-text-secondary flex-1">{col.label}</span>
-                      {locked && <span className="text-[10px] text-text-muted">locked</span>}
+                      <Checkbox
+                        checked={visible}
+                        onChange={() => toggleColumn(col.key)}
+                        aria-label={col.label}
+                      />
+                      <HugeiconsIcon
+                        icon={col.icon}
+                        size={13}
+                        className="text-text-muted shrink-0"
+                        strokeWidth={1.5}
+                      />
+                      <span className="text-xs text-text-secondary flex-1">
+                        {col.label}
+                      </span>
+                      {locked && (
+                        <span className="text-[10px] text-text-muted">
+                          locked
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -824,10 +1021,16 @@ function ApplicationsPageInner() {
               onClick={() => setView("list")}
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-150",
-                view === "list" ? "bg-surface text-text-primary" : "text-text-muted hover:text-text-secondary"
+                view === "list"
+                  ? "bg-surface text-text-primary"
+                  : "text-text-muted hover:text-text-secondary",
               )}
             >
-              <HugeiconsIcon icon={LeftToRightListBulletIcon} size={13} strokeWidth={1.5} />
+              <HugeiconsIcon
+                icon={LeftToRightListBulletIcon}
+                size={13}
+                strokeWidth={1.5}
+              />
               List
             </button>
             <button
@@ -835,7 +1038,9 @@ function ApplicationsPageInner() {
               onClick={() => setView("board")}
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-150",
-                view === "board" ? "bg-surface text-text-primary" : "text-text-muted hover:text-text-secondary"
+                view === "board"
+                  ? "bg-surface text-text-primary"
+                  : "text-text-muted hover:text-text-secondary",
               )}
             >
               <HugeiconsIcon icon={GridViewIcon} size={13} strokeWidth={1.5} />
@@ -848,123 +1053,162 @@ function ApplicationsPageInner() {
       {/* List / Board */}
       <div className="flex-1 overflow-auto">
         {view === "board" ? (
-          <KanbanBoard applications={filtered} onCardClick={(a) => openPreview(a.id)} />
+          <KanbanBoard
+            applications={filtered}
+            onCardClick={(a) => openPreview(a.id)}
+          />
         ) : (
-        <>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <table className="w-full text-left border-collapse" style={{ minWidth: 960 }}>
-            <thead>
-              <tr className="group/head bg-bg sticky top-0 z-10 [&>th:not(:first-child):not(:last-child)]:border-b [&>th:not(:first-child):not(:last-child)]:border-border">
-                {/* Select all */}
-                <th className="pl-3 pr-1 w-[54px]">
-                  <div className="flex items-center gap-0.5">
-                    <span className="w-4 shrink-0" />
-                    <Checkbox
-                      checked={allSelected}
-                      indeterminate={!allSelected && someSelected}
-                      onChange={toggleSelectAll}
-                      aria-label="Select all"
-                      className={cn(
-                        "transition-opacity duration-150",
-                        allSelected || someSelected ? "opacity-100" : "opacity-0 group-hover/head:opacity-100"
-                      )}
-                    />
-                  </div>
-                </th>
-                {visibleColumns.map((col) => (
-                  <th
-                    key={col.key}
-                    onClick={() => toggleSort(col.sortKey)}
-                    className={cn(
-                      "px-4 py-2.5 text-xs font-medium text-text-muted whitespace-nowrap select-none",
-                      col.sortKey && "cursor-pointer hover:text-text-secondary"
-                    )}
+          <>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <table
+                className="w-full text-left border-collapse"
+                style={{ minWidth: 960 }}
+              >
+                <thead>
+                  <tr className="group/head bg-bg sticky top-0 z-10 [&>th:not(:first-child):not(:last-child)]:border-b [&>th:not(:first-child):not(:last-child)]:border-border">
+                    {/* Select all */}
+                    <th className="pl-3 pr-1 w-[54px]">
+                      <div className="flex items-center gap-0.5">
+                        <span className="w-4 shrink-0" />
+                        <Checkbox
+                          checked={allSelected}
+                          indeterminate={!allSelected && someSelected}
+                          onChange={toggleSelectAll}
+                          aria-label="Select all"
+                          className={cn(
+                            "transition-opacity duration-150",
+                            allSelected || someSelected
+                              ? "opacity-100"
+                              : "opacity-0 group-hover/head:opacity-100",
+                          )}
+                        />
+                      </div>
+                    </th>
+                    {visibleColumns.map((col) => (
+                      <th
+                        key={col.key}
+                        onClick={() => toggleSort(col.sortKey)}
+                        className={cn(
+                          "px-4 py-2.5 text-xs font-medium text-text-muted whitespace-nowrap select-none",
+                          col.sortKey &&
+                            "cursor-pointer hover:text-text-secondary",
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <HugeiconsIcon
+                            icon={col.icon}
+                            size={13}
+                            strokeWidth={1.5}
+                            className="text-text-muted"
+                          />
+                          {col.label}
+                          {col.sortKey &&
+                            !manualOrder &&
+                            sortKey === col.sortKey && (
+                              <span className="text-accent text-[10px]">
+                                {sortDir === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                        </span>
+                      </th>
+                    ))}
+                    {/* Delete column */}
+                    <th className="pr-3 pl-1 w-[44px]" />
+                  </tr>
+                </thead>
+                <tbody>
+                  <SortableContext
+                    items={visibleIds}
+                    strategy={verticalListSortingStrategy}
                   >
-                    <span className="flex items-center gap-1.5">
-                      <HugeiconsIcon icon={col.icon} size={13} strokeWidth={1.5} className="text-text-muted" />
-                      {col.label}
-                      {col.sortKey && !manualOrder && sortKey === col.sortKey && (
-                        <span className="text-accent text-[10px]">{sortDir === "asc" ? "↑" : "↓"}</span>
-                      )}
-                    </span>
-                  </th>
-                ))}
-                {/* Delete column */}
-                <th className="pr-3 pl-1 w-[44px]" />
-              </tr>
-            </thead>
-            <tbody>
-              <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
-                {filtered.map((app, index) => (
-                  <ApplicationRow
-                    key={app.id}
-                    app={app}
-                    isFirst={index === 0}
-                    selected={selectedIds.has(app.id)}
-                    typeOptions={typeOptions}
-                    sourceOptions={sourceOptions}
-                    onToggleSelect={toggleSelect}
-                    onDelete={askDelete}
-                    onPreview={openPreview}
-                    onUpdate={updateApp}
-                    onSelectType={selectType}
-                    onSelectSource={selectSource}
-                    hidden={hidden}
-                    ghostThreshold={ghostThreshold}
-                  />
-                ))}
-              </SortableContext>
+                    {filtered.map((app, index) => (
+                      <ApplicationRow
+                        key={app.id}
+                        app={app}
+                        isFirst={index === 0}
+                        selected={selectedIds.has(app.id)}
+                        typeOptions={typeOptions}
+                        sourceOptions={sourceOptions}
+                        onToggleSelect={toggleSelect}
+                        onDelete={askDelete}
+                        onPreview={openPreview}
+                        onUpdate={updateApp}
+                        onSelectType={selectType}
+                        onSelectSource={selectSource}
+                        hidden={hidden}
+                        ghostThreshold={ghostThreshold}
+                      />
+                    ))}
+                  </SortableContext>
 
-              {/* Notion-style inline add row */}
-              <tr>
-                <td />
-                <td colSpan={visibleColumns.length + 1} className="px-4 py-1.5">
-                  {addingInline ? (
-                    <input
-                      autoFocus
-                      value={newCompany}
-                      onChange={(e) => setNewCompany(e.target.value)}
-                      onBlur={commitInlineAdd}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") commitInlineAdd();
-                        if (e.key === "Escape") { setNewCompany(""); setAddingInline(false); }
-                      }}
-                      placeholder="Company name, then Enter…"
-                      className="w-72 bg-surface-elevated border border-accent rounded-md px-2 py-1 text-sm text-text-primary focus:outline-none"
-                    />
-                  ) : (
-                    <button
-                      onClick={() => setAddingInline(true)}
-                      className="flex items-center gap-2 text-xs text-text-muted hover:text-accent transition-colors duration-150 px-2 py-1 -mx-2 rounded-md hover:bg-surface-hover"
+                  {/* Notion-style inline add row */}
+                  <tr>
+                    <td />
+                    <td
+                      colSpan={visibleColumns.length + 1}
+                      className="px-4 py-1.5"
                     >
-                      <HugeiconsIcon icon={Add01Icon} size={13} strokeWidth={1.5} />
-                      New application
-                    </button>
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </DndContext>
+                      {addingInline ? (
+                        <input
+                          autoFocus
+                          value={newCompany}
+                          onChange={(e) => setNewCompany(e.target.value)}
+                          onBlur={commitInlineAdd}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitInlineAdd();
+                            if (e.key === "Escape") {
+                              setNewCompany("");
+                              setAddingInline(false);
+                            }
+                          }}
+                          placeholder="Company name, then Enter…"
+                          className="w-72 bg-surface-elevated border border-accent rounded-md px-2 py-1 text-sm text-text-primary focus:outline-none"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => setAddingInline(true)}
+                          className="flex items-center gap-2 text-xs text-text-muted hover:text-accent transition-colors duration-150 px-2 py-1 -mx-2 rounded-md hover:bg-surface-hover"
+                        >
+                          <HugeiconsIcon
+                            icon={Add01Icon}
+                            size={13}
+                            strokeWidth={1.5}
+                          />
+                          New application
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </DndContext>
 
-        {isLoading && apps.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-3 text-center px-6 py-16">
-            <span className="inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin" />
-            <p className="text-xs text-text-muted">Loading your applications…</p>
-          </div>
-        )}
+            {isLoading && apps.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-3 text-center px-6 py-16">
+                <span className="inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin" />
+                <p className="text-xs text-text-muted">
+                  Loading your applications…
+                </p>
+              </div>
+            )}
 
-        {!isLoading && filtered.length === 0 && !addingInline && (
-          <div className="flex flex-col items-center justify-center gap-3 text-center px-6 py-16">
-            <p className="text-sm font-medium text-text-primary">
-              {query ? "No matching companies" : "No applications here"}
-            </p>
-            <p className="text-xs text-text-muted">
-              {query ? "Try a different search term" : "Add your first one to start tracking your journey"}
-            </p>
-          </div>
-        )}
-        </>
+            {!isLoading && filtered.length === 0 && !addingInline && (
+              <div className="flex flex-col items-center justify-center gap-3 text-center px-6 py-16">
+                <p className="text-sm font-medium text-text-primary">
+                  {query ? "No matching companies" : "No applications here"}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {query
+                    ? "Try a different search term"
+                    : "Add your first one to start tracking your journey"}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -978,15 +1222,29 @@ function ApplicationsPageInner() {
           onClose={() => setSelectedId(null)}
         />
       )}
-      {showAdd && <AddApplicationPanel onClose={() => setShowAdd(false)} onSubmit={createOptimistic} />}
-      {showSave && <SaveJobModal onClose={() => setShowSave(false)} onSubmit={createOptimistic} />}
+      {showAdd && (
+        <AddApplicationPanel
+          onClose={() => setShowAdd(false)}
+          onSubmit={createOptimistic}
+        />
+      )}
+      {showSave && (
+        <SaveJobModal
+          onClose={() => setShowSave(false)}
+          onSubmit={createOptimistic}
+        />
+      )}
 
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && deleteOne(deleteTarget.id)}
         title="Move to Trash?"
-        message={deleteTarget ? `"${deleteTarget.name}" will be moved to Trash. You can restore it within 30 days.` : ""}
+        message={
+          deleteTarget
+            ? `"${deleteTarget.name}" will be moved to Trash. You can restore it within 30 days.`
+            : ""
+        }
         confirmLabel="Delete"
         tone="danger"
         icon={Delete02Icon}

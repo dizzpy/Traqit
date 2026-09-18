@@ -8,17 +8,37 @@ const fetcher = (url: string) =>
   });
 
 export function useSources() {
-  const { data, error, isLoading, mutate } = useSWR<{ data: Source[] }>("/api/presets/sources", fetcher);
-  return { sources: data?.data?.map((s) => s.name) ?? [], raw: data?.data ?? [], isLoading, error, mutate };
+  const { data, error, isLoading, mutate } = useSWR<{ data: Source[] }>(
+    "/api/presets/sources",
+    fetcher,
+  );
+  return {
+    sources: data?.data?.map((s) => s.name) ?? [],
+    raw: data?.data ?? [],
+    isLoading,
+    error,
+    mutate,
+  };
 }
 
 export function useJobTypes() {
-  const { data, error, isLoading, mutate } = useSWR<{ data: JobType[] }>("/api/presets/job-types", fetcher);
-  return { jobTypes: data?.data?.map((t) => t.name) ?? [], raw: data?.data ?? [], isLoading, error, mutate };
+  const { data, error, isLoading, mutate } = useSWR<{ data: JobType[] }>(
+    "/api/presets/job-types",
+    fetcher,
+  );
+  return {
+    jobTypes: data?.data?.map((t) => t.name) ?? [],
+    raw: data?.data ?? [],
+    isLoading,
+    error,
+    mutate,
+  };
 }
 
 export function useTemplates() {
-  const { data, error, isLoading, mutate } = useSWR<{ data: PipelineTemplate[] }>("/api/presets/templates", fetcher);
+  const { data, error, isLoading, mutate } = useSWR<{
+    data: PipelineTemplate[];
+  }>("/api/presets/templates", fetcher);
   return { templates: data?.data ?? [], isLoading, error, mutate };
 }
 
@@ -28,7 +48,21 @@ export async function addSource(name: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
-  return res.json();
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error?.message || "Failed to add source");
+  return json;
+}
+
+export async function updateSource(id: string, name: string) {
+  const res = await fetch(`/api/presets/sources/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  const json = await res.json();
+  if (!res.ok)
+    throw new Error(json.error?.message || "Failed to update source");
+  return json;
 }
 
 export async function addJobType(name: string) {
@@ -37,7 +71,21 @@ export async function addJobType(name: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
-  return res.json();
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error?.message || "Failed to add job type");
+  return json;
+}
+
+export async function updateJobType(id: string, name: string) {
+  const res = await fetch(`/api/presets/job-types/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  const json = await res.json();
+  if (!res.ok)
+    throw new Error(json.error?.message || "Failed to update job type");
+  return json;
 }
 
 export async function deleteSource(id: string) {
@@ -52,7 +100,11 @@ export async function deleteJobType(id: string) {
   return res.json();
 }
 
-export async function saveTemplate(payload: { name: string; stages: string[]; isDefault?: boolean }) {
+export async function saveTemplate(payload: {
+  name: string;
+  stages: string[];
+  isDefault?: boolean;
+}) {
   const res = await fetch("/api/presets/templates", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -64,7 +116,7 @@ export async function saveTemplate(payload: { name: string; stages: string[]; is
 
 export async function updateTemplate(
   id: string,
-  patch: { name?: string; stages?: string[]; isDefault?: boolean }
+  patch: { name?: string; stages?: string[]; isDefault?: boolean },
 ) {
   const res = await fetch(`/api/presets/templates/${id}`, {
     method: "PATCH",
