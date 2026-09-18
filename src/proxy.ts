@@ -15,7 +15,7 @@ function clientIp(req: NextRequest) {
 }
 
 // Paths reachable without an authenticated session.
-const PUBLIC_PATHS = ["/", "/login", "/auth", "/preview-landing", "/privacy", "/terms", "/cookies"];
+const PUBLIC_PATHS = ["/", "/login", "/auth", "/privacy", "/terms", "/cookies"];
 
 // Static asset files (images, fonts, etc.) are always public. Next's image
 // optimizer fetches these source URLs through the middleware, so gating them

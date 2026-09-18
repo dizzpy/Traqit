@@ -269,9 +269,15 @@ export const Particles: React.FC<ParticlesProps> = ({
     rafID.current = window.requestAnimationFrame(animateRef.current)
   }
 
-  initCanvasRef.current = initCanvas
-  onMouseMoveRef.current = onMouseMove
-  animateRef.current = animate
+  // Keep the ref-held callbacks pointing at each render's fresh closures
+  // (they capture props like `quantity`/`size` that the effects above don't
+  // list as deps) — done in an effect, not during render, since refs aren't
+  // meant to be written while rendering.
+  useEffect(() => {
+    initCanvasRef.current = initCanvas
+    onMouseMoveRef.current = onMouseMove
+    animateRef.current = animate
+  })
 
   return (
     <div

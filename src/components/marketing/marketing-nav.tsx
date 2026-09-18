@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Logo } from "@/components/common/logo";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,7 +17,7 @@ export async function MarketingNav() {
     <header className="animate-fade-in [--animation-delay:0ms] w-full sticky top-0 z-50 bg-bg/80 backdrop-blur-md border-b border-border/50">
       <div className="max-w-5xl mx-auto flex items-center justify-between px-6 py-4">
         {/* Wordmark */}
-        <a href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <Logo size={17} className="text-white" />
           <span
             className="text-sm font-semibold text-text-primary"
@@ -24,7 +25,7 @@ export async function MarketingNav() {
           >
             Traqit
           </span>
-        </a>
+        </Link>
 
         {/* Center nav links */}
         <nav className="hidden md:flex items-center gap-7">
