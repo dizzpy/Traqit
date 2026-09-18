@@ -29,24 +29,71 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { DatePicker } from "@/components/ui/date-picker";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { STAGE_PRESETS, STAGE_STATUS_LABELS } from "@/lib/constants";
 import { useTemplates } from "@/hooks/use-presets";
-import { createStage, updateStage, deleteStage, reorderStages } from "@/hooks/use-stages";
-import type { Application, PipelineStage, StageStatus } from "@/types";
+import {
+  createStage,
+  updateStage,
+  deleteStage,
+  reorderStages,
+} from "@/hooks/use-stages";
+import type {
+  Application,
+  PipelineStage,
+  PipelineTemplate,
+  StageStatus,
+} from "@/types";
 import { cn } from "@/lib/utils";
 
 interface PipelineBuilderProps {
   application: Application;
 }
 
-const STATUS_CYCLE: StageStatus[] = ["UPCOMING", "COMPLETED", "PASSED", "FAILED", "SKIPPED"];
+const STATUS_CYCLE: StageStatus[] = [
+  "UPCOMING",
+  "COMPLETED",
+  "PASSED",
+  "FAILED",
+  "SKIPPED",
+];
 
 const STATUS_DOT: Record<StageStatus, React.ReactNode> = {
-  UPCOMING: <span className="w-3 h-3 rounded-full border-2 border-border bg-transparent inline-block" />,
-  COMPLETED: <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} className="text-[var(--status-offer-fg)]" strokeWidth={1.5} />,
-  PASSED: <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} className="text-accent-soft-fg" strokeWidth={1.5} />,
-  FAILED: <HugeiconsIcon icon={Cancel01Icon} size={14} className="text-[var(--status-rejected-fg)]" strokeWidth={1.5} />,
-  SKIPPED: <HugeiconsIcon icon={AlertCircleIcon} size={14} className="text-text-muted" strokeWidth={1.5} />,
+  UPCOMING: (
+    <span className="w-3 h-3 rounded-full border-2 border-border bg-transparent inline-block" />
+  ),
+  COMPLETED: (
+    <HugeiconsIcon
+      icon={CheckmarkCircle01Icon}
+      size={14}
+      className="text-[var(--status-offer-fg)]"
+      strokeWidth={1.5}
+    />
+  ),
+  PASSED: (
+    <HugeiconsIcon
+      icon={CheckmarkCircle01Icon}
+      size={14}
+      className="text-accent-soft-fg"
+      strokeWidth={1.5}
+    />
+  ),
+  FAILED: (
+    <HugeiconsIcon
+      icon={Cancel01Icon}
+      size={14}
+      className="text-[var(--status-rejected-fg)]"
+      strokeWidth={1.5}
+    />
+  ),
+  SKIPPED: (
+    <HugeiconsIcon
+      icon={AlertCircleIcon}
+      size={14}
+      className="text-text-muted"
+      strokeWidth={1.5}
+    />
+  ),
 };
 
 const STATUS_LABEL_COLORS: Record<StageStatus, string> = {
@@ -59,15 +106,21 @@ const STATUS_LABEL_COLORS: Record<StageStatus, string> = {
 
 // Revalidate every applications key so the list + detail reflect stage changes.
 const revalidateApps = () =>
-  globalMutate((key) => typeof key === "string" && key.startsWith("/api/applications"));
+  globalMutate(
+    (key) => typeof key === "string" && key.startsWith("/api/applications"),
+  );
 
 export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
   const { templates } = useTemplates();
   const [stages, setStages] = useState<PipelineStage[]>(app.stages);
   const [customInput, setCustomInput] = useState("");
   const [showCustom, setShowCustom] = useState(false);
+  const [pendingTemplate, setPendingTemplate] =
+    useState<PipelineTemplate | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
 
   function tempStage(name: string, order: number): PipelineStage {
     const now = new Date().toISOString();
@@ -118,9 +171,14 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
 
   async function cycleStatus(stage: PipelineStage) {
     if (stage.id.startsWith("temp-")) return; // not persisted yet — PATCH would 404
-    const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(stage.status) + 1) % STATUS_CYCLE.length];
+    const next =
+      STATUS_CYCLE[
+        (STATUS_CYCLE.indexOf(stage.status) + 1) % STATUS_CYCLE.length
+      ];
     const snapshot = stages;
-    setStages((prev) => prev.map((s) => (s.id === stage.id ? { ...s, status: next } : s)));
+    setStages((prev) =>
+      prev.map((s) => (s.id === stage.id ? { ...s, status: next } : s)),
+    );
     try {
       await updateStage(app.id, stage.id, { status: next });
       revalidateApps();
@@ -134,13 +192,26 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
     if (stage.id.startsWith("temp-")) return; // not persisted yet — PATCH would 404
     const value = date || null;
     const snapshot = stages;
-    setStages((prev) => prev.map((s) => (s.id === stage.id ? { ...s, scheduledDate: value } : s)));
+    setStages((prev) =>
+      prev.map((s) => (s.id === stage.id ? { ...s, scheduledDate: value } : s)),
+    );
     try {
       await updateStage(app.id, stage.id, { scheduledDate: value });
       revalidateApps();
     } catch {
       setStages(snapshot);
       toast.error("Couldn't set date");
+    }
+  }
+
+  // Applying a template destructively replaces existing stages, so anything
+  // already on the pipeline needs a confirmation first. An empty pipeline has
+  // nothing to lose, so skip the extra click.
+  function requestApplyTemplate(template: PipelineTemplate) {
+    if (stages.length > 0) {
+      setPendingTemplate(template);
+    } else {
+      applyTemplate(template.stages);
     }
   }
 
@@ -151,11 +222,15 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
     try {
       // Replace the existing pipeline with the template's stages.
       await Promise.all(
-        snapshot.filter((s) => !s.id.startsWith("temp-")).map((s) => deleteStage(app.id, s.id))
+        snapshot
+          .filter((s) => !s.id.startsWith("temp-"))
+          .map((s) => deleteStage(app.id, s.id)),
       );
       const created: PipelineStage[] = [];
       for (let i = 0; i < stageNames.length; i++) {
-        created.push(await createStage(app.id, { name: stageNames[i], order: i + 1 }));
+        created.push(
+          await createStage(app.id, { name: stageNames[i], order: i + 1 }),
+        );
       }
       setStages(created);
       revalidateApps();
@@ -173,10 +248,16 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
     const newIndex = stages.findIndex((s) => s.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
     const snapshot = stages;
-    const next = arrayMove(stages, oldIndex, newIndex).map((s, i) => ({ ...s, order: i + 1 }));
+    const next = arrayMove(stages, oldIndex, newIndex).map((s, i) => ({
+      ...s,
+      order: i + 1,
+    }));
     setStages(next);
     try {
-      await reorderStages(app.id, next.map((s) => s.id));
+      await reorderStages(
+        app.id,
+        next.map((s) => s.id),
+      );
       revalidateApps();
     } catch {
       setStages(snapshot);
@@ -193,20 +274,26 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
           defaultValue=""
           onChange={(e) => {
             const tmpl = templates.find((t) => t.id === e.target.value);
-            if (tmpl) applyTemplate(tmpl.stages as string[]);
+            if (tmpl) requestApplyTemplate(tmpl);
             e.target.value = "";
           }}
         >
-          <option value="" disabled>Apply a template…</option>
+          <option value="" disabled>
+            Apply a template…
+          </option>
           {templates.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
           ))}
         </select>
       </div>
 
       {/* Stage palette */}
       <div>
-        <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">Add stage</p>
+        <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">
+          Add stage
+        </p>
         <div className="flex flex-wrap gap-1.5">
           {STAGE_PRESETS.map((name) => (
             <button
@@ -225,14 +312,20 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && customInput.trim()) addStage(customInput.trim());
-                  if (e.key === "Escape") { setShowCustom(false); setCustomInput(""); }
+                  if (e.key === "Enter" && customInput.trim())
+                    addStage(customInput.trim());
+                  if (e.key === "Escape") {
+                    setShowCustom(false);
+                    setCustomInput("");
+                  }
                 }}
                 placeholder="Stage name…"
                 className="bg-surface-elevated border border-accent rounded-input px-2.5 py-1 text-xs text-text-primary focus:outline-none w-32"
               />
               <button
-                onClick={() => customInput.trim() && addStage(customInput.trim())}
+                onClick={() =>
+                  customInput.trim() && addStage(customInput.trim())
+                }
                 className="text-accent hover:text-accent-hover transition-colors"
               >
                 <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2} />
@@ -253,16 +346,29 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
       {stages.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <div className="w-10 h-10 rounded-full bg-surface-elevated flex items-center justify-center">
-            <HugeiconsIcon icon={FlowSquareIcon} size={18} className="text-text-muted" strokeWidth={1.5} />
+            <HugeiconsIcon
+              icon={FlowSquareIcon}
+              size={18}
+              className="text-text-muted"
+              strokeWidth={1.5}
+            />
           </div>
           <p className="text-sm font-medium text-text-primary">No stages yet</p>
           <p className="text-xs text-text-muted max-w-xs">
-            Tap a stage above to add it, or apply a template to pre-fill a common sequence.
+            Tap a stage above to add it, or apply a template to pre-fill a
+            common sequence.
           </p>
         </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={stages.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={stages.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
             <div className="flex flex-col">
               {stages.map((stage, index) => (
                 <StageCard
@@ -279,6 +385,19 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
           </SortableContext>
         </DndContext>
       )}
+
+      <ConfirmDialog
+        open={!!pendingTemplate}
+        onClose={() => setPendingTemplate(null)}
+        onConfirm={() =>
+          pendingTemplate && applyTemplate(pendingTemplate.stages)
+        }
+        title={`Apply "${pendingTemplate?.name}"?`}
+        message={`This replaces the current ${stages.length} stage${stages.length === 1 ? "" : "s"} with the template's stages. This can't be undone.`}
+        confirmLabel="Replace stages"
+        tone="danger"
+        icon={AlertCircleIcon}
+      />
     </div>
   );
 }
@@ -293,9 +412,23 @@ interface StageCardProps {
   onRemove: () => void;
 }
 
-function StageCard({ stage, isLast, pending = false, onCycleStatus, onSetDate, onRemove }: StageCardProps) {
-  const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging } =
-    useSortable({ id: stage.id, disabled: pending });
+function StageCard({
+  stage,
+  isLast,
+  pending = false,
+  onCycleStatus,
+  onSetDate,
+  onRemove,
+}: StageCardProps) {
+  const {
+    setNodeRef,
+    setActivatorNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: stage.id, disabled: pending });
 
   return (
     <div
@@ -308,20 +441,28 @@ function StageCard({ stage, isLast, pending = false, onCycleStatus, onSetDate, o
         <button
           onClick={onCycleStatus}
           disabled={pending}
-          title={pending ? "Saving…" : `Status: ${STAGE_STATUS_LABELS[stage.status]} (click to change)`}
+          title={
+            pending
+              ? "Saving…"
+              : `Status: ${STAGE_STATUS_LABELS[stage.status]} (click to change)`
+          }
           className="mt-3.5 flex items-center justify-center transition-transform duration-150 enabled:hover:scale-110 disabled:cursor-not-allowed"
         >
           {STATUS_DOT[stage.status]}
         </button>
-        {!isLast && <div className="flex-1 w-px bg-border mt-1 mb-0 min-h-[20px]" />}
+        {!isLast && (
+          <div className="flex-1 w-px bg-border mt-1 mb-0 min-h-[20px]" />
+        )}
       </div>
 
       {/* Stage card */}
       <div
         className={cn(
           "flex-1 bg-surface-elevated border border-border rounded-card p-3 mb-2 group transition-colors duration-150 hover:border-border-hover",
-          stage.status === "COMPLETED" || stage.status === "PASSED" ? "opacity-80" : "",
-          pending && "opacity-60"
+          stage.status === "COMPLETED" || stage.status === "PASSED"
+            ? "opacity-80"
+            : "",
+          pending && "opacity-60",
         )}
         aria-busy={pending}
       >
@@ -335,16 +476,25 @@ function StageCard({ stage, isLast, pending = false, onCycleStatus, onSetDate, o
               disabled={pending}
               className="text-text-muted opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity duration-150 shrink-0 touch-none disabled:cursor-not-allowed"
             >
-              <HugeiconsIcon icon={DragDropVerticalIcon} size={14} strokeWidth={1.5} />
+              <HugeiconsIcon
+                icon={DragDropVerticalIcon}
+                size={14}
+                strokeWidth={1.5}
+              />
             </button>
-            <span className="text-sm font-medium text-text-primary truncate">{stage.name}</span>
+            <span className="text-sm font-medium text-text-primary truncate">
+              {stage.name}
+            </span>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={onCycleStatus}
               disabled={pending}
-              className={cn("text-xs font-medium enabled:hover:underline disabled:cursor-not-allowed", STATUS_LABEL_COLORS[stage.status])}
+              className={cn(
+                "text-xs font-medium enabled:hover:underline disabled:cursor-not-allowed",
+                STATUS_LABEL_COLORS[stage.status],
+              )}
             >
               {pending ? "Saving…" : STAGE_STATUS_LABELS[stage.status]}
             </button>
@@ -366,7 +516,11 @@ function StageCard({ stage, isLast, pending = false, onCycleStatus, onSetDate, o
             placeholder="Schedule date"
             className="h-7 text-xs"
           />
-          {stage.notes && <p className="mt-1 text-[11px] text-text-secondary italic">{stage.notes}</p>}
+          {stage.notes && (
+            <p className="mt-1 text-[11px] text-text-secondary italic">
+              {stage.notes}
+            </p>
+          )}
         </div>
       </div>
     </div>
