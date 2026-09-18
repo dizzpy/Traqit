@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { checkRateLimit } from "@/lib/ratelimit";
+import { apiError } from "@/lib/utils";
 
 // Methods that mutate state get the stricter `write` tier.
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -61,6 +62,13 @@ export async function proxy(req: NextRequest) {
         }
       );
     }
+
+    // API consumers need a real status code, not an HTML redirect to /login —
+    // every route handler re-checks this anyway, but failing fast here means
+    // an unauthenticated call gets 401 JSON instead of a 307 to a login page.
+    if (!user) {
+      return apiError("Unauthorized", "UNAUTHORIZED", 401);
+    }
   }
 
   // Signed-in users have no reason to see the login page.
@@ -78,6 +86,7 @@ export async function proxy(req: NextRequest) {
   }
 
   // Legacy: protect anything non-public that isn't already covered above.
+  // (/api/* is handled earlier and never reaches here unauthenticated.)
   if (!user && !isPublic(pathname)) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
