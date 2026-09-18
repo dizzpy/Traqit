@@ -531,7 +531,9 @@ function WipeApplicationsDialog({
       const res = await fetch("/api/profile/data", { method: "DELETE" });
       if (!res.ok) throw new Error();
       const { data } = await res.json();
-      toast.success(`Deleted ${data.deleted} application${data.deleted === 1 ? "" : "s"}`);
+      toast.success(
+        `Moved ${data.deleted} application${data.deleted === 1 ? "" : "s"} to Trash — restorable for 30 days`
+      );
       onWiped();
     } catch {
       toast.error("Couldn't delete your applications. Try again.");
@@ -543,8 +545,8 @@ function WipeApplicationsDialog({
     <Modal open={open} onClose={onClose} title="Delete all applications?" size="sm">
       <div className="p-6 flex flex-col gap-4">
         <p className="text-sm text-text-secondary leading-relaxed">
-          Every application and its stages, contacts, documents and activity will be permanently deleted.
-          Your account, templates and presets stay. This can&apos;t be undone.
+          Every application will be moved to Trash, along with its stages, contacts, documents and activity.
+          Your account, templates and presets stay. You can restore them within 30 days from Trash.
         </p>
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-text-secondary">
