@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { checkRateLimit } from "@/lib/ratelimit";
+import { apiError } from "@/lib/utils";
 
 // Methods that mutate state get the stricter `write` tier.
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -14,7 +15,7 @@ function clientIp(req: NextRequest) {
 }
 
 // Paths reachable without an authenticated session.
-const PUBLIC_PATHS = ["/", "/login", "/auth", "/preview-landing", "/privacy", "/terms", "/cookies"];
+const PUBLIC_PATHS = ["/", "/login", "/auth", "/privacy", "/terms", "/cookies"];
 
 // Static asset files (images, fonts, etc.) are always public. Next's image
 // optimizer fetches these source URLs through the middleware, so gating them
@@ -48,18 +49,26 @@ export async function proxy(req: NextRequest) {
     const rl = await checkRateLimit(tier, identifier);
     if (!rl.success) {
       const retryAfter = Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000));
-      return NextResponse.json(
-        { error: "Too many requests", code: "RATE_LIMITED" },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(retryAfter),
-            "X-RateLimit-Limit": String(rl.limit),
-            "X-RateLimit-Remaining": String(rl.remaining),
-            "X-RateLimit-Reset": String(rl.reset),
-          },
-        }
+      const res = apiError(
+        "Too many requests. Try again in a moment.",
+        "RATE_LIMITED",
+        429,
       );
+      res.headers.set("Retry-After", String(retryAfter));
+      res.headers.set("X-RateLimit-Limit", String(rl.limit));
+      res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+      res.headers.set("X-RateLimit-Reset", String(rl.reset));
+      return res;
+    }
+
+    // API consumers need a real status code, not an HTML redirect to /login —
+    // every route handler re-checks this anyway, but failing fast here means
+    // an unauthenticated call gets 401 JSON instead of a 307 to a login page.
+    if (!user) {
+      // /api/cron/* is called by pg_cron with no session; those routes check
+      // a shared secret themselves (src/lib/cron.ts).
+      if (pathname.startsWith("/api/cron/")) return supabaseResponse;
+      return apiError("Unauthorized", "UNAUTHORIZED", 401);
     }
   }
 
@@ -78,6 +87,7 @@ export async function proxy(req: NextRequest) {
   }
 
   // Legacy: protect anything non-public that isn't already covered above.
+  // (/api/* is handled earlier and never reaches here unauthenticated.)
   if (!user && !isPublic(pathname)) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";

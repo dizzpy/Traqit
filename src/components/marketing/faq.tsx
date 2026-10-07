@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { motion, AnimatePresence } from "motion/react"
-import { BlurFade } from "@/components/ui/blur-fade"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon } from "@hugeicons/core-free-icons"
-import { cn } from "@/lib/utils"
+import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Add01Icon } from "@hugeicons/core-free-icons";
+import { cn } from "@/lib/utils";
 
 const FAQS = [
   {
@@ -14,11 +14,11 @@ const FAQS = [
   },
   {
     q: "How is this different from a Notion template or spreadsheet?",
-    a: "Spreadsheets are general-purpose — Traqit is built specifically for job hunting. It auto-flags applications that go quiet after 14 days, lets you build a custom stage pipeline per company, and shows a real-time activity feed with no manual logging.",
+    a: "Spreadsheets are general-purpose — Traqit is built specifically for job hunting. It flags applications that go quiet (after 14 days by default), lets you build a custom stage pipeline per company, and shows a real-time activity feed with no manual logging.",
   },
   {
     q: "What is ghost detection?",
-    a: "When a company hasn't responded in 14 days, Traqit automatically marks that application as a ghost — a soft alert in your feed. It's a gentle nudge so you know to follow up or mentally move on, without having to track dates yourself.",
+    a: "When a company hasn't replied within your ghost threshold (14 days by default, adjustable in Settings), Traqit flags the application as going quiet, and can email you about it. You decide whether to follow up or mark it as ghosted — no tracking dates yourself.",
   },
   {
     q: "Is my data private?",
@@ -32,10 +32,10 @@ const FAQS = [
     q: "Does it work on mobile?",
     a: "The web app is fully responsive and works great on any screen size. A native mobile app is on the roadmap — it'll happen once the core experience is polished.",
   },
-]
+];
 
 function FAQItem({ q, a, delay }: { q: string; a: string; delay: number }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
 
   return (
     <BlurFade inView delay={delay}>
@@ -44,7 +44,7 @@ function FAQItem({ q, a, delay }: { q: string; a: string; delay: number }) {
           "group rounded-2xl border transition-colors duration-200",
           open
             ? "border-accent/30 bg-surface"
-            : "border-border bg-surface/40 hover:border-border/70 hover:bg-surface/70"
+            : "border-border bg-surface/40 hover:border-border/70 hover:bg-surface/70",
         )}
       >
         {/* Question row */}
@@ -55,7 +55,9 @@ function FAQItem({ q, a, delay }: { q: string; a: string; delay: number }) {
           <span
             className={cn(
               "text-sm font-medium leading-snug transition-colors duration-200 pt-px",
-              open ? "text-text-primary" : "text-text-secondary group-hover:text-text-primary"
+              open
+                ? "text-text-primary"
+                : "text-text-secondary group-hover:text-text-primary",
             )}
           >
             {q}
@@ -64,7 +66,9 @@ function FAQItem({ q, a, delay }: { q: string; a: string; delay: number }) {
           <motion.span
             className={cn(
               "shrink-0 flex items-center justify-center w-6 h-6 rounded-full mt-px transition-colors duration-200",
-              open ? "bg-accent/15 text-accent" : "bg-surface-elevated text-text-tertiary"
+              open
+                ? "bg-accent/15 text-accent"
+                : "bg-surface-elevated text-text-tertiary",
             )}
             animate={{ rotate: open ? 45 : 0 }}
             transition={{ type: "spring", stiffness: 420, damping: 26 }}
@@ -101,13 +105,15 @@ function FAQItem({ q, a, delay }: { q: string; a: string; delay: number }) {
         </AnimatePresence>
       </div>
     </BlurFade>
-  )
+  );
 }
 
 export function FAQ() {
   return (
-    <section id="faq" className="max-w-2xl mx-auto px-6 py-20 md:py-28 scroll-mt-20">
-
+    <section
+      id="faq"
+      className="max-w-2xl mx-auto px-6 py-20 md:py-28 scroll-mt-20"
+    >
       {/* Header */}
       <BlurFade inView delay={0}>
         <div className="text-center mb-12 space-y-4">
@@ -140,5 +146,5 @@ export function FAQ() {
         ))}
       </div>
     </section>
-  )
+  );
 }

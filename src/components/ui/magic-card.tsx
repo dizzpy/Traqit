@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react"
 import {
   motion,
   useMotionTemplate,
@@ -56,6 +56,11 @@ function isOrbMode(props: MagicCardProps): props is MagicCardOrbProps {
   return props.mode === "orb"
 }
 
+// Store never changes, so a stable no-op subscribe is correct here.
+function subscribeNoop() {
+  return () => {}
+}
+
 export function MagicCard(props: MagicCardProps) {
   const {
     children,
@@ -77,9 +82,13 @@ export function MagicCard(props: MagicCardProps) {
   const glowBlur = isOrbMode(props) ? (props.glowBlur ?? 60) : 60
   const glowOpacity = isOrbMode(props) ? (props.glowOpacity ?? 0.9) : 0.9
   const { theme, systemTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => setMounted(true), [])
+  // True only after hydration — matches SSR (false) on the first client
+  // render, then flips without a setState-in-effect render cascade.
+  const mounted = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false
+  )
 
   const isDarkTheme = useMemo(() => {
     if (!mounted) return true

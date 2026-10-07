@@ -1,5 +1,5 @@
 import { mutate as globalMutate } from "swr";
-import type { Contact, Document } from "@/types";
+import type { Contact, ContactType, Document } from "@/types";
 
 async function jsonOrThrow(res: Response, fallback: string) {
   const json = await res.json().catch(() => ({}));
@@ -9,19 +9,26 @@ async function jsonOrThrow(res: Response, fallback: string) {
 
 /** Revalidate every applications key so nested contacts/documents/activity refresh. */
 export const revalidateApps = () =>
-  globalMutate((key) => typeof key === "string" && key.startsWith("/api/applications"));
+  globalMutate(
+    (key) => typeof key === "string" && key.startsWith("/api/applications"),
+  );
 
 export type ContactInput = {
+  type?: ContactType;
   name: string;
-  role: string;
+  role?: string | null;
   email?: string | null;
   phone?: string | null;
   linkedinUrl?: string | null;
+  websiteUrl?: string | null;
   stageName?: string | null;
   notes?: string | null;
 };
 
-export async function createContact(appId: string, body: ContactInput): Promise<Contact> {
+export async function createContact(
+  appId: string,
+  body: ContactInput,
+): Promise<Contact> {
   const res = await fetch(`/api/applications/${appId}/contacts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -30,8 +37,26 @@ export async function createContact(appId: string, body: ContactInput): Promise<
   return jsonOrThrow(res, "Failed to add contact");
 }
 
-export async function deleteContact(appId: string, contactId: string): Promise<void> {
-  const res = await fetch(`/api/applications/${appId}/contacts/${contactId}`, { method: "DELETE" });
+export async function updateContact(
+  appId: string,
+  contactId: string,
+  patch: Partial<ContactInput>,
+): Promise<Contact> {
+  const res = await fetch(`/api/applications/${appId}/contacts/${contactId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  return jsonOrThrow(res, "Failed to update contact");
+}
+
+export async function deleteContact(
+  appId: string,
+  contactId: string,
+): Promise<void> {
+  const res = await fetch(`/api/applications/${appId}/contacts/${contactId}`, {
+    method: "DELETE",
+  });
   if (!res.ok) throw new Error("Failed to delete contact");
 }
 
@@ -41,7 +66,10 @@ export type DocumentInput = {
   type: "cv" | "cover-letter" | "portfolio" | "other";
 };
 
-export async function createDocument(appId: string, body: DocumentInput): Promise<Document> {
+export async function createDocument(
+  appId: string,
+  body: DocumentInput,
+): Promise<Document> {
   const res = await fetch(`/api/applications/${appId}/documents`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -50,7 +78,68 @@ export async function createDocument(appId: string, body: DocumentInput): Promis
   return jsonOrThrow(res, "Failed to add document");
 }
 
-export async function deleteDocument(appId: string, documentId: string): Promise<void> {
-  const res = await fetch(`/api/applications/${appId}/documents/${documentId}`, { method: "DELETE" });
+export async function deleteDocument(
+  appId: string,
+  documentId: string,
+): Promise<void> {
+  const res = await fetch(
+    `/api/applications/${appId}/documents/${documentId}`,
+    { method: "DELETE" },
+  );
   if (!res.ok) throw new Error("Failed to delete document");
+}
+
+export async function updateDocument(
+  appId: string,
+  documentId: string,
+  patch: Partial<DocumentInput>,
+): Promise<Document> {
+  const res = await fetch(
+    `/api/applications/${appId}/documents/${documentId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    },
+  );
+  return jsonOrThrow(res, "Failed to update document");
+}
+
+/** Replaces an uploaded document's file (and optionally its label/type). */
+export async function replaceDocumentFile(
+  appId: string,
+  documentId: string,
+  file: File,
+  meta: Partial<DocumentUploadMeta>,
+): Promise<Document> {
+  const form = new FormData();
+  form.set("file", file);
+  if (meta.name) form.set("name", meta.name);
+  if (meta.type) form.set("type", meta.type);
+  const res = await fetch(
+    `/api/applications/${appId}/documents/${documentId}`,
+    { method: "PATCH", body: form },
+  );
+  return jsonOrThrow(res, "Failed to replace file");
+}
+
+export type DocumentUploadMeta = {
+  name: string;
+  type: "cv" | "cover-letter" | "portfolio" | "other";
+};
+
+export async function uploadDocument(
+  appId: string,
+  file: File,
+  meta: DocumentUploadMeta,
+): Promise<Document> {
+  const form = new FormData();
+  form.set("file", file);
+  form.set("name", meta.name);
+  form.set("type", meta.type);
+  const res = await fetch(`/api/applications/${appId}/documents/upload`, {
+    method: "POST",
+    body: form,
+  });
+  return jsonOrThrow(res, "Failed to upload document");
 }

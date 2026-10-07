@@ -3,27 +3,56 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
-import { cached, cacheKey, invalidate, invalidateAppData, TTL } from "@/lib/redis";
+import {
+  cached,
+  cacheKey,
+  invalidate,
+  invalidateAppData,
+  TTL,
+} from "@/lib/redis";
 
-const createSchema = z.object({
-  companyName: z.string().min(1).max(100),
-  companyUrl: z.string().optional().nullable(),
-  // position/jobType/appliedVia can be filled in later (Notion-style quick add).
-  position: z.string().max(100).optional().default(""),
-  jobPostUrl: z.string().optional().nullable(),
-  jobType: z.string().optional().default(""),
-  workMode: z.enum(["on-site", "remote", "hybrid", "no-data"]).default("no-data"),
-  appliedVia: z.string().optional().default(""),
-  salaryMin: z.number().optional().nullable(),
-  salaryMax: z.number().optional().nullable(),
-  currency: z.string().default("LKR"),
-  location: z.string().optional().nullable(),
-  status: z.enum(["SAVED", "APPLIED", "IN_PROGRESS", "OFFER", "ACCEPTED", "REJECTED", "GHOSTED", "WITHDRAWN"]).default("APPLIED"),
-  appliedDate: z.string().optional().nullable(),
-  deadline: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-  templateId: z.string().optional().nullable(),
-});
+const createSchema = z
+  .object({
+    companyName: z.string().min(1).max(100),
+    companyUrl: z.string().optional().nullable(),
+    // position/jobType/appliedVia can be filled in later (Notion-style quick add).
+    position: z.string().max(100).optional().default(""),
+    jobPostUrl: z.string().optional().nullable(),
+    jobType: z.string().optional().default(""),
+    workMode: z
+      .enum(["on-site", "remote", "hybrid", "no-data"])
+      .default("no-data"),
+    appliedVia: z.string().optional().default(""),
+    salaryMin: z.number().optional().nullable(),
+    salaryMax: z.number().optional().nullable(),
+    isNonPaid: z.boolean().optional().default(false),
+    currency: z.string().default("LKR"),
+    location: z.string().optional().nullable(),
+    status: z
+      .enum([
+        "SAVED",
+        "APPLIED",
+        "IN_PROGRESS",
+        "OFFER",
+        "ACCEPTED",
+        "REJECTED",
+        "GHOSTED",
+        "WITHDRAWN",
+      ])
+      .default("APPLIED"),
+    appliedDate: z.string().optional().nullable(),
+    deadline: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    templateId: z.string().optional().nullable(),
+  })
+  .refine(
+    (data) =>
+      !(data.isNonPaid && (data.salaryMin != null || data.salaryMax != null)),
+    {
+      message: "A non-paid application can't also have a salary range",
+      path: ["isNonPaid"],
+    },
+  );
 
 const include = {
   stages: { orderBy: { order: "asc" as const } },
@@ -47,6 +76,7 @@ const listSelect = {
   appliedVia: true,
   salaryMin: true,
   salaryMax: true,
+  isNonPaid: true,
   currency: true,
   location: true,
   status: true,
@@ -74,13 +104,19 @@ export async function GET(req: NextRequest) {
   // Clamp pagination so a crafted ?page/?limit can't pull the whole table in
   // one shot (which would bypass pagination + the cache) or yield NaN offsets.
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1") || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "25") || 25));
+  const limit = Math.min(
+    100,
+    Math.max(1, parseInt(searchParams.get("limit") ?? "25") || 25),
+  );
   // ?full=1 returns the complete nested object (contacts/documents/activity) —
   // used by the data export. The default list view stays trimmed for speed.
   const full = searchParams.get("full") === "1";
 
   // `deletedAt: null` hides trashed applications from every list view.
-  const where: Record<string, unknown> = { profileId: profile.id, deletedAt: null };
+  const where: Record<string, unknown> = {
+    profileId: profile.id,
+    deletedAt: null,
+  };
 
   if (status) {
     const statuses = status.split(",");
@@ -129,15 +165,19 @@ export async function GET(req: NextRequest) {
             order,
             page: String(page),
             limit: String(limit),
-          }).toString()
+          }).toString(),
         ),
         TTL.APPS_LIST,
-        queryDb
+        queryDb,
       );
 
   return NextResponse.json(
     { ...result, page, limit },
-    { headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" } }
+    {
+      headers: {
+        "Cache-Control": "private, max-age=10, stale-while-revalidate=30",
+      },
+    },
   );
 }
 
@@ -177,12 +217,16 @@ export async function POST(req: NextRequest) {
             create: { type: "created", description: "Application created" },
           },
           ...(stageNames.length > 0
-            ? { stages: { create: stageNames.map((name, i) => ({ name, order: i + 1 })) } }
+            ? {
+                stages: {
+                  create: stageNames.map((name, i) => ({ name, order: i + 1 })),
+                },
+              }
             : {}),
         },
         include,
       }),
-      stageNames.length > 0
+      data.appliedVia
         ? prisma.source.updateMany({
             where: { profileId: profile.id, name: data.appliedVia },
             data: { usageCount: { increment: 1 } },
@@ -191,8 +235,8 @@ export async function POST(req: NextRequest) {
     ]);
 
     await invalidateAppData(profile.id);
-    // A used template bumps the source's usageCount, changing the sources order.
-    if (stageNames.length > 0) await invalidate(cacheKey.sources(profile.id));
+    // A used source bumps its usageCount, changing the sources order.
+    if (data.appliedVia) await invalidate(cacheKey.sources(profile.id));
     return NextResponse.json({ data: app }, { status: 201 });
   } catch (err) {
     console.error(err);

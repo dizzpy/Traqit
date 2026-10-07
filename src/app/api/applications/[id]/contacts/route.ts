@@ -4,41 +4,72 @@ import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
 
-const createSchema = z.object({
-  name: z.string().min(1),
-  role: z.string().min(1),
-  email: z.string().email().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  linkedinUrl: z.string().url().optional().nullable(),
-  stageName: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-});
+const createSchema = z
+  .object({
+    type: z.enum(["PERSON", "COMPANY"]).default("PERSON"),
+    name: z.string().min(1),
+    // Required for PERSON, optional for COMPANY — enforced below.
+    role: z.string().optional().nullable(),
+    email: z.string().email().optional().nullable(),
+    phone: z.string().optional().nullable(),
+    linkedinUrl: z.string().url().optional().nullable(),
+    websiteUrl: z.string().url().optional().nullable(),
+    stageName: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+  })
+  .refine((data) => data.type !== "PERSON" || !!data.role?.trim(), {
+    message: "Role is required for a person contact",
+    path: ["role"],
+  });
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
   const { id } = await params;
-  const app = await prisma.application.findFirst({ where: { id, profileId: profile.id } });
+  const app = await prisma.application.findFirst({
+    where: { id, profileId: profile.id },
+  });
   if (!app) return apiError("Not found", "NOT_FOUND", 404);
-  const contacts = await prisma.contact.findMany({ where: { applicationId: id }, orderBy: { createdAt: "asc" } });
+  const contacts = await prisma.contact.findMany({
+    where: { applicationId: id },
+    orderBy: { createdAt: "asc" },
+  });
   return NextResponse.json({ data: contacts });
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
   const { id } = await params;
-  const app = await prisma.application.findFirst({ where: { id, profileId: profile.id } });
+  const app = await prisma.application.findFirst({
+    where: { id, profileId: profile.id },
+  });
   if (!app) return apiError("Not found", "NOT_FOUND", 404);
 
   try {
     const body = await req.json();
     const parsed = createSchema.safeParse(body);
-    if (!parsed.success) return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
+    if (!parsed.success)
+      return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
-    const contact = await prisma.contact.create({ data: { ...parsed.data, applicationId: id } });
+    const contact = await prisma.contact.create({
+      data: { ...parsed.data, applicationId: id },
+    });
+    const label = parsed.data.role
+      ? `${parsed.data.name} (${parsed.data.role})`
+      : parsed.data.name;
     await prisma.activity.create({
-      data: { applicationId: id, type: "contact_added", description: `Contact added: ${parsed.data.name} (${parsed.data.role})` },
+      data: {
+        applicationId: id,
+        type: "contact_added",
+        description: `Contact added: ${label}`,
+      },
     });
     return NextResponse.json({ data: contact }, { status: 201 });
   } catch (err) {

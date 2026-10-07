@@ -9,11 +9,7 @@ export type ApplicationStatus =
   | "WITHDRAWN";
 
 export type StageStatus =
-  | "UPCOMING"
-  | "COMPLETED"
-  | "PASSED"
-  | "FAILED"
-  | "SKIPPED";
+  "UPCOMING" | "COMPLETED" | "PASSED" | "FAILED" | "SKIPPED";
 
 export type WorkMode = "on-site" | "remote" | "hybrid" | "no-data";
 
@@ -24,24 +20,31 @@ export interface PipelineStage {
   order: number;
   status: StageStatus;
   scheduledDate: string | null;
+  hasTime: boolean;
   completedDate: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
+export type ContactType = "PERSON" | "COMPANY";
+
 export interface Contact {
   id: string;
   applicationId: string;
+  type: ContactType;
   name: string;
-  role: string;
+  role: string | null;
   email: string | null;
   phone: string | null;
   linkedinUrl: string | null;
+  websiteUrl: string | null;
   stageName: string | null;
   notes: string | null;
   createdAt: string;
 }
+
+export type DocumentSource = "link" | "upload";
 
 export interface Document {
   id: string;
@@ -49,6 +52,10 @@ export interface Document {
   name: string;
   url: string;
   type: string;
+  source: DocumentSource;
+  storagePath: string | null;
+  fileSize: number | null;
+  mimeType: string | null;
   createdAt: string;
 }
 
@@ -73,6 +80,7 @@ export interface Application {
   appliedVia: string;
   salaryMin: number | null;
   salaryMax: number | null;
+  isNonPaid: boolean;
   currency: string;
   location: string | null;
   status: ApplicationStatus;
@@ -145,6 +153,10 @@ export interface AnalyticsData {
     total: number;
     responseRate: number;
   }>;
-  applicationsOverTime: Array<{ date: string; count: number; responses: number }>;
+  applicationsOverTime: Array<{
+    date: string;
+    count: number;
+    responses: number;
+  }>;
   funnelData: Array<{ stage: string; count: number; pct: number }>;
 }

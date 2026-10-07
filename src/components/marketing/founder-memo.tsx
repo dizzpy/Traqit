@@ -30,7 +30,7 @@ export function FounderMemo() {
             className="block text-5xl leading-none text-accent/25 font-serif select-none mb-4"
             aria-hidden
           >
-            "
+            &ldquo;
           </span>
 
           <BlurFade inView delay={0.1}>

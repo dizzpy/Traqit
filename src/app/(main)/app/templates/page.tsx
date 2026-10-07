@@ -46,7 +46,10 @@ import {
   reorderEmailTemplates,
 } from "@/hooks/use-email-templates";
 import { toastUndo, tempId } from "@/lib/optimistic";
-import { useComposeApplications, type ComposeApplication } from "@/hooks/use-applications";
+import {
+  useComposeApplications,
+  type ComposeApplication,
+} from "@/hooks/use-applications";
 import {
   EMAIL_PLACEHOLDERS,
   EMAIL_TEMPLATE_CATEGORIES,
@@ -62,7 +65,7 @@ import type { EmailTemplate } from "@/types";
 function insertAtCursor(
   el: HTMLInputElement | HTMLTextAreaElement,
   token: string,
-  setValue: (v: string) => void
+  setValue: (v: string) => void,
 ) {
   const start = el.selectionStart ?? el.value.length;
   const end = el.selectionEnd ?? el.value.length;
@@ -90,9 +93,14 @@ export default function TemplatesPage() {
   const [composeAppId, setComposeAppId] = useState("");
   const [composeContactId, setComposeContactId] = useState("");
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
 
-  const categories = ["All", ...Array.from(new Set(templates.map((t) => t.category)))];
+  const categories = [
+    "All",
+    ...Array.from(new Set(templates.map((t) => t.category))),
+  ];
   const isFiltering = activeCategory !== "All" || search.trim() !== "";
   const q = search.trim().toLowerCase();
   const visible = templates.filter(
@@ -101,13 +109,15 @@ export default function TemplatesPage() {
       (q === "" ||
         t.name.toLowerCase().includes(q) ||
         t.subject.toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q))
+        t.category.toLowerCase().includes(q)),
   );
 
   const selectedTemplate = templates.find((t) => t.id === selectedId) ?? null;
-  const composeApp = applications.find((a) => a.id === composeAppId) ?? applications[0];
+  const composeApp =
+    applications.find((a) => a.id === composeAppId) ?? applications[0];
   const composeContact =
-    composeApp?.contacts.find((c) => c.id === composeContactId) ?? composeApp?.contacts[0];
+    composeApp?.contacts.find((c) => c.id === composeContactId) ??
+    composeApp?.contacts[0];
   const composeValues: PlaceholderValues = composeApp
     ? placeholderValuesFromApp(composeApp, composeContact?.name ?? "", myName)
     : { company: "", position: "", contact: "", myName, jobUrl: "" };
@@ -124,16 +134,33 @@ export default function TemplatesPage() {
 
   // Save (create or edit) optimistically: the list updates instantly, then we
   // reconcile with the server record (or roll back on failure).
-  async function saveTemplate(payload: { name: string; subject: string; body: string; category: string }) {
+  async function saveTemplate(payload: {
+    name: string;
+    subject: string;
+    body: string;
+    category: string;
+  }) {
     if (editing) {
       const id = editing.id;
-      mutate((cur) => (cur ? { data: cur.data.map((t) => (t.id === id ? { ...t, ...payload } : t)) } : cur), { revalidate: false });
+      mutate(
+        (cur) =>
+          cur
+            ? {
+                data: cur.data.map((t) =>
+                  t.id === id ? { ...t, ...payload } : t,
+                ),
+              }
+            : cur,
+        { revalidate: false },
+      );
       try {
         await updateEmailTemplate(id, payload);
         toast.success("Template updated");
         mutate();
-      } catch {
-        toast.error("Couldn't save template");
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Couldn't save template",
+        );
         mutate();
       }
     } else {
@@ -144,26 +171,49 @@ export default function TemplatesPage() {
         createdAt: new Date().toISOString(),
         ...payload,
       };
-      mutate((cur) => (cur ? { data: [...cur.data, temp] } : { data: [temp] }), { revalidate: false });
+      mutate(
+        (cur) => (cur ? { data: [...cur.data, temp] } : { data: [temp] }),
+        { revalidate: false },
+      );
       try {
         const res = await saveEmailTemplate(payload);
         const created = res.data as EmailTemplate;
-        mutate((cur) => (cur ? { data: cur.data.map((t) => (t.id === temp.id ? created : t)) } : cur), { revalidate: false });
+        mutate(
+          (cur) =>
+            cur
+              ? { data: cur.data.map((t) => (t.id === temp.id ? created : t)) }
+              : cur,
+          { revalidate: false },
+        );
         toast.success("Template created");
-      } catch {
-        mutate((cur) => (cur ? { data: cur.data.filter((t) => t.id !== temp.id) } : cur), { revalidate: false });
-        toast.error("Couldn't save template");
+      } catch (err) {
+        mutate(
+          (cur) =>
+            cur ? { data: cur.data.filter((t) => t.id !== temp.id) } : cur,
+          { revalidate: false },
+        );
+        toast.error(
+          err instanceof Error ? err.message : "Couldn't save template",
+        );
       }
     }
   }
 
   async function confirmDelete(t: EmailTemplate) {
-    mutate((cur) => (cur ? { data: cur.data.filter((x) => x.id !== t.id) } : cur), { revalidate: false });
+    mutate(
+      (cur) => (cur ? { data: cur.data.filter((x) => x.id !== t.id) } : cur),
+      { revalidate: false },
+    );
     if (selectedId === t.id) setSelectedId(null);
     try {
       await deleteEmailTemplate(t.id);
       toastUndo("Template deleted", async () => {
-        try { await restoreEmailTemplates([t.id]); mutate(); } catch { toast.error("Couldn't restore"); }
+        try {
+          await restoreEmailTemplates([t.id]);
+          mutate();
+        } catch {
+          toast.error("Couldn't restore");
+        }
       });
     } catch {
       toast.error("Couldn't delete template");
@@ -177,7 +227,10 @@ export default function TemplatesPage() {
     const oldIndex = templates.findIndex((t) => t.id === active.id);
     const newIndex = templates.findIndex((t) => t.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
-    const next = arrayMove(templates, oldIndex, newIndex).map((t, i) => ({ ...t, order: i }));
+    const next = arrayMove(templates, oldIndex, newIndex).map((t, i) => ({
+      ...t,
+      order: i,
+    }));
     mutate({ data: next }, { revalidate: false });
     try {
       await reorderEmailTemplates(next.map((t) => t.id));
@@ -197,7 +250,12 @@ export default function TemplatesPage() {
         <div className="overflow-y-auto p-6 lg:border-r border-border flex flex-col gap-3">
           {/* Search */}
           <div className="flex items-center gap-2 h-10 px-3 rounded-input bg-surface-elevated border border-border focus-within:border-border-hover transition-colors">
-            <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.5} className="text-text-muted shrink-0" />
+            <HugeiconsIcon
+              icon={Search01Icon}
+              size={15}
+              strokeWidth={1.5}
+              className="text-text-muted shrink-0"
+            />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -205,8 +263,15 @@ export default function TemplatesPage() {
               className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="text-text-muted hover:text-text-primary transition-colors">
-                <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.5} />
+              <button
+                onClick={() => setSearch("")}
+                className="text-text-muted hover:text-text-primary transition-colors"
+              >
+                <HugeiconsIcon
+                  icon={Cancel01Icon}
+                  size={14}
+                  strokeWidth={1.5}
+                />
               </button>
             )}
           </div>
@@ -222,7 +287,7 @@ export default function TemplatesPage() {
                     "px-3 py-1 rounded-full text-xs border transition-colors duration-150",
                     activeCategory === cat
                       ? "bg-accent-soft text-accent-soft-fg border-transparent"
-                      : "bg-surface-elevated text-text-secondary border-border hover:text-text-primary"
+                      : "bg-surface-elevated text-text-secondary border-border hover:text-text-primary",
                   )}
                 >
                   {cat}
@@ -235,21 +300,43 @@ export default function TemplatesPage() {
           {templates.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-16">
               <div className="w-12 h-12 rounded-full bg-accent-soft flex items-center justify-center mb-1">
-                <HugeiconsIcon icon={Mailbox01Icon} size={20} className="text-accent-soft-fg" strokeWidth={1.5} />
+                <HugeiconsIcon
+                  icon={Mailbox01Icon}
+                  size={20}
+                  className="text-accent-soft-fg"
+                  strokeWidth={1.5}
+                />
               </div>
-              <p className="text-sm font-medium text-text-primary">No templates yet</p>
-              <p className="text-xs text-text-muted max-w-xs">
-                Create a reusable outreach email with placeholders like {"{company}"} and fire it off in one click.
+              <p className="text-sm font-medium text-text-primary">
+                No templates yet
               </p>
-              <Button variant="outline" size="sm" className="mt-2" onClick={openNew}>
+              <p className="text-xs text-text-muted max-w-xs">
+                Create a reusable outreach email with placeholders like{" "}
+                {"{company}"} and fire it off in one click.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={openNew}
+              >
                 New template
               </Button>
             </div>
           ) : visible.length === 0 ? (
-            <p className="text-sm text-text-muted px-1 py-8 text-center">No templates match your filters.</p>
+            <p className="text-sm text-text-muted px-1 py-8 text-center">
+              No templates match your filters.
+            </p>
           ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={visible.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={visible.map((t) => t.id)}
+                strategy={verticalListSortingStrategy}
+              >
                 <div className="flex flex-col gap-2">
                   {visible.map((t) => (
                     <SortableTemplateCard
@@ -273,26 +360,42 @@ export default function TemplatesPage() {
           {!selectedTemplate ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-16">
               <div className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center mb-1">
-                <HugeiconsIcon icon={Mail01Icon} size={20} className="text-text-muted" strokeWidth={1.5} />
+                <HugeiconsIcon
+                  icon={Mail01Icon}
+                  size={20}
+                  className="text-text-muted"
+                  strokeWidth={1.5}
+                />
               </div>
-              <p className="text-sm font-medium text-text-primary">Nothing open</p>
+              <p className="text-sm font-medium text-text-primary">
+                Nothing open
+              </p>
               <p className="text-xs text-text-muted max-w-xs">
-                Pick a template on the left to load it here, edit it, and open it in Gmail.
+                Pick a template on the left to load it here, edit it, and open
+                it in Gmail.
               </p>
             </div>
           ) : (
             <>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h2 className="text-base font-semibold text-text-primary">{selectedTemplate.name}</h2>
-                  <p className="text-sm text-text-muted mt-0.5">Fill in, edit, and open in Gmail.</p>
+                  <h2 className="text-base font-semibold text-text-primary">
+                    {selectedTemplate.name}
+                  </h2>
+                  <p className="text-sm text-text-muted mt-0.5">
+                    Fill in, edit, and open in Gmail.
+                  </p>
                 </div>
                 <button
                   onClick={() => setSelectedId(null)}
                   title="Close"
                   className="text-text-muted hover:text-text-primary transition-colors p-1 shrink-0"
                 >
-                  <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.5} />
+                  <HugeiconsIcon
+                    icon={Cancel01Icon}
+                    size={18}
+                    strokeWidth={1.5}
+                  />
                 </button>
               </div>
 
@@ -331,8 +434,14 @@ export default function TemplatesPage() {
               <EditableDraft
                 key={`${selectedTemplate.id}:${composeApp?.id ?? ""}:${composeContact?.id ?? ""}`}
                 defaultTo={composeContact?.email ?? ""}
-                defaultSubject={substitutePlaceholders(selectedTemplate.subject, composeValues)}
-                defaultBody={substitutePlaceholders(selectedTemplate.body, composeValues)}
+                defaultSubject={substitutePlaceholders(
+                  selectedTemplate.subject,
+                  composeValues,
+                )}
+                defaultBody={substitutePlaceholders(
+                  selectedTemplate.body,
+                  composeValues,
+                )}
               />
             </>
           )}
@@ -355,7 +464,11 @@ export default function TemplatesPage() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && confirmDelete(deleteTarget)}
         title="Delete this template?"
-        message={deleteTarget ? `"${deleteTarget.name}" will be moved to Trash. You can restore it within 30 days.` : ""}
+        message={
+          deleteTarget
+            ? `"${deleteTarget.name}" will be moved to Trash. You can restore it within 30 days.`
+            : ""
+        }
         confirmLabel="Delete"
         tone="danger"
         icon={Delete02Icon}
@@ -373,8 +486,22 @@ interface SortableCardProps {
   onDelete: () => void;
 }
 
-function SortableTemplateCard({ template, selected, dragDisabled, onSelect, onEdit, onDelete }: SortableCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+function SortableTemplateCard({
+  template,
+  selected,
+  dragDisabled,
+  onSelect,
+  onEdit,
+  onDelete,
+}: SortableCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: template.id,
     disabled: dragDisabled,
   });
@@ -387,7 +514,7 @@ function SortableTemplateCard({ template, selected, dragDisabled, onSelect, onEd
       className={cn(
         "group relative bg-surface-elevated border rounded-card p-4 cursor-pointer transition-colors duration-150",
         selected ? "border-accent" : "border-border hover:border-border-hover",
-        isDragging && "opacity-60 z-10"
+        isDragging && "opacity-60 z-10",
       )}
     >
       <div className="flex items-start gap-2">
@@ -399,18 +526,33 @@ function SortableTemplateCard({ template, selected, dragDisabled, onSelect, onEd
             title="Drag to reorder"
             className="mt-0.5 cursor-grab active:cursor-grabbing text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
           >
-            <HugeiconsIcon icon={DragDropVerticalIcon} size={14} strokeWidth={1.5} />
+            <HugeiconsIcon
+              icon={DragDropVerticalIcon}
+              size={14}
+              strokeWidth={1.5}
+            />
           </button>
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-text-primary truncate">{template.name}</p>
-            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full shrink-0", tagBadgeClass(template.category))}>
+            <p className="text-sm font-medium text-text-primary truncate">
+              {template.name}
+            </p>
+            <span
+              className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded-full shrink-0",
+                tagBadgeClass(template.category),
+              )}
+            >
               {template.category}
             </span>
           </div>
-          <p className="text-xs text-text-muted mt-0.5 truncate">{template.subject}</p>
-          <p className="text-xs text-text-secondary mt-2 line-clamp-2 whitespace-pre-wrap">{template.body}</p>
+          <p className="text-xs text-text-muted mt-0.5 truncate">
+            {template.subject}
+          </p>
+          <p className="text-xs text-text-secondary mt-2 line-clamp-2 whitespace-pre-wrap">
+            {template.body}
+          </p>
         </div>
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
           <button
@@ -445,23 +587,35 @@ interface EditableDraftProps {
   defaultBody: string;
 }
 
-function EditableDraft({ defaultTo, defaultSubject, defaultBody }: EditableDraftProps) {
+function EditableDraft({
+  defaultTo,
+  defaultSubject,
+  defaultBody,
+}: EditableDraftProps) {
   const [to, setTo] = useState(defaultTo);
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState(defaultBody);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   function openInGmail() {
-    const url = buildGmailDraftUrl({ to: to.trim() || undefined, subject, body });
+    const url = buildGmailDraftUrl({
+      to: to.trim() || undefined,
+      subject,
+      body,
+    });
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-text-muted">Edit any field below before opening Gmail.</p>
+      <p className="text-xs text-text-muted">
+        Edit any field below before opening Gmail.
+      </p>
       <div className="rounded-card border border-border bg-surface-elevated overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
-          <label className="text-xs font-medium text-text-muted w-14 shrink-0">To</label>
+          <label className="text-xs font-medium text-text-muted w-14 shrink-0">
+            To
+          </label>
           <input
             type="email"
             value={to}
@@ -471,7 +625,9 @@ function EditableDraft({ defaultTo, defaultSubject, defaultBody }: EditableDraft
           />
         </div>
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
-          <label className="text-xs font-medium text-text-muted w-14 shrink-0">Subject</label>
+          <label className="text-xs font-medium text-text-muted w-14 shrink-0">
+            Subject
+          </label>
           <input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
@@ -492,7 +648,8 @@ function EditableDraft({ defaultTo, defaultSubject, defaultBody }: EditableDraft
         onClick={() => setConfirmOpen(true)}
         disabled={!subject.trim() && !body.trim()}
       >
-        <HugeiconsIcon icon={Mail01Icon} size={13} strokeWidth={1.5} /> Open in Gmail
+        <HugeiconsIcon icon={Mail01Icon} size={13} strokeWidth={1.5} /> Open in
+        Gmail
       </Button>
 
       <ConfirmDialog
@@ -514,10 +671,21 @@ interface EditorProps {
   apps: ComposeApplication[];
   myName: string;
   /** Parent persists optimistically; the editor just validates + hands off. */
-  onSubmit: (payload: { name: string; subject: string; body: string; category: string }) => void;
+  onSubmit: (payload: {
+    name: string;
+    subject: string;
+    body: string;
+    category: string;
+  }) => void;
 }
 
-function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: EditorProps) {
+function TemplateEditorModal({
+  onClose,
+  template,
+  apps,
+  myName,
+  onSubmit,
+}: EditorProps) {
   const [name, setName] = useState(template?.name ?? "");
   const [category, setCategory] = useState(template?.category ?? "General");
   const [subject, setSubject] = useState(template?.subject ?? "");
@@ -527,7 +695,9 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: Edit
 
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
-  const lastFocused = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const lastFocused = useRef<HTMLInputElement | HTMLTextAreaElement | null>(
+    null,
+  );
 
   const previewApp = apps.find((a) => a.id === previewAppId) ?? apps[0];
   const previewContact = previewApp?.contacts[0];
@@ -553,7 +723,12 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: Edit
   }
 
   return (
-    <Modal open onClose={onClose} title={template ? "Edit template" : "New template"} size="lg">
+    <Modal
+      open
+      onClose={onClose}
+      title={template ? "Edit template" : "New template"}
+      size="lg"
+    >
       <div className="p-6 flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
           <Input
@@ -567,7 +742,10 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: Edit
             label="Category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            options={EMAIL_TEMPLATE_CATEGORIES.map((c) => ({ value: c, label: c }))}
+            options={EMAIL_TEMPLATE_CATEGORIES.map((c) => ({
+              value: c,
+              label: c,
+            }))}
           />
         </div>
         <Input
@@ -582,7 +760,9 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: Edit
         {/* Body with Edit / Preview toggle */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-text-secondary">Body</label>
+            <label className="text-xs font-medium text-text-secondary">
+              Body
+            </label>
             <div className="flex rounded-input bg-surface-hover p-0.5">
               {(["edit", "preview"] as const).map((v) => (
                 <button
@@ -593,7 +773,7 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: Edit
                     "px-2.5 py-1 text-xs rounded-[7px] capitalize transition-colors duration-150",
                     bodyView === v
                       ? "bg-surface text-text-primary border border-border"
-                      : "text-text-muted hover:text-text-secondary"
+                      : "text-text-muted hover:text-text-secondary",
                   )}
                 >
                   {v}
@@ -608,7 +788,9 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: Edit
               value={body}
               onChange={(e) => setBody(e.target.value)}
               onFocus={() => (lastFocused.current = bodyRef.current)}
-              placeholder={"Hi {contact},\n\nI'm reaching out about the {position} role at {company}..."}
+              placeholder={
+                "Hi {contact},\n\nI'm reaching out about the {position} role at {company}..."
+              }
               className="min-h-[160px] leading-[1.7]"
             />
           ) : (
@@ -618,7 +800,10 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: Edit
                   label="Preview with"
                   value={previewApp?.id ?? ""}
                   onChange={(e) => setPreviewAppId(e.target.value)}
-                  options={apps.map((a) => ({ value: a.id, label: `${a.companyName} — ${a.position}` }))}
+                  options={apps.map((a) => ({
+                    value: a.id,
+                    label: `${a.companyName} — ${a.position}`,
+                  }))}
                 />
               )}
               <EmailPreview subject={subject} body={body} values={values} />
@@ -628,8 +813,12 @@ function TemplateEditorModal({ onClose, template, apps, myName, onSubmit }: Edit
 
         {/* Variable chips */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">Variables</span>
-          <p className="text-xs text-text-muted">Click to insert into the focused field.</p>
+          <span className="text-xs font-medium text-text-secondary">
+            Variables
+          </span>
+          <p className="text-xs text-text-muted">
+            Click to insert into the focused field.
+          </p>
           <div className="flex flex-wrap gap-2">
             {EMAIL_PLACEHOLDERS.map((p) => (
               <button

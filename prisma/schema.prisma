@@ -18,6 +18,7 @@ model Profile {
   emailName         String?            // name used for the {myName} placeholder in email templates
   remindersEnabled  Boolean            @default(false) // email me before scheduled interviews
   reminderLeadTime  Int                @default(24) // hours before a scheduled stage to remind
+  timezone          String?            // IANA zone from the browser, e.g. "Asia/Colombo" — used for stage times in emails
   onboardedAt       DateTime?          // set when the guided onboarding flow is completed; null = not yet onboarded
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -65,6 +66,7 @@ model Application {
 
   salaryMin         Float?
   salaryMax         Float?
+  isNonPaid         Boolean           @default(false)
   currency          String            @default("LKR")
   location          String?
 
@@ -73,6 +75,9 @@ model Application {
   appliedDate       DateTime?
   firstResponseDate DateTime?
   deadline          DateTime?
+  // Set when the ghost-check cron emails about this application; cleared if
+  // appliedDate changes so a re-application counts as a new occurrence.
+  ghostNotifiedAt   DateTime?
 
   notes             String?
 
@@ -116,7 +121,11 @@ model PipelineStage {
   order         Int
   status        StageStatus @default(UPCOMING)
   scheduledDate DateTime?
+  // false = all-day (scheduledDate is the date at 00:00 UTC); true = exact time.
+  hasTime       Boolean     @default(false)
   completedDate DateTime?
+  // Set when the reminder cron emails about this stage; cleared on reschedule.
+  reminderSentAt DateTime?
   notes         String?
 
   createdAt     DateTime    @default(now())
@@ -138,17 +147,26 @@ enum StageStatus {
   SKIPPED
 }
 
+enum ContactType {
+  PERSON
+  COMPANY
+}
+
 // ─── CONTACTS ────────────────────────────────────────────────────────────────
 model Contact {
   id            String      @id @default(cuid())
   applicationId String
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
+  type          ContactType @default(PERSON)
   name          String
-  role          String
+  // Required for PERSON, optional for COMPANY (enforced at the API layer).
+  role          String?
   email         String?
   phone         String?
   linkedinUrl   String?
+  // COMPANY-only: careers page / company site link.
+  websiteUrl    String?
   stageName     String?
   notes         String?
 
@@ -164,8 +182,16 @@ model Document {
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   name          String
+  // For source="link": an arbitrary external URL. For source="upload": our own
+  // download-redirect path (stable; never expires, unlike a signed URL).
   url           String
   type          String
+
+  source        String      @default("link") // "link" | "upload"
+  // Supabase Storage object path — only set when source="upload".
+  storagePath   String?
+  fileSize      Int?
+  mimeType      String?
 
   createdAt     DateTime    @default(now())
 

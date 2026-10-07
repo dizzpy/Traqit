@@ -7,48 +7,77 @@ import { invalidateAppData } from "@/lib/redis";
 
 const updateSchema = z.object({
   name: z.string().optional(),
-  status: z.enum(["UPCOMING", "COMPLETED", "PASSED", "FAILED", "SKIPPED"]).optional(),
+  status: z
+    .enum(["UPCOMING", "COMPLETED", "PASSED", "FAILED", "SKIPPED"])
+    .optional(),
   scheduledDate: z.string().optional().nullable(),
+  // Only meaningful alongside scheduledDate; omitted means all-day.
+  hasTime: z.boolean().optional(),
   completedDate: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string; stageId: string }> }
+  { params }: { params: Promise<{ id: string; stageId: string }> },
 ) {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
   const { id, stageId } = await params;
 
-  const app = await prisma.application.findFirst({ where: { id, profileId: profile.id } });
+  const app = await prisma.application.findFirst({
+    where: { id, profileId: profile.id },
+  });
   if (!app) return apiError("Not found", "NOT_FOUND", 404);
 
-  const stage = await prisma.pipelineStage.findFirst({ where: { id: stageId, applicationId: id } });
+  const stage = await prisma.pipelineStage.findFirst({
+    where: { id: stageId, applicationId: id },
+  });
   if (!stage) return apiError("Stage not found", "NOT_FOUND", 404);
 
   try {
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);
-    if (!parsed.success) return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
+    if (!parsed.success)
+      return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
-    const { status, ...rest } = parsed.data;
+    const { status, hasTime, ...rest } = parsed.data;
     const updates: Record<string, unknown> = { ...rest };
-    if (rest.scheduledDate !== undefined) updates.scheduledDate = rest.scheduledDate ? new Date(rest.scheduledDate) : null;
-    if (rest.completedDate !== undefined) updates.completedDate = rest.completedDate ? new Date(rest.completedDate) : null;
+    if (rest.scheduledDate !== undefined) {
+      updates.scheduledDate = rest.scheduledDate
+        ? new Date(rest.scheduledDate)
+        : null;
+      updates.hasTime = !!rest.scheduledDate && (hasTime ?? false);
+      // Rescheduled → the reminder for the old date no longer applies.
+      updates.reminderSentAt = null;
+    }
+    if (rest.completedDate !== undefined)
+      updates.completedDate = rest.completedDate
+        ? new Date(rest.completedDate)
+        : null;
 
     if (status) {
       updates.status = status;
       // Auto-update app status on stage change
       if (status === "FAILED") {
-        await prisma.application.update({ where: { id }, data: { status: "REJECTED" } });
+        await prisma.application.update({
+          where: { id },
+          data: { status: "REJECTED" },
+        });
         await prisma.activity.create({
-          data: { applicationId: id, type: "status_change", description: `Application marked as Rejected (stage "${stage.name}" failed)` },
+          data: {
+            applicationId: id,
+            type: "status_change",
+            description: `Application marked as Rejected (stage "${stage.name}" failed)`,
+          },
         });
       }
     }
 
-    const updated = await prisma.pipelineStage.update({ where: { id: stageId }, data: updates });
+    const updated = await prisma.pipelineStage.update({
+      where: { id: stageId },
+      data: updates,
+    });
 
     await prisma.activity.create({
       data: {
@@ -69,18 +98,22 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string; stageId: string }> }
+  { params }: { params: Promise<{ id: string; stageId: string }> },
 ) {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
   const { id, stageId } = await params;
 
-  const app = await prisma.application.findFirst({ where: { id, profileId: profile.id } });
+  const app = await prisma.application.findFirst({
+    where: { id, profileId: profile.id },
+  });
   if (!app) return apiError("Not found", "NOT_FOUND", 404);
 
   // Scope the delete to this application so a stage from another app can't be
   // removed by passing an owned app id with a foreign stageId.
-  const { count } = await prisma.pipelineStage.deleteMany({ where: { id: stageId, applicationId: id } });
+  const { count } = await prisma.pipelineStage.deleteMany({
+    where: { id: stageId, applicationId: id },
+  });
   if (count === 0) return apiError("Stage not found", "NOT_FOUND", 404);
   await invalidateAppData(profile.id);
   return NextResponse.json({ data: { ok: true } });

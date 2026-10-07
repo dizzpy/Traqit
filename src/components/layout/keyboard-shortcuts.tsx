@@ -11,7 +11,7 @@ import { ROUTE_SHORTCUTS } from "@/lib/shortcuts";
  * shell except while typing in a field or with a dialog/sheet open.
  *
  *   Navigation   a Applications · s Saved · c Calendar · g Analytics
- *                t Templates · p Profile · , Settings
+ *                t Templates · , Settings
  *   Actions      n New application · b Save job · / Focus search · d Toggle theme
  *
  * (⌘/Ctrl+B for the sidebar is handled in the sidebar itself.)
@@ -25,7 +25,7 @@ function isEditable(target: EventTarget | null): boolean {
 
 function overlayOpen(): boolean {
   return !!document.querySelector(
-    '[data-slot="dialog-content"],[data-slot="sheet-content"],[role="dialog"],[data-modal="true"]'
+    '[data-slot="dialog-content"],[data-slot="sheet-content"],[role="dialog"],[data-modal="true"]',
   );
 }
 
@@ -47,7 +47,14 @@ export function KeyboardShortcuts() {
     }
 
     function onKey(e: KeyboardEvent) {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+      if (
+        e.defaultPrevented ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.isComposing
+      )
+        return;
       if (isEditable(e.target) || overlayOpen()) return;
 
       const key = e.key.toLowerCase();
@@ -69,7 +76,9 @@ export function KeyboardShortcuts() {
           runAction("save-job", "/app/saved");
           break;
         case "/": {
-          const input = document.querySelector<HTMLInputElement>('input[data-search="true"]');
+          const input = document.querySelector<HTMLInputElement>(
+            'input[data-search="true"]',
+          );
           if (input) {
             e.preventDefault();
             input.focus();

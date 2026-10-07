@@ -1,10 +1,15 @@
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
+import { TimezoneSync } from "@/components/layout/timezone-sync";
 import { Toaster } from "sonner";
 import { getProfile } from "@/lib/auth";
 
-export default async function MainLayout({ children }: { children: React.ReactNode }) {
+export default async function MainLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // Anyone who hasn't finished the guided setup is sent there first, so the
   // dashboard is never reached "cold". (Auth itself is enforced in middleware.)
   const profile = await getProfile();
@@ -13,6 +18,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
       <KeyboardShortcuts />
+      {profile && <TimezoneSync saved={profile.timezone} />}
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
       <Toaster

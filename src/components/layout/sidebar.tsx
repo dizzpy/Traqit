@@ -23,11 +23,36 @@ import { Logo } from "@/components/common/logo";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
-  { href: "/app/applications", label: "Applications", icon: LayoutGridIcon, shortcut: "a" },
-  { href: "/app/saved",        label: "Saved jobs",   icon: BookmarkIcon,   shortcut: "s" },
-  { href: "/app/calendar",     label: "Calendar",     icon: Calendar01Icon, shortcut: "c" },
-  { href: "/app/analytics",    label: "Analytics",    icon: BarChartIcon,   shortcut: "g" },
-  { href: "/app/templates",    label: "Email templates", icon: Mail01Icon,  shortcut: "t" },
+  {
+    href: "/app/applications",
+    label: "Applications",
+    icon: LayoutGridIcon,
+    shortcut: "a",
+  },
+  {
+    href: "/app/saved",
+    label: "Saved jobs",
+    icon: BookmarkIcon,
+    shortcut: "s",
+  },
+  {
+    href: "/app/calendar",
+    label: "Calendar",
+    icon: Calendar01Icon,
+    shortcut: "c",
+  },
+  {
+    href: "/app/analytics",
+    label: "Analytics",
+    icon: BarChartIcon,
+    shortcut: "g",
+  },
+  {
+    href: "/app/templates",
+    label: "Email templates",
+    icon: Mail01Icon,
+    shortcut: "t",
+  },
 ];
 
 const STORAGE_KEY = "it-sidebar-collapsed";
@@ -44,7 +69,9 @@ export function Sidebar() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
-    setIsMac(/mac/i.test(navigator.platform) || /mac/i.test(navigator.userAgent));
+    setIsMac(
+      /mac/i.test(navigator.platform) || /mac/i.test(navigator.userAgent),
+    );
   }, []);
 
   // ⌘/Ctrl+B toggles the sidebar — ignored while typing in a field.
@@ -52,7 +79,11 @@ export function Sidebar() {
     function onKey(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "b") return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName))) return;
+      if (
+        t &&
+        (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName))
+      )
+        return;
       e.preventDefault();
       toggle();
     }
@@ -73,7 +104,7 @@ export function Sidebar() {
       className={cn(
         "relative z-30 shrink-0 h-screen bg-surface border-r border-border flex flex-col",
         "transition-[width] duration-300 ease-in-out",
-        collapsed ? "w-16" : "w-55"
+        collapsed ? "w-16" : "w-55",
       )}
     >
       {/* Cute little bump on the divider — two rounded segments that bend into a
@@ -86,13 +117,17 @@ export function Sidebar() {
         <span
           className={cn(
             "h-4 w-1 rounded-full bg-border origin-bottom transition-all duration-200 ease-out group-hover/bump:bg-accent",
-            collapsed ? "group-hover/bump:rotate-[-8deg]" : "group-hover/bump:rotate-[8deg]"
+            collapsed
+              ? "group-hover/bump:rotate-[-8deg]"
+              : "group-hover/bump:rotate-[8deg]",
           )}
         />
         <span
           className={cn(
             "h-4 w-1 -mt-px rounded-full bg-border origin-top transition-all duration-200 ease-out group-hover/bump:bg-accent",
-            collapsed ? "group-hover/bump:rotate-[8deg]" : "group-hover/bump:rotate-[-8deg]"
+            collapsed
+              ? "group-hover/bump:rotate-[8deg]"
+              : "group-hover/bump:rotate-[-8deg]",
           )}
         />
 
@@ -104,7 +139,7 @@ export function Sidebar() {
             "flex items-center gap-2 whitespace-nowrap rounded-xl border border-border bg-surface-elevated px-3 py-2 shadow-sm",
             "transition-all duration-150 ease-out",
             "group-hover/bump:translate-x-0 group-hover/bump:opacity-100",
-            "group-focus-visible/bump:translate-x-0 group-focus-visible/bump:opacity-100"
+            "group-focus-visible/bump:translate-x-0 group-focus-visible/bump:opacity-100",
           )}
         >
           <span className="text-sm font-medium text-text-primary">
@@ -125,12 +160,15 @@ export function Sidebar() {
       <div
         className={cn(
           "h-15.25 px-3 border-b border-border flex items-center",
-          collapsed && "justify-center"
+          collapsed && "justify-center",
         )}
       >
         <Link
           href="/app/applications"
-          className={cn("flex items-center gap-2.5 min-w-0", !collapsed && "pl-2")}
+          className={cn(
+            "flex items-center gap-2.5 min-w-0",
+            !collapsed && "pl-2",
+          )}
         >
           <Logo size={22} className="text-white shrink-0" />
           {!collapsed && (
@@ -158,12 +196,19 @@ export function Sidebar() {
                 collapsed && "justify-center px-0",
                 active
                   ? "bg-surface-hover text-text-primary"
-                  : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                  : "text-text-secondary hover:bg-surface-hover hover:text-text-primary",
               )}
             >
-              <HugeiconsIcon icon={icon} size={16} strokeWidth={1.5} className="shrink-0" />
+              <HugeiconsIcon
+                icon={icon}
+                size={16}
+                strokeWidth={1.5}
+                className="shrink-0"
+              />
               {!collapsed && <span className="truncate">{label}</span>}
-              {!collapsed && showHints && <Kbd className="ml-auto">{shortcut}</Kbd>}
+              {!collapsed && showHints && (
+                <Kbd className="ml-auto">{shortcut}</Kbd>
+              )}
             </Link>
           );
         })}
@@ -191,10 +236,15 @@ export function Sidebar() {
             collapsed && "justify-center px-0",
             pathname === "/app/trash" || pathname.startsWith("/app/trash/")
               ? "bg-surface-hover text-text-primary"
-              : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+              : "text-text-secondary hover:bg-surface-hover hover:text-text-primary",
           )}
         >
-          <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.5} className="shrink-0" />
+          <HugeiconsIcon
+            icon={Delete02Icon}
+            size={16}
+            strokeWidth={1.5}
+            className="shrink-0"
+          />
           {!collapsed && <span className="truncate">Trash</span>}
         </Link>
         <Link
@@ -203,12 +253,18 @@ export function Sidebar() {
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150",
             collapsed && "justify-center px-0",
-            pathname === "/app/settings" || pathname.startsWith("/app/settings/")
+            pathname === "/app/settings" ||
+              pathname.startsWith("/app/settings/")
               ? "bg-surface-hover text-text-primary"
-              : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+              : "text-text-secondary hover:bg-surface-hover hover:text-text-primary",
           )}
         >
-          <HugeiconsIcon icon={Settings01Icon} size={16} strokeWidth={1.5} className="shrink-0" />
+          <HugeiconsIcon
+            icon={Settings01Icon}
+            size={16}
+            strokeWidth={1.5}
+            className="shrink-0"
+          />
           {!collapsed && <span className="truncate">Settings</span>}
           {!collapsed && showHints && <Kbd className="ml-auto">,</Kbd>}
         </Link>
@@ -218,15 +274,15 @@ export function Sidebar() {
       <div
         className={cn(
           "px-3 py-3 border-t border-border flex items-center gap-2",
-          collapsed ? "flex-col" : "justify-between"
+          collapsed ? "flex-col" : "justify-between",
         )}
       >
         <Link
-          href="/app/profile"
-          title="My profile"
+          href="/app/settings"
+          title="Settings"
           className={cn(
             "flex items-center gap-2 min-w-0 rounded-lg transition-colors duration-150 hover:bg-surface-hover",
-            collapsed ? "justify-center p-1" : "-ml-1 px-1 py-1 flex-1"
+            collapsed ? "justify-center p-1" : "-ml-1 px-1 py-1 flex-1",
           )}
         >
           {profile?.avatarUrl ? (
@@ -240,15 +296,19 @@ export function Sidebar() {
             />
           ) : (
             <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
-              <HugeiconsIcon icon={UserIcon} size={12} className="text-accent-soft-fg" strokeWidth={1.5} />
+              <HugeiconsIcon
+                icon={UserIcon}
+                size={12}
+                className="text-accent-soft-fg"
+                strokeWidth={1.5}
+              />
             </div>
           )}
           {!collapsed && (
             <span className="text-xs text-text-secondary truncate">
-              {profile?.name ?? "My profile"}
+              {profile?.name ?? "Settings"}
             </span>
           )}
-          {!collapsed && showHints && <Kbd className="ml-auto">p</Kbd>}
         </Link>
         <ThemeToggle />
       </div>

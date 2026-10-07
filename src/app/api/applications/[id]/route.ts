@@ -22,9 +22,21 @@ const updateSchema = z.object({
   appliedVia: z.string().optional(),
   salaryMin: z.number().optional().nullable(),
   salaryMax: z.number().optional().nullable(),
+  isNonPaid: z.boolean().optional(),
   currency: z.string().optional(),
   location: z.string().optional().nullable(),
-  status: z.enum(["SAVED", "APPLIED", "IN_PROGRESS", "OFFER", "ACCEPTED", "REJECTED", "GHOSTED", "WITHDRAWN"]).optional(),
+  status: z
+    .enum([
+      "SAVED",
+      "APPLIED",
+      "IN_PROGRESS",
+      "OFFER",
+      "ACCEPTED",
+      "REJECTED",
+      "GHOSTED",
+      "WITHDRAWN",
+    ])
+    .optional(),
   appliedDate: z.string().optional().nullable(),
   firstResponseDate: z.string().optional().nullable(),
   deadline: z.string().optional().nullable(),
@@ -34,19 +46,30 @@ const updateSchema = z.object({
 async function getApp(id: string, profileId: string) {
   // Scope to live (non-trashed) records — trashed apps are only reachable via
   // the Trash endpoints.
-  return prisma.application.findFirst({ where: { id, profileId, deletedAt: null } });
+  return prisma.application.findFirst({
+    where: { id, profileId, deletedAt: null },
+  });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
   const { id } = await params;
-  const app = await prisma.application.findFirst({ where: { id, profileId: profile.id }, include });
+  const app = await prisma.application.findFirst({
+    where: { id, profileId: profile.id },
+    include,
+  });
   if (!app) return apiError("Not found", "NOT_FOUND", 404);
   return NextResponse.json({ data: app });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
   const { id } = await params;
@@ -56,14 +79,45 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);
-    if (!parsed.success) return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
+    if (!parsed.success)
+      return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
     const { status, ...rest } = parsed.data;
+
+    // Non-paid and a salary range are mutually exclusive — check against the
+    // effective merged state, not just this request's payload, so patching
+    // just one side of an already-inconsistent record can't sneak by.
+    const effectiveIsNonPaid = rest.isNonPaid ?? existing.isNonPaid;
+    const effectiveSalaryMin =
+      rest.salaryMin !== undefined ? rest.salaryMin : existing.salaryMin;
+    const effectiveSalaryMax =
+      rest.salaryMax !== undefined ? rest.salaryMax : existing.salaryMax;
+    if (
+      effectiveIsNonPaid &&
+      (effectiveSalaryMin != null || effectiveSalaryMax != null)
+    ) {
+      return apiError(
+        "A non-paid application can't also have a salary range",
+        "VALIDATION_ERROR",
+        400,
+      );
+    }
+
     const updates: Record<string, unknown> = { ...rest };
 
-    if (rest.appliedDate !== undefined) updates.appliedDate = rest.appliedDate ? new Date(rest.appliedDate) : null;
-    if (rest.firstResponseDate !== undefined) updates.firstResponseDate = rest.firstResponseDate ? new Date(rest.firstResponseDate) : null;
-    if (rest.deadline !== undefined) updates.deadline = rest.deadline ? new Date(rest.deadline) : null;
+    if (rest.appliedDate !== undefined) {
+      updates.appliedDate = rest.appliedDate
+        ? new Date(rest.appliedDate)
+        : null;
+      // A new applied date is a new ghosting occurrence — allow a fresh alert.
+      updates.ghostNotifiedAt = null;
+    }
+    if (rest.firstResponseDate !== undefined)
+      updates.firstResponseDate = rest.firstResponseDate
+        ? new Date(rest.firstResponseDate)
+        : null;
+    if (rest.deadline !== undefined)
+      updates.deadline = rest.deadline ? new Date(rest.deadline) : null;
 
     // Log status change
     const activityCreate = [];
@@ -80,7 +134,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id },
       data: {
         ...updates,
-        activityLog: activityCreate.length > 0 ? { create: activityCreate } : undefined,
+        activityLog:
+          activityCreate.length > 0 ? { create: activityCreate } : undefined,
       },
       include,
     });
@@ -93,7 +148,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const profile = await getProfile();
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
   const { id } = await params;
@@ -102,7 +160,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   // Soft delete → moves to Trash (recoverable for 30 days), instead of a
   // destructive delete. Restore via POST /api/trash/restore.
-  await prisma.application.update({ where: { id }, data: { deletedAt: new Date() } });
+  await prisma.application.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
   await invalidateAppData(profile.id);
   return NextResponse.json({ data: { ok: true } });
 }

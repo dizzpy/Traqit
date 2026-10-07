@@ -23,9 +23,11 @@ export const STATUS_COLORS: Record<ApplicationStatus, string> = {
 };
 
 export const STATUS_BG: Record<ApplicationStatus, string> = {
-  SAVED: "bg-[var(--status-saved-bg)] text-[var(--status-saved-fg)] border border-dashed border-border",
+  SAVED:
+    "bg-[var(--status-saved-bg)] text-[var(--status-saved-fg)] border border-dashed border-border",
   APPLIED: "bg-[var(--status-applied-bg)] text-[var(--status-applied-fg)]",
-  IN_PROGRESS: "bg-[var(--status-progress-bg)] text-[var(--status-progress-fg)]",
+  IN_PROGRESS:
+    "bg-[var(--status-progress-bg)] text-[var(--status-progress-fg)]",
   OFFER: "bg-[var(--status-offer-bg)] text-[var(--status-offer-fg)]",
   ACCEPTED: "bg-[var(--status-accepted-bg)] text-[var(--status-accepted-fg)]",
   REJECTED: "bg-[var(--status-rejected-bg)] text-[var(--status-rejected-fg)]",
@@ -86,7 +88,10 @@ export const DEFAULT_JOB_TYPES = [
 
 export const DEFAULT_PIPELINE_TEMPLATES = [
   { name: "SL company", stages: ["Interview", "Offer"] },
-  { name: "Standard tech", stages: ["OA", "Phone Screen", "Technical", "HR", "Offer"] },
+  {
+    name: "Standard tech",
+    stages: ["OA", "Phone Screen", "Technical", "HR", "Offer"],
+  },
   {
     name: "FAANG-style",
     stages: [
@@ -134,3 +139,15 @@ export const KANBAN_COLUMNS: ApplicationStatus[] = [
 ];
 
 export const GHOST_THRESHOLD_DAYS = 14;
+
+// Shared between the client-side upload form (pre-flight check, better UX)
+// and the server route (the check that actually matters) — kept here rather
+// than in src/lib/storage.ts since that module pulls in the service-role
+// Supabase client, which must never end up in a client bundle.
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+export const ALLOWED_UPLOAD_MIME_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "image/png",
+  "image/jpeg",
+];

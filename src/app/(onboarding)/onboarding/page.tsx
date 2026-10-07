@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
-import { appPath } from "@/lib/urls";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 
 export const metadata = { title: "Welcome to Traqit" };
