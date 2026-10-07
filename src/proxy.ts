@@ -59,7 +59,7 @@ export async function proxy(req: NextRequest) {
             "X-RateLimit-Remaining": String(rl.remaining),
             "X-RateLimit-Reset": String(rl.reset),
           },
-        }
+        },
       );
     }
 
@@ -67,6 +67,9 @@ export async function proxy(req: NextRequest) {
     // every route handler re-checks this anyway, but failing fast here means
     // an unauthenticated call gets 401 JSON instead of a 307 to a login page.
     if (!user) {
+      // /api/cron/* is called by pg_cron with no session; those routes check
+      // a shared secret themselves (src/lib/cron.ts).
+      if (pathname.startsWith("/api/cron/")) return supabaseResponse;
       return apiError("Unauthorized", "UNAUTHORIZED", 401);
     }
   }

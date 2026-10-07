@@ -366,15 +366,16 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm text-text-primary">
-                      Email me before scheduled interviews
+                      Email me about interviews and quiet applications
                     </p>
                     <p className="text-xs text-text-muted mt-0.5">
-                      A heads-up lands before each scheduled stage.
+                      A heads-up before each scheduled stage, and a nudge when
+                      an application goes quiet past your ghost threshold.
                     </p>
                   </div>
                   <Switch
                     checked={profile?.remindersEnabled ?? false}
-                    aria-label="Email me before scheduled interviews"
+                    aria-label="Email me about interviews and quiet applications"
                     onChange={(checked) =>
                       savePref({ remindersEnabled: checked })
                     }

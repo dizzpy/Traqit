@@ -74,6 +74,9 @@ model Application {
   appliedDate       DateTime?
   firstResponseDate DateTime?
   deadline          DateTime?
+  // Set when the ghost-check cron emails about this application; cleared if
+  // appliedDate changes so a re-application counts as a new occurrence.
+  ghostNotifiedAt   DateTime?
 
   notes             String?
 
@@ -118,6 +121,8 @@ model PipelineStage {
   status        StageStatus @default(UPCOMING)
   scheduledDate DateTime?
   completedDate DateTime?
+  // Set when the reminder cron emails about this stage; cleared on reschedule.
+  reminderSentAt DateTime?
   notes         String?
 
   createdAt     DateTime    @default(now())

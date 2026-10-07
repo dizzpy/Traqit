@@ -105,10 +105,13 @@ export async function PATCH(
 
     const updates: Record<string, unknown> = { ...rest };
 
-    if (rest.appliedDate !== undefined)
+    if (rest.appliedDate !== undefined) {
       updates.appliedDate = rest.appliedDate
         ? new Date(rest.appliedDate)
         : null;
+      // A new applied date is a new ghosting occurrence — allow a fresh alert.
+      updates.ghostNotifiedAt = null;
+    }
     if (rest.firstResponseDate !== undefined)
       updates.firstResponseDate = rest.firstResponseDate
         ? new Date(rest.firstResponseDate)
