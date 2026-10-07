@@ -18,6 +18,7 @@ model Profile {
   emailName         String?            // name used for the {myName} placeholder in email templates
   remindersEnabled  Boolean            @default(false) // email me before scheduled interviews
   reminderLeadTime  Int                @default(24) // hours before a scheduled stage to remind
+  timezone          String?            // IANA zone from the browser, e.g. "Asia/Colombo" — used for stage times in emails
   onboardedAt       DateTime?          // set when the guided onboarding flow is completed; null = not yet onboarded
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -120,6 +121,8 @@ model PipelineStage {
   order         Int
   status        StageStatus @default(UPCOMING)
   scheduledDate DateTime?
+  // false = all-day (scheduledDate is the date at 00:00 UTC); true = exact time.
+  hasTime       Boolean     @default(false)
   completedDate DateTime?
   // Set when the reminder cron emails about this stage; cleared on reschedule.
   reminderSentAt DateTime?

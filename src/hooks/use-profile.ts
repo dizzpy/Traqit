@@ -17,6 +17,7 @@ export interface ProfileAccount {
   emailName: string | null;
   remindersEnabled: boolean;
   reminderLeadTime: number;
+  timezone: string | null;
   onboardedAt: string | null;
   createdAt: string;
   avatarUrl: string | null;
@@ -34,6 +35,7 @@ export type ProfileUpdate = Partial<
     | "emailName"
     | "remindersEnabled"
     | "reminderLeadTime"
+    | "timezone"
     | "onboardedAt"
   >
 >;
@@ -49,7 +51,7 @@ export function useProfile() {
   const { data, error, isLoading, mutate } = useSWR<{ data: ProfileAccount }>(
     "/api/profile",
     fetcher,
-    PROFILE_SWR_CONFIG
+    PROFILE_SWR_CONFIG,
   );
   return { profile: data?.data ?? null, isLoading, error, mutate };
 }

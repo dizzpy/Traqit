@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
-import { invalidate, cacheKey } from "@/lib/redis";
+import { invalidate, invalidateAppData, cacheKey } from "@/lib/redis";
 
 const patchSchema = z.object({ name: z.string().min(1) });
 
@@ -21,11 +21,25 @@ export async function PATCH(
     return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
   try {
-    const { count } = await prisma.source.updateMany({
+    const existing = await prisma.source.findFirst({
       where: { id, profileId: profile.id },
-      data: { name: parsed.data.name },
+      select: { name: true },
     });
-    if (count === 0) return apiError("Source not found", "NOT_FOUND", 404);
+    if (!existing) return apiError("Source not found", "NOT_FOUND", 404);
+    // Applications store the name as text, so carry the rename over to them
+    // (trashed ones included) — otherwise they'd keep the old spelling and
+    // analytics would split one source into two.
+    await prisma.$transaction([
+      prisma.source.update({
+        where: { id },
+        data: { name: parsed.data.name },
+      }),
+      prisma.application.updateMany({
+        where: { profileId: profile.id, appliedVia: existing.name },
+        data: { appliedVia: parsed.data.name },
+      }),
+    ]);
+    await invalidateAppData(profile.id);
     await invalidate(cacheKey.sources(profile.id));
     return NextResponse.json({ data: { id, name: parsed.data.name } });
   } catch (err) {

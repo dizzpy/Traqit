@@ -110,8 +110,10 @@ export async function saveTemplate(payload: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Failed to save template");
-  return res.json();
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok)
+    throw new Error(json.error?.message || "Failed to save template");
+  return json;
 }
 
 export async function updateTemplate(
@@ -123,8 +125,10 @@ export async function updateTemplate(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
-  if (!res.ok) throw new Error("Failed to update template");
-  return res.json();
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok)
+    throw new Error(json.error?.message || "Failed to update template");
+  return json;
 }
 
 export async function deleteTemplate(id: string) {

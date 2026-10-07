@@ -45,6 +45,11 @@ import type {
   StageStatus,
 } from "@/types";
 import { cn } from "@/lib/utils";
+import {
+  stageLocalDay,
+  stageLocalTime,
+  toStageSchedule,
+} from "@/lib/stage-time";
 
 interface PipelineBuilderProps {
   application: Application;
@@ -131,6 +136,7 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
       order,
       status: "UPCOMING",
       scheduledDate: null,
+      hasTime: false,
       completedDate: null,
       notes: null,
       createdAt: now,
@@ -188,15 +194,21 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
     }
   }
 
-  async function setStageDate(stage: PipelineStage, date: string) {
+  // `day` is "yyyy-MM-dd" (or "" to clear), `time` is "HH:mm" (or "" for
+  // all-day) — both in the browser's timezone.
+  async function setStageSchedule(
+    stage: PipelineStage,
+    day: string,
+    time: string,
+  ) {
     if (stage.id.startsWith("temp-")) return; // not persisted yet — PATCH would 404
-    const value = date || null;
+    const schedule = toStageSchedule(day, time);
     const snapshot = stages;
     setStages((prev) =>
-      prev.map((s) => (s.id === stage.id ? { ...s, scheduledDate: value } : s)),
+      prev.map((s) => (s.id === stage.id ? { ...s, ...schedule } : s)),
     );
     try {
-      await updateStage(app.id, stage.id, { scheduledDate: value });
+      await updateStage(app.id, stage.id, schedule);
       revalidateApps();
     } catch {
       setStages(snapshot);
@@ -377,7 +389,9 @@ export function PipelineBuilder({ application: app }: PipelineBuilderProps) {
                   isLast={index === stages.length - 1}
                   pending={stage.id.startsWith("temp-")}
                   onCycleStatus={() => cycleStatus(stage)}
-                  onSetDate={(d) => setStageDate(stage, d)}
+                  onSetSchedule={(day, time) =>
+                    setStageSchedule(stage, day, time)
+                  }
                   onRemove={() => removeStage(stage.id)}
                 />
               ))}
@@ -408,7 +422,7 @@ interface StageCardProps {
   /** Stage is mid-create (temp id) — its controls are inert until it persists. */
   pending?: boolean;
   onCycleStatus: () => void;
-  onSetDate: (date: string) => void;
+  onSetSchedule: (day: string, time: string) => void;
   onRemove: () => void;
 }
 
@@ -417,7 +431,7 @@ function StageCard({
   isLast,
   pending = false,
   onCycleStatus,
-  onSetDate,
+  onSetSchedule,
   onRemove,
 }: StageCardProps) {
   const {
@@ -510,12 +524,24 @@ function StageCard({
 
         {/* Date row */}
         <div className={cn("mt-2", pending && "pointer-events-none")}>
-          <DatePicker
-            value={stage.scheduledDate?.slice(0, 10) ?? ""}
-            onChange={onSetDate}
-            placeholder="Schedule date"
-            className="h-7 text-xs"
-          />
+          <div className="flex items-center gap-1.5">
+            <DatePicker
+              value={stageLocalDay(stage)}
+              onChange={(day) =>
+                onSetSchedule(day, day ? stageLocalTime(stage) : "")
+              }
+              placeholder="Schedule date"
+              className="h-7 text-xs"
+            />
+            {stage.scheduledDate && (
+              <StageTimeInput
+                // Remount when the saved time changes so the draft resets.
+                key={stageLocalTime(stage)}
+                value={stageLocalTime(stage)}
+                onCommit={(time) => onSetSchedule(stageLocalDay(stage), time)}
+              />
+            )}
+          </div>
           {stage.notes && (
             <p className="mt-1 text-[11px] text-text-secondary italic">
               {stage.notes}
@@ -524,5 +550,34 @@ function StageCard({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Optional time for a scheduled stage. Saves on blur/Enter; empty = all-day. */
+function StageTimeInput({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (time: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const commit = () => {
+    if (draft !== value) onCommit(draft);
+  };
+  return (
+    <input
+      type="time"
+      value={draft}
+      aria-label="Stage time (optional)"
+      title="Time (optional) — leave empty for all day"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") setDraft(value);
+      }}
+      className="h-7 w-[92px] shrink-0 rounded-input border border-border bg-surface px-2 text-xs text-text-primary outline-none transition-colors duration-150 focus:border-accent [color-scheme:light_dark]"
+    />
   );
 }

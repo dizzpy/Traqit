@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendMail, type MailMessage } from "@/lib/mailer";
 import { APP_URL, SITE_URL } from "@/lib/urls";
+import { isValidTimeZone, stageStart } from "@/lib/stage-time";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -35,15 +36,35 @@ ${bodyHtml}
 </div></body></html>`;
 }
 
-/** Stage dates are date-only (stored at 00:00 UTC), so format them in UTC. */
-function formatDate(d: Date): string {
-  return d.toLocaleDateString("en-US", {
+/**
+ * All-day stages store their date at 00:00 UTC, so format them in UTC to get
+ * the right day. Timed stages show date + time in the user's timezone (UTC,
+ * labelled, if we don't know it yet).
+ */
+function formatStageWhen(
+  scheduledDate: Date,
+  hasTime: boolean,
+  timeZone: string | null,
+): string {
+  const dateOpts = {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
-    timeZone: "UTC",
+  } as const;
+  if (!hasTime)
+    return scheduledDate.toLocaleDateString("en-US", {
+      ...dateOpts,
+      timeZone: "UTC",
+    });
+  const tz = timeZone && isValidTimeZone(timeZone) ? timeZone : "UTC";
+  const when = scheduledDate.toLocaleString("en-US", {
+    ...dateOpts,
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: tz,
   });
+  return `${when} (${tz === "UTC" ? "UTC" : tz.replace(/_/g, " ")})`;
 }
 
 type GhostApp = {
@@ -82,11 +103,12 @@ export function ghostEmail(
 
 export function reminderEmail(
   name: string,
-  stage: { name: string; scheduledDate: Date },
+  stage: { name: string; scheduledDate: Date; hasTime: boolean },
   app: { companyName: string; position: string },
+  timeZone: string | null = null,
 ): Omit<MailMessage, "to"> {
   const subject = `Coming up: ${stage.name} with ${app.companyName}`;
-  const line = `${stage.name} for ${app.position} at ${app.companyName} is scheduled for ${formatDate(stage.scheduledDate)}.`;
+  const line = `${stage.name} for ${app.position} at ${app.companyName} is scheduled for ${formatStageWhen(stage.scheduledDate, stage.hasTime, timeZone)}.`;
   return {
     subject,
     text: `Hi ${name}, a heads-up: ${line} Good luck!\n\n${appLink()}`,
@@ -188,9 +210,12 @@ export async function runReminderCheck(now = new Date()): Promise<CheckResult> {
     where: {
       status: "UPCOMING",
       reminderSentAt: null,
+      // Widened window: an all-day stage's real start (09:00 in the user's
+      // zone) can sit up to ~a day either side of its stored 00:00 UTC.
+      // The exact start is checked per stage below.
       scheduledDate: {
-        gt: now,
-        lte: new Date(now.getTime() + MAX_LEAD_HOURS * HOUR_MS),
+        gt: new Date(now.getTime() - DAY_MS),
+        lte: new Date(now.getTime() + MAX_LEAD_HOURS * HOUR_MS + DAY_MS),
       },
       application: {
         deletedAt: null,
@@ -202,6 +227,7 @@ export async function runReminderCheck(now = new Date()): Promise<CheckResult> {
       id: true,
       name: true,
       scheduledDate: true,
+      hasTime: true,
       application: {
         select: {
           companyName: true,
@@ -212,6 +238,7 @@ export async function runReminderCheck(now = new Date()): Promise<CheckResult> {
               email: true,
               name: true,
               reminderLeadTime: true,
+              timezone: true,
             },
           },
         },
@@ -223,11 +250,10 @@ export async function runReminderCheck(now = new Date()): Promise<CheckResult> {
   for (const stage of stages) {
     const { profile } = stage.application;
     const scheduled = stage.scheduledDate!;
-    if (
-      scheduled.getTime() - now.getTime() >
-      profile.reminderLeadTime * HOUR_MS
-    )
-      continue;
+    // null timezone → all-day stages start at 09:00 UTC.
+    const start = stageStart(stage, profile.timezone ?? null)!;
+    const msUntil = start.getTime() - now.getTime();
+    if (msUntil <= 0 || msUntil > profile.reminderLeadTime * HOUR_MS) continue;
 
     const claimed = await prisma.pipelineStage.updateMany({
       where: { id: stage.id, reminderSentAt: null },
@@ -239,8 +265,13 @@ export async function runReminderCheck(now = new Date()): Promise<CheckResult> {
         to: profile.email,
         ...reminderEmail(
           profile.name,
-          { name: stage.name, scheduledDate: scheduled },
+          {
+            name: stage.name,
+            scheduledDate: scheduled,
+            hasTime: stage.hasTime,
+          },
           stage.application,
+          profile.timezone,
         ),
       });
       result.sent++;

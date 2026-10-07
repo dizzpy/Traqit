@@ -11,6 +11,8 @@ const updateSchema = z.object({
     .enum(["UPCOMING", "COMPLETED", "PASSED", "FAILED", "SKIPPED"])
     .optional(),
   scheduledDate: z.string().optional().nullable(),
+  // Only meaningful alongside scheduledDate; omitted means all-day.
+  hasTime: z.boolean().optional(),
   completedDate: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
@@ -39,12 +41,13 @@ export async function PATCH(
     if (!parsed.success)
       return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
-    const { status, ...rest } = parsed.data;
+    const { status, hasTime, ...rest } = parsed.data;
     const updates: Record<string, unknown> = { ...rest };
     if (rest.scheduledDate !== undefined) {
       updates.scheduledDate = rest.scheduledDate
         ? new Date(rest.scheduledDate)
         : null;
+      updates.hasTime = !!rest.scheduledDate && (hasTime ?? false);
       // Rescheduled → the reminder for the old date no longer applies.
       updates.reminderSentAt = null;
     }

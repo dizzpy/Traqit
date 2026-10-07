@@ -38,6 +38,8 @@ import {
   useSources,
   useJobTypes,
   addSource,
+  updateSource,
+  updateJobType,
   addJobType,
   deleteSource,
   deleteJobType,
@@ -141,6 +143,31 @@ export default function SettingsPage() {
       setNewJobType("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't add job type");
+    }
+  }
+
+  // Rename failures throw back to the Chip so it can stay in edit mode.
+  async function renameSource(id: string, name: string) {
+    try {
+      await updateSource(id, name);
+      mutateSources();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't rename source",
+      );
+      throw err;
+    }
+  }
+
+  async function renameJobType(id: string, name: string) {
+    try {
+      await updateJobType(id, name);
+      mutateJobTypes();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't rename job type",
+      );
+      throw err;
     }
   }
 
@@ -496,6 +523,7 @@ export default function SettingsPage() {
                     key={s.id}
                     label={s.name}
                     meta={s.usageCount}
+                    onRename={(name) => renameSource(s.id, name)}
                     onRemove={() => removeSource(s.id)}
                   />
                 ))}
@@ -529,6 +557,7 @@ export default function SettingsPage() {
                   <Chip
                     key={t.id}
                     label={t.name}
+                    onRename={(name) => renameJobType(t.id, name)}
                     onRemove={() => removeJobType(t.id)}
                   />
                 ))}
@@ -986,16 +1015,77 @@ function DangerRow({
 function Chip({
   label,
   meta,
+  onRename,
   onRemove,
 }: {
   label: string;
   meta?: number;
+  onRename?: (name: string) => Promise<void>;
   onRemove: () => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(label);
+  const [saving, setSaving] = useState(false);
+
+  async function commit() {
+    const next = draft.trim();
+    if (!next || next === label || !onRename) {
+      setDraft(label);
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onRename(next);
+      setEditing(false);
+    } catch {
+      // Stay in edit mode so the user can fix the name; the caller toasted.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        disabled={saving}
+        aria-label={`Rename ${label}`}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          }
+          if (e.key === "Escape") {
+            setDraft(label);
+            setEditing(false);
+          }
+        }}
+        className="px-3 py-1 w-36 bg-surface-elevated border border-accent rounded-full text-xs text-text-primary outline-none transition-colors duration-150"
+      />
+    );
+  }
+
   return (
     <span className="group/chip flex items-center gap-1.5 pl-3 pr-1.5 py-1 bg-surface-elevated border border-border rounded-full text-xs text-text-secondary">
       {label}
       {meta !== undefined && <span className="text-text-muted">({meta})</span>}
+      {onRename && (
+        <button
+          onClick={() => {
+            setDraft(label);
+            setEditing(true);
+          }}
+          title="Rename"
+          aria-label={`Rename ${label}`}
+          className="text-text-muted hover:text-accent transition-colors"
+        >
+          <HugeiconsIcon icon={Edit02Icon} size={12} strokeWidth={1.5} />
+        </button>
+      )}
       <button
         onClick={onRemove}
         title="Remove"
@@ -1044,8 +1134,10 @@ function TemplateModal({
       toast.success(template ? "Template updated" : "Template created");
       onSaved();
       onClose();
-    } catch {
-      toast.error("Couldn't save template");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't save template",
+      );
     } finally {
       setSaving(false);
     }

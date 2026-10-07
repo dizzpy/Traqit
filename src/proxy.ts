@@ -49,18 +49,16 @@ export async function proxy(req: NextRequest) {
     const rl = await checkRateLimit(tier, identifier);
     if (!rl.success) {
       const retryAfter = Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000));
-      return NextResponse.json(
-        { error: "Too many requests", code: "RATE_LIMITED" },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(retryAfter),
-            "X-RateLimit-Limit": String(rl.limit),
-            "X-RateLimit-Remaining": String(rl.remaining),
-            "X-RateLimit-Reset": String(rl.reset),
-          },
-        },
+      const res = apiError(
+        "Too many requests. Try again in a moment.",
+        "RATE_LIMITED",
+        429,
       );
+      res.headers.set("Retry-After", String(retryAfter));
+      res.headers.set("X-RateLimit-Limit", String(rl.limit));
+      res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+      res.headers.set("X-RateLimit-Reset", String(rl.reset));
+      return res;
     }
 
     // API consumers need a real status code, not an HTML redirect to /login —

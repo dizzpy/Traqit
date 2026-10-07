@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { stageStart } from "@/lib/stage-time";
 import { WorkModeBadge } from "@/components/ui/badge";
 import { formatRelativeDate, daysUntil } from "@/lib/utils";
 import type { Application } from "@/types";
@@ -15,26 +16,38 @@ interface ApplicationCardProps {
   onClick: (app: Application) => void;
 }
 
-export function ApplicationCard({ application: app, onClick }: ApplicationCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: app.id });
+export function ApplicationCard({
+  application: app,
+  onClick,
+}: ApplicationCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: app.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
-  const activeStage = app.stages.find((s) => s.status === "UPCOMING" || s.status === "COMPLETED");
-  const upcomingInterview = app.stages.find(
-    (s) =>
-      s.scheduledDate &&
-      differenceInHours(new Date(s.scheduledDate), new Date()) <= 48 &&
-      differenceInHours(new Date(s.scheduledDate), new Date()) > 0
+  const activeStage = app.stages.find(
+    (s) => s.status === "UPCOMING" || s.status === "COMPLETED",
   );
+  const upcomingInterview = app.stages.find((s) => {
+    const start = stageStart(s);
+    if (!start) return false;
+    const hrs = differenceInHours(start, new Date());
+    return hrs > 0 && hrs <= 48;
+  });
 
   const deadlineDays = app.deadline ? daysUntil(app.deadline) : null;
   const isExpired = deadlineDays !== null && deadlineDays < 0;
-  const isUrgent = deadlineDays !== null && deadlineDays >= 0 && deadlineDays <= 2;
+  const isUrgent =
+    deadlineDays !== null && deadlineDays >= 0 && deadlineDays <= 2;
 
   return (
     <div
@@ -49,14 +62,16 @@ export function ApplicationCard({ application: app, onClick }: ApplicationCardPr
         isDragging && "opacity-50 shadow-lg",
         app.status === "GHOSTED" && "opacity-60",
         app.status === "SAVED" && "border-dashed",
-        upcomingInterview && "border-l-2 border-l-info"
+        upcomingInterview && "border-l-2 border-l-info",
       )}
     >
       {/* Company + position */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium text-text-primary truncate">{app.companyName}</span>
+            <span className="text-sm font-medium text-text-primary truncate">
+              {app.companyName}
+            </span>
             {app.companyUrl && (
               <a
                 href={app.companyUrl}
@@ -78,21 +93,37 @@ export function ApplicationCard({ application: app, onClick }: ApplicationCardPr
       {activeStage && (
         <div className="flex items-center gap-1.5 mb-2">
           <div className="w-1.5 h-1.5 rounded-full bg-info shrink-0" />
-          <span className="text-xs text-text-muted truncate">{activeStage.name}</span>
+          <span className="text-xs text-text-muted truncate">
+            {activeStage.name}
+          </span>
         </div>
       )}
 
       {/* Upcoming interview */}
       {upcomingInterview && (
         <div className="flex items-center gap-1.5 mb-2">
-          <HugeiconsIcon icon={ZapIcon} size={11} strokeWidth={1.5} className="text-warning animate-pulse" />
+          <HugeiconsIcon
+            icon={ZapIcon}
+            size={11}
+            strokeWidth={1.5}
+            className="text-warning animate-pulse"
+          />
           <span className="text-xs text-warning">Interview soon</span>
         </div>
       )}
 
       {/* Deadline for saved */}
       {app.status === "SAVED" && deadlineDays !== null && (
-        <div className={cn("text-xs mb-2 font-medium", isExpired ? "text-danger" : isUrgent ? "text-warning" : "text-text-muted")}>
+        <div
+          className={cn(
+            "text-xs mb-2 font-medium",
+            isExpired
+              ? "text-danger"
+              : isUrgent
+                ? "text-warning"
+                : "text-text-muted",
+          )}
+        >
           {isExpired ? "Expired" : `${deadlineDays}d left`}
         </div>
       )}

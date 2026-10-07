@@ -9,7 +9,14 @@ async function jsonOrThrow(res: Response, fallback: string) {
 /** Create a pipeline stage on an application. `order` is 1-based per the API. */
 export async function createStage(
   appId: string,
-  body: { name: string; order: number; status?: string; scheduledDate?: string | null; notes?: string | null }
+  body: {
+    name: string;
+    order: number;
+    status?: string;
+    scheduledDate?: string | null;
+    hasTime?: boolean;
+    notes?: string | null;
+  },
 ): Promise<PipelineStage> {
   const res = await fetch(`/api/applications/${appId}/stages`, {
     method: "POST",
@@ -22,7 +29,17 @@ export async function createStage(
 export async function updateStage(
   appId: string,
   stageId: string,
-  patch: Partial<Pick<PipelineStage, "name" | "status" | "scheduledDate" | "completedDate" | "notes">>
+  patch: Partial<
+    Pick<
+      PipelineStage,
+      | "name"
+      | "status"
+      | "scheduledDate"
+      | "hasTime"
+      | "completedDate"
+      | "notes"
+    >
+  >,
 ): Promise<PipelineStage> {
   const res = await fetch(`/api/applications/${appId}/stages/${stageId}`, {
     method: "PATCH",
@@ -32,13 +49,21 @@ export async function updateStage(
   return jsonOrThrow(res, "Failed to update stage");
 }
 
-export async function deleteStage(appId: string, stageId: string): Promise<void> {
-  const res = await fetch(`/api/applications/${appId}/stages/${stageId}`, { method: "DELETE" });
+export async function deleteStage(
+  appId: string,
+  stageId: string,
+): Promise<void> {
+  const res = await fetch(`/api/applications/${appId}/stages/${stageId}`, {
+    method: "DELETE",
+  });
   if (!res.ok) throw new Error("Failed to delete stage");
 }
 
 /** Persist a new stage order. `orderedIds` is the full list of stage ids, top→bottom. */
-export async function reorderStages(appId: string, orderedIds: string[]): Promise<void> {
+export async function reorderStages(
+  appId: string,
+  orderedIds: string[],
+): Promise<void> {
   const res = await fetch(`/api/applications/${appId}/stages/reorder`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

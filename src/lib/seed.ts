@@ -2,8 +2,14 @@ import { prisma } from "./prisma";
 
 export async function seedProfile(profileId: string) {
   const sources = [
-    "RoosterJob", "LinkedIn", "Direct Mail", "BambooHR",
-    "Company Website", "Referral", "Indeed", "GitHub Jobs",
+    "RoosterJob",
+    "LinkedIn",
+    "Direct Mail",
+    "BambooHR",
+    "Company Website",
+    "Referral",
+    "Indeed",
+    "GitHub Jobs",
   ];
   for (const name of sources) {
     await prisma.source.upsert({
@@ -13,7 +19,13 @@ export async function seedProfile(profileId: string) {
     });
   }
 
-  const jobTypes = ["Intern", "Trainee SE", "Junior Dev", "Mid-level Dev", "SE Intern"];
+  const jobTypes = [
+    "Intern",
+    "Trainee SE",
+    "Junior Dev",
+    "Mid-level Dev",
+    "SE Intern",
+  ];
   for (const name of jobTypes) {
     await prisma.jobType.upsert({
       where: { profileId_name: { profileId, name } },
@@ -23,15 +35,37 @@ export async function seedProfile(profileId: string) {
   }
 
   const templates = [
-    { name: "SL company",    stages: ["Interview", "Offer"],                                                                                          isDefault: true },
-    { name: "Standard tech", stages: ["OA", "Phone Screen", "Technical", "HR", "Offer"],                                                              isDefault: false },
-    { name: "FAANG-style",   stages: ["OA", "Phone Screen", "Technical 1", "Technical 2", "System Design", "Behavioral", "Team Match", "Offer"],      isDefault: false },
+    { name: "SL company", stages: ["Interview", "Offer"], isDefault: true },
+    {
+      name: "Standard tech",
+      stages: ["OA", "Phone Screen", "Technical", "HR", "Offer"],
+      isDefault: false,
+    },
+    {
+      name: "FAANG-style",
+      stages: [
+        "OA",
+        "Phone Screen",
+        "Technical 1",
+        "Technical 2",
+        "System Design",
+        "Behavioral",
+        "Team Match",
+        "Offer",
+      ],
+      isDefault: false,
+    },
   ];
   for (const t of templates) {
     await prisma.pipelineTemplate.upsert({
       where: { profileId_name: { profileId, name: t.name } },
       update: {},
-      create: { profileId, name: t.name, stages: t.stages, isDefault: t.isDefault },
+      create: {
+        profileId,
+        name: t.name,
+        stages: t.stages,
+        isDefault: t.isDefault,
+      },
     });
   }
 
@@ -40,7 +74,14 @@ export async function seedProfile(profileId: string) {
     await prisma.emailTemplate.upsert({
       where: { profileId_name: { profileId, name: t.name } },
       update: { subject: t.subject, body: t.body, category: t.category },
-      create: { profileId, name: t.name, subject: t.subject, body: t.body, category: t.category, order: i },
+      create: {
+        profileId,
+        name: t.name,
+        subject: t.subject,
+        body: t.body,
+        category: t.category,
+        order: i,
+      },
     });
   }
 
@@ -56,7 +97,7 @@ const daysFromNow = (n: number) => new Date(Date.now() + n * DAY);
  * isn't a blank page. Covers a spread of statuses (saved → offer → rejected →
  * ghosted) with stages, a contact and activity. Safe to call repeatedly — it
  * no-ops once the profile already has any applications, and users can delete
- * these individually or via Profile → Danger zone → "Wipe all data".
+ * these individually or via Settings → Danger zone → "Delete all applications".
  */
 export async function seedSampleApplications(profileId: string) {
   const existing = await prisma.application.count({ where: { profileId } });
@@ -80,23 +121,47 @@ export async function seedSampleApplications(profileId: string) {
       status: "IN_PROGRESS",
       appliedDate: daysAgo(24),
       firstResponseDate: daysAgo(17),
-      notes: "Sample entry — delete it whenever you like. Referral from a friend.",
+      notes:
+        "Sample entry — delete it whenever you like. Referral from a friend.",
       stages: {
         create: [
-          { name: "Assessment", order: 1, status: "COMPLETED", scheduledDate: daysAgo(20), completedDate: daysAgo(20), notes: "HackerRank — 2 problems, 90 min" },
-          { name: "Technical", order: 2, status: "UPCOMING", scheduledDate: daysFromNow(3), notes: "Zoom — brush up DSA + basic system design" },
+          {
+            name: "Assessment",
+            order: 1,
+            status: "COMPLETED",
+            scheduledDate: daysAgo(20),
+            completedDate: daysAgo(20),
+            notes: "HackerRank — 2 problems, 90 min",
+          },
+          {
+            name: "Technical",
+            order: 2,
+            status: "UPCOMING",
+            scheduledDate: daysFromNow(3),
+            notes: "Zoom — brush up DSA + basic system design",
+          },
           { name: "HR", order: 3, status: "UPCOMING" },
         ],
       },
       contacts: {
         create: [
-          { name: "Chamara Perera", role: "Recruiter", email: "chamara@example.lk", linkedinUrl: "https://linkedin.com/in/example", notes: "Reached out on LinkedIn first" },
+          {
+            name: "Chamara Perera",
+            role: "Recruiter",
+            email: "chamara@example.lk",
+            linkedinUrl: "https://linkedin.com/in/example",
+            notes: "Reached out on LinkedIn first",
+          },
         ],
       },
       activityLog: {
         create: [
           { type: "created", description: "Application created" },
-          { type: "status_change", description: "Status changed from Applied to In Progress", metadata: { from: "APPLIED", to: "IN_PROGRESS" } },
+          {
+            type: "status_change",
+            description: "Status changed from Applied to In Progress",
+            metadata: { from: "APPLIED", to: "IN_PROGRESS" },
+          },
         ],
       },
     },
@@ -120,8 +185,12 @@ export async function seedSampleApplications(profileId: string) {
       status: "APPLIED",
       appliedDate: daysAgo(6),
       notes: "Sample entry — delete it whenever you like.",
-      stages: { create: [{ name: "Online Assessment", order: 1, status: "UPCOMING" }] },
-      activityLog: { create: [{ type: "created", description: "Application created" }] },
+      stages: {
+        create: [{ name: "Online Assessment", order: 1, status: "UPCOMING" }],
+      },
+      activityLog: {
+        create: [{ type: "created", description: "Application created" }],
+      },
     },
   });
 
@@ -145,12 +214,31 @@ export async function seedSampleApplications(profileId: string) {
       notes: "Sample entry — delete it whenever you like.",
       stages: {
         create: [
-          { name: "Phone Screen", order: 1, status: "PASSED", scheduledDate: daysAgo(30), completedDate: daysAgo(30) },
-          { name: "Technical", order: 2, status: "PASSED", scheduledDate: daysAgo(20), completedDate: daysAgo(20) },
-          { name: "Offer", order: 3, status: "COMPLETED", completedDate: daysAgo(5) },
+          {
+            name: "Phone Screen",
+            order: 1,
+            status: "PASSED",
+            scheduledDate: daysAgo(30),
+            completedDate: daysAgo(30),
+          },
+          {
+            name: "Technical",
+            order: 2,
+            status: "PASSED",
+            scheduledDate: daysAgo(20),
+            completedDate: daysAgo(20),
+          },
+          {
+            name: "Offer",
+            order: 3,
+            status: "COMPLETED",
+            completedDate: daysAgo(5),
+          },
         ],
       },
-      activityLog: { create: [{ type: "created", description: "Application created" }] },
+      activityLog: {
+        create: [{ type: "created", description: "Application created" }],
+      },
     },
   });
 
@@ -169,7 +257,8 @@ export async function seedSampleApplications(profileId: string) {
       location: "Colombo 02",
       status: "SAVED",
       deadline: daysFromNow(10),
-      notes: "Sample saved job — delete it whenever you like. Deadline coming up.",
+      notes:
+        "Sample saved job — delete it whenever you like. Deadline coming up.",
       activityLog: { create: [{ type: "created", description: "Saved job" }] },
     },
   });
@@ -192,11 +281,24 @@ export async function seedSampleApplications(profileId: string) {
       notes: "Sample entry — delete it whenever you like.",
       stages: {
         create: [
-          { name: "Phone Screen", order: 1, status: "COMPLETED", completedDate: daysAgo(26) },
-          { name: "Technical", order: 2, status: "FAILED", completedDate: daysAgo(18), notes: "Stumbled on the DP question" },
+          {
+            name: "Phone Screen",
+            order: 1,
+            status: "COMPLETED",
+            completedDate: daysAgo(26),
+          },
+          {
+            name: "Technical",
+            order: 2,
+            status: "FAILED",
+            completedDate: daysAgo(18),
+            notes: "Stumbled on the DP question",
+          },
         ],
       },
-      activityLog: { create: [{ type: "created", description: "Application created" }] },
+      activityLog: {
+        create: [{ type: "created", description: "Application created" }],
+      },
     },
   });
 
@@ -214,8 +316,11 @@ export async function seedSampleApplications(profileId: string) {
       location: "Colombo 05",
       status: "GHOSTED",
       appliedDate: daysAgo(30),
-      notes: "Sample entry — delete it whenever you like. No reply after applying.",
-      activityLog: { create: [{ type: "created", description: "Application created" }] },
+      notes:
+        "Sample entry — delete it whenever you like. No reply after applying.",
+      activityLog: {
+        create: [{ type: "created", description: "Application created" }],
+      },
     },
   });
 }

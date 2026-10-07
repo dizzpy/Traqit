@@ -10,7 +10,7 @@ const fetcher = (url: string) =>
 export function useEmailTemplates() {
   const { data, error, isLoading, mutate } = useSWR<{ data: EmailTemplate[] }>(
     "/api/templates/email",
-    fetcher
+    fetcher,
   );
   return { templates: data?.data ?? [], isLoading, error, mutate };
 }
@@ -18,11 +18,15 @@ export function useEmailTemplates() {
 export function useProfileName() {
   // Shares the "/api/profile" key with useProfile — keep the same dedup config
   // so the two callers don't trigger competing revalidations.
-  const { data } = useSWR<{ data: { id: string; name: string } }>("/api/profile", fetcher, {
-    dedupingInterval: 60_000,
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-  });
+  const { data } = useSWR<{ data: { id: string; name: string } }>(
+    "/api/profile",
+    fetcher,
+    {
+      dedupingInterval: 60_000,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    },
+  );
   return data?.data?.name ?? "";
 }
 
@@ -39,18 +43,25 @@ export async function saveEmailTemplate(payload: EmailTemplatePayload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Failed to save template");
-  return res.json();
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok)
+    throw new Error(json.error?.message || "Failed to save template");
+  return json;
 }
 
-export async function updateEmailTemplate(id: string, payload: Partial<EmailTemplatePayload>) {
+export async function updateEmailTemplate(
+  id: string,
+  payload: Partial<EmailTemplatePayload>,
+) {
   const res = await fetch(`/api/templates/email/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Failed to update template");
-  return res.json();
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok)
+    throw new Error(json.error?.message || "Failed to update template");
+  return json;
 }
 
 export async function deleteEmailTemplate(id: string) {

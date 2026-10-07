@@ -93,6 +93,7 @@ import {
   WORK_MODE_COLORS,
 } from "@/lib/constants";
 import type { Application, ApplicationStatus, WorkMode } from "@/types";
+import { stageStart } from "@/lib/stage-time";
 import { cn, daysUntil } from "@/lib/utils";
 import { consumePendingAction } from "@/lib/pending-action";
 import { useShortcutHints } from "@/hooks/use-shortcut-hints";
@@ -104,6 +105,7 @@ type SortKey = "companyName" | "appliedDate" | "status" | "position";
 type SortDir = "asc" | "desc";
 
 const HIDDEN_COLS_KEY = "it-hidden-cols";
+const VIEW_KEY = "it-applications-view";
 
 const FILTER_STATUSES: { value: ApplicationStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "All" },
@@ -166,14 +168,15 @@ const COLUMNS: {
 function hasUpcomingInterview(app: Application): boolean {
   const now = new Date();
   return app.stages.some((s) => {
+    const start = stageStart(s);
     if (
-      !s.scheduledDate ||
+      !start ||
       s.status === "COMPLETED" ||
       s.status === "PASSED" ||
       s.status === "FAILED"
     )
       return false;
-    const hrs = differenceInHours(new Date(s.scheduledDate), now);
+    const hrs = differenceInHours(start, now);
     return hrs >= 0 && hrs <= 48;
   });
 }
@@ -551,6 +554,18 @@ function ApplicationsPageInner() {
   const manualOrder = orderedIds !== null;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // The URL is the source of truth for the view; localStorage only restores
+  // the last choice when arriving without one (sidebar link, "a" shortcut).
+  useEffect(() => {
+    if (searchParams.get("view")) return;
+    try {
+      if (localStorage.getItem(VIEW_KEY) === "board") setView("board");
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Per-user hidden columns (Company is the locked anchor), persisted locally.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -829,6 +844,11 @@ function ApplicationsPageInner() {
   }
 
   function setView(v: string) {
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* ignore */
+    }
     const params = new URLSearchParams(searchParams.toString());
     params.set("view", v);
     router.replace(`${pathname}?${params.toString()}`);

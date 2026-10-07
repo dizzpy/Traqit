@@ -20,6 +20,7 @@ export interface PipelineStage {
   order: number;
   status: StageStatus;
   scheduledDate: string | null;
+  hasTime: boolean;
   completedDate: string | null;
   notes: string | null;
   createdAt: string;

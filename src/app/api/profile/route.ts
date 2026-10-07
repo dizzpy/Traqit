@@ -5,6 +5,7 @@ import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/utils";
+import { isValidTimeZone } from "@/lib/stage-time";
 import { cached, invalidate, cacheKey, TTL } from "@/lib/redis";
 import type { Plan } from "@prisma/client";
 
@@ -18,6 +19,7 @@ function serialize(p: {
   emailName: string | null;
   remindersEnabled: boolean;
   reminderLeadTime: number;
+  timezone: string | null;
   onboardedAt: Date | null;
   createdAt: Date;
   subscription?: { plan: Plan } | null;
@@ -32,6 +34,7 @@ function serialize(p: {
     emailName: p.emailName,
     remindersEnabled: p.remindersEnabled,
     reminderLeadTime: p.reminderLeadTime,
+    timezone: p.timezone,
     onboardedAt: p.onboardedAt,
     createdAt: p.createdAt,
     // Defensive default: any profile missing a subscription row reads as FREE.
@@ -51,7 +54,10 @@ export async function GET() {
 
   // Cache only the DB-backed profile — avatar/provider come from the live session.
   const profile = await cached(cacheKey.profile(user.id), TTL.PROFILE, () =>
-    prisma.profile.findUnique({ where: { userId: user.id }, include: { subscription: true } })
+    prisma.profile.findUnique({
+      where: { userId: user.id },
+      include: { subscription: true },
+    }),
   );
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
 
@@ -64,7 +70,11 @@ export async function GET() {
         provider: (user.app_metadata?.provider as string | undefined) ?? null,
       },
     },
-    { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } }
+    {
+      headers: {
+        "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+      },
+    },
   );
 }
 
@@ -73,25 +83,39 @@ export async function PATCH(req: NextRequest) {
   if (!profile) return apiError("Unauthorized", "UNAUTHORIZED", 401);
 
   const body = await req.json();
-  const parsed = z.object({
-    name: z.string().min(1).max(60).optional(),
-    defaultCurrency: z.string().min(1).optional(),
-    defaultPipelineTemplateId: z.string().nullable().optional(),
-    ghostThresholdDays: z.number().int().min(1).max(365).optional(),
-    emailName: z.string().max(60).nullable().optional(),
-    remindersEnabled: z.boolean().optional(),
-    reminderLeadTime: z.number().int().refine((v) => (REMINDER_LEAD_TIMES as readonly number[]).includes(v), {
-      message: "reminderLeadTime must be one of 1, 3, 24, 48",
-    }).optional(),
-    onboardedAt: z.string().datetime().nullable().optional(),
-  }).safeParse(body);
-  if (!parsed.success) return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
+  const parsed = z
+    .object({
+      name: z.string().min(1).max(60).optional(),
+      defaultCurrency: z.string().min(1).optional(),
+      defaultPipelineTemplateId: z.string().nullable().optional(),
+      ghostThresholdDays: z.number().int().min(1).max(365).optional(),
+      emailName: z.string().max(60).nullable().optional(),
+      remindersEnabled: z.boolean().optional(),
+      reminderLeadTime: z
+        .number()
+        .int()
+        .refine((v) => (REMINDER_LEAD_TIMES as readonly number[]).includes(v), {
+          message: "reminderLeadTime must be one of 1, 3, 24, 48",
+        })
+        .optional(),
+      onboardedAt: z.string().datetime().nullable().optional(),
+      timezone: z
+        .string()
+        .max(64)
+        .refine(isValidTimeZone, { message: "Unknown timezone" })
+        .optional(),
+    })
+    .safeParse(body);
+  if (!parsed.success)
+    return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
   // onboardedAt arrives as an ISO string (or null) — Prisma needs a Date.
   const { onboardedAt, ...rest } = parsed.data;
   const data = {
     ...rest,
-    ...(onboardedAt !== undefined ? { onboardedAt: onboardedAt ? new Date(onboardedAt) : null } : {}),
+    ...(onboardedAt !== undefined
+      ? { onboardedAt: onboardedAt ? new Date(onboardedAt) : null }
+      : {}),
   };
 
   const updated = await prisma.profile.update({

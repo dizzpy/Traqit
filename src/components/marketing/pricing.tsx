@@ -1,42 +1,41 @@
-"use client"
+"use client";
 
-import { useRef, useState } from "react"
-import { motion, AnimatePresence } from "motion/react"
-import { cn } from "@/lib/utils"
-import { MagicCard } from "@/components/ui/magic-card"
-import { BlurFade } from "@/components/ui/blur-fade"
-import { ShineBorder } from "@/components/ui/shine-border"
-import { FaArrowRight } from "react-icons/fa6"
+import { useRef, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { cn } from "@/lib/utils";
+import { MagicCard } from "@/components/ui/magic-card";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { ShineBorder } from "@/components/ui/shine-border";
+import { FaArrowRight } from "react-icons/fa6";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-type Currency = "USD" | "LKR"
+type Currency = "USD" | "LKR";
 
 const PRICES = {
-  pro:  { USD: "0.99", LKR: "324" },
-  free: { USD: "0",    LKR: "0"   },
-  max:  { USD: "1.99", LKR: "652" },
-} as const
+  pro: { USD: "0.99", LKR: "324" },
+  free: { USD: "0", LKR: "0" },
+  max: { USD: "1.99", LKR: "652" },
+} as const;
 
-const SYMBOLS: Record<Currency, string> = { USD: "$", LKR: "Rs." }
+const SYMBOLS: Record<Currency, string> = { USD: "$", LKR: "Rs." };
 
 const FREE_FEATURES = [
   "Unlimited applications",
   "Custom pipelines per company",
-  "Ghost detection — 14-day auto-flag",
+  "Ghost detection — flags quiet applications (14 days by default)",
+  "Email reminders before interviews",
   "Save jobs with deadlines",
   "Outreach templates",
+  "Data export (JSON)",
   "Live activity feed",
-]
+];
 
 const PRO_FEATURES = [
   "Everything in Free",
-  "Email reminders before interviews",
   "Advanced analytics dashboard",
   "Browser extension — save any job in one click",
-  "Data export (JSON)",
-  "Custom ghost detection threshold",
-]
+];
 
 const MAX_FEATURES = [
   "Everything in Pro",
@@ -45,7 +44,7 @@ const MAX_FEATURES = [
   "Mentor view — read-only board access for coaches",
   "Bulk export for reporting",
   "Dedicated support",
-]
+];
 
 // ─── GlareHover (ReactBits — inlined) ────────────────────────────────────────
 
@@ -53,26 +52,26 @@ function GlareCard({
   children,
   className,
 }: {
-  children: React.ReactNode
-  className?: string
+  children: React.ReactNode;
+  className?: string;
 }) {
-  const overlayRef = useRef<HTMLDivElement>(null)
-  const rgba = "rgba(196, 181, 253, 0.12)"
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const rgba = "rgba(196, 181, 253, 0.12)";
 
   const animateIn = () => {
-    const el = overlayRef.current
-    if (!el) return
-    el.style.transition = "none"
-    el.style.backgroundPosition = "-100% -100%, 0 0"
-    el.style.transition = "700ms ease"
-    el.style.backgroundPosition = "120% 120%, 0 0"
-  }
+    const el = overlayRef.current;
+    if (!el) return;
+    el.style.transition = "none";
+    el.style.backgroundPosition = "-100% -100%, 0 0";
+    el.style.transition = "700ms ease";
+    el.style.backgroundPosition = "120% 120%, 0 0";
+  };
   const animateOut = () => {
-    const el = overlayRef.current
-    if (!el) return
-    el.style.transition = "700ms ease"
-    el.style.backgroundPosition = "-100% -100%, 0 0"
-  }
+    const el = overlayRef.current;
+    if (!el) return;
+    el.style.transition = "700ms ease";
+    el.style.backgroundPosition = "-100% -100%, 0 0";
+  };
 
   return (
     <div
@@ -92,12 +91,18 @@ function GlareCard({
       />
       {children}
     </div>
-  )
+  );
 }
 
 // ─── Currency toggle ──────────────────────────────────────────────────────────
 
-function CurrencyToggle({ value, onChange }: { value: Currency; onChange: (c: Currency) => void }) {
+function CurrencyToggle({
+  value,
+  onChange,
+}: {
+  value: Currency;
+  onChange: (c: Currency) => void;
+}) {
   return (
     <div className="inline-flex items-center rounded-full border border-border bg-surface p-1 gap-0.5">
       {(["USD", "LKR"] as Currency[]).map((c) => (
@@ -105,7 +110,9 @@ function CurrencyToggle({ value, onChange }: { value: Currency; onChange: (c: Cu
           key={c}
           onClick={() => onChange(c)}
           className="relative px-4 py-1.5 text-xs font-semibold rounded-full z-10 transition-colors duration-200"
-          style={{ color: value === c ? "#fff" : "var(--color-text-secondary)" }}
+          style={{
+            color: value === c ? "#fff" : "var(--color-text-secondary)",
+          }}
         >
           {value === c && (
             <motion.div
@@ -118,7 +125,7 @@ function CurrencyToggle({ value, onChange }: { value: Currency; onChange: (c: Cu
         </button>
       ))}
     </div>
-  )
+  );
 }
 
 // ─── Animated price number ────────────────────────────────────────────────────
@@ -128,13 +135,13 @@ function Price({
   currency,
   large,
 }: {
-  plan: keyof typeof PRICES
-  currency: Currency
-  large?: boolean
+  plan: keyof typeof PRICES;
+  currency: Currency;
+  large?: boolean;
 }) {
-  const raw = PRICES[plan][currency]
-  const isFree = raw === "0"
-  const symbol = SYMBOLS[currency]
+  const raw = PRICES[plan][currency];
+  const isFree = raw === "0";
+  const symbol = SYMBOLS[currency];
 
   return (
     <div className="flex items-end gap-1 min-h-14">
@@ -150,7 +157,9 @@ function Price({
           <span
             className={cn(
               "font-black leading-none tracking-tighter",
-              large ? "text-5xl text-text-primary" : "text-4xl text-text-primary/50"
+              large
+                ? "text-5xl text-text-primary"
+                : "text-4xl text-text-primary/50",
             )}
             style={{ fontFamily: "var(--font-family-display)" }}
           >
@@ -162,12 +171,18 @@ function Price({
         </motion.div>
       </AnimatePresence>
     </div>
-  )
+  );
 }
 
 // ─── Feature list ─────────────────────────────────────────────────────────────
 
-function Features({ items, disabled }: { items: string[]; disabled?: boolean }) {
+function Features({
+  items,
+  disabled,
+}: {
+  items: string[];
+  disabled?: boolean;
+}) {
   return (
     <ul className="space-y-2.5">
       {items.map((f) => (
@@ -175,28 +190,37 @@ function Features({ items, disabled }: { items: string[]; disabled?: boolean }) 
           <span
             className={cn(
               "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full flex items-center justify-center text-[8px] font-black",
-              disabled ? "bg-surface-elevated text-text-tertiary" : "bg-accent/15 text-accent"
+              disabled
+                ? "bg-surface-elevated text-text-tertiary"
+                : "bg-accent/15 text-accent",
             )}
           >
             ✓
           </span>
-          <span className={cn("text-[11px] leading-relaxed", disabled ? "text-text-tertiary" : "text-text-secondary")}>
+          <span
+            className={cn(
+              "text-[11px] leading-relaxed",
+              disabled ? "text-text-tertiary" : "text-text-secondary",
+            )}
+          >
             {f}
           </span>
         </li>
       ))}
     </ul>
-  )
+  );
 }
 
 // ─── Section ──────────────────────────────────────────────────────────────────
 
 export function Pricing() {
-  const [currency, setCurrency] = useState<Currency>("USD")
+  const [currency, setCurrency] = useState<Currency>("USD");
 
   return (
-    <section id="pricing" className="max-w-5xl mx-auto px-6 py-20 md:py-28 scroll-mt-20">
-
+    <section
+      id="pricing"
+      className="max-w-5xl mx-auto px-6 py-20 md:py-28 scroll-mt-20"
+    >
       {/* Header */}
       <BlurFade inView delay={0}>
         <div className="text-center mb-14 space-y-4">
@@ -230,7 +254,6 @@ export function Pricing() {
 
       {/* 3-column grid: Pro | Free | Max */}
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1.12fr_1fr] gap-4 items-start">
-
         {/* ── Pro (disabled) ── */}
         <BlurFade inView delay={0.12} direction="right">
           <GlareCard>
@@ -243,7 +266,9 @@ export function Pricing() {
               gradientColor="#ffffff04"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Pro</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
+                  Pro
+                </span>
                 <span className="text-[10px] font-semibold text-text-tertiary bg-surface-elevated border border-border px-2 py-0.5 rounded-full">
                   Coming soon
                 </span>
@@ -252,7 +277,8 @@ export function Pricing() {
               <Price plan="pro" currency={currency} />
 
               <p className="text-[11px] text-text-tertiary leading-relaxed">
-                For serious job hunters who want deeper insights and more control.
+                For serious job hunters who want deeper insights and more
+                control.
               </p>
 
               <div className="opacity-40 pointer-events-none select-none">
@@ -276,14 +302,20 @@ export function Pricing() {
             initial={{ y: 12 }}
             whileInView={{ y: 0 }}
             viewport={{ once: true }}
-            transition={{ type: "spring", stiffness: 200, damping: 22, delay: 0.05 }}
+            transition={{
+              type: "spring",
+              stiffness: 200,
+              damping: 22,
+              delay: 0.05,
+            }}
           >
             {/* Outer ambient glow */}
             <div
               aria-hidden
               className="pointer-events-none absolute -inset-3 -z-10 rounded-3xl opacity-30 blur-2xl"
               style={{
-                background: "radial-gradient(ellipse at 50% 60%, #7c3aed, transparent 70%)",
+                background:
+                  "radial-gradient(ellipse at 50% 60%, #7c3aed, transparent 70%)",
               }}
             />
 
@@ -303,7 +335,9 @@ export function Pricing() {
               gradientColor="#c4b5fd10"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-accent">Free</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                  Free
+                </span>
                 <span className="text-[10px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
                   ✦ Active plan
                 </span>
@@ -315,9 +349,14 @@ export function Pricing() {
                   aria-hidden
                   className="pointer-events-none absolute -left-2 top-1/2 -translate-y-1/2 w-28 h-28 rounded-full"
                   animate={{ scale: [1, 1.25, 1], opacity: [0.18, 0.07, 0.18] }}
-                  transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{
+                    duration: 3.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
                   style={{
-                    background: "radial-gradient(circle, var(--accent), transparent 70%)",
+                    background:
+                      "radial-gradient(circle, var(--accent), transparent 70%)",
                     filter: "blur(16px)",
                   }}
                 />
@@ -325,7 +364,8 @@ export function Pricing() {
               </div>
 
               <p className="text-[11px] text-text-secondary leading-relaxed">
-                Everything you need to manage your internship hunt, completely free. No credit card.
+                Everything you need to manage your internship hunt, completely
+                free. No credit card.
               </p>
 
               <Features items={FREE_FEATURES} />
@@ -353,7 +393,9 @@ export function Pricing() {
               gradientColor="#ffffff04"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Max</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
+                  Max
+                </span>
                 <span className="text-[10px] font-semibold text-text-tertiary bg-surface-elevated border border-border px-2 py-0.5 rounded-full">
                   Coming soon
                 </span>
@@ -362,7 +404,8 @@ export function Pricing() {
               <Price plan="max" currency={currency} />
 
               <p className="text-[11px] text-text-tertiary leading-relaxed">
-                For power users who want AI features, team tools, and full platform access.
+                For power users who want AI features, team tools, and full
+                platform access.
               </p>
 
               <div className="opacity-40 pointer-events-none select-none">
@@ -383,9 +426,10 @@ export function Pricing() {
       {/* Footer */}
       <BlurFade inView delay={0.3}>
         <p className="text-center text-[11px] text-text-tertiary mt-10">
-          Paid plans will include a 14-day free trial. No credit card needed to start today.
+          Paid plans will include a 14-day free trial. No credit card needed to
+          start today.
         </p>
       </BlurFade>
     </section>
-  )
+  );
 }
