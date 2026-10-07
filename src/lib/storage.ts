@@ -10,6 +10,28 @@ export const DOCUMENTS_BUCKET = "documents";
 export { MAX_UPLOAD_BYTES };
 export const ALLOWED_MIME_TYPES = ALLOWED_UPLOAD_MIME_TYPES;
 
+/**
+ * Server-side size/type check shared by upload and replace — returns the
+ * error to send back, or null if the file is acceptable.
+ */
+export function uploadValidationError(
+  file: File,
+): { message: string; code: string } | null {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return {
+      message: `File is too large (max ${(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(0)}MB)`,
+      code: "FILE_TOO_LARGE",
+    };
+  }
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    return {
+      message: "Unsupported file type — use PDF, DOCX, PNG or JPG",
+      code: "UNSUPPORTED_TYPE",
+    };
+  }
+  return null;
+}
+
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100);
 }

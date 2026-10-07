@@ -89,6 +89,40 @@ export async function deleteDocument(
   if (!res.ok) throw new Error("Failed to delete document");
 }
 
+export async function updateDocument(
+  appId: string,
+  documentId: string,
+  patch: Partial<DocumentInput>,
+): Promise<Document> {
+  const res = await fetch(
+    `/api/applications/${appId}/documents/${documentId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    },
+  );
+  return jsonOrThrow(res, "Failed to update document");
+}
+
+/** Replaces an uploaded document's file (and optionally its label/type). */
+export async function replaceDocumentFile(
+  appId: string,
+  documentId: string,
+  file: File,
+  meta: Partial<DocumentUploadMeta>,
+): Promise<Document> {
+  const form = new FormData();
+  form.set("file", file);
+  if (meta.name) form.set("name", meta.name);
+  if (meta.type) form.set("type", meta.type);
+  const res = await fetch(
+    `/api/applications/${appId}/documents/${documentId}`,
+    { method: "PATCH", body: form },
+  );
+  return jsonOrThrow(res, "Failed to replace file");
+}
+
 export type DocumentUploadMeta = {
   name: string;
   type: "cv" | "cover-letter" | "portfolio" | "other";

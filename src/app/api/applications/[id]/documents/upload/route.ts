@@ -4,9 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getProfile } from "@/lib/auth";
 import { apiError } from "@/lib/utils";
 import {
-  ALLOWED_MIME_TYPES,
-  MAX_UPLOAD_BYTES,
   documentStoragePath,
+  uploadValidationError,
   uploadDocumentFile,
   deleteDocumentFile,
 } from "@/lib/storage";
@@ -46,20 +45,8 @@ export async function POST(
   if (!parsed.success)
     return apiError(parsed.error.message, "VALIDATION_ERROR", 400);
 
-  if (file.size > MAX_UPLOAD_BYTES) {
-    return apiError(
-      `File is too large (max ${(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(0)}MB)`,
-      "FILE_TOO_LARGE",
-      400,
-    );
-  }
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    return apiError(
-      "Unsupported file type — use PDF, DOCX, PNG or JPG",
-      "UNSUPPORTED_TYPE",
-      400,
-    );
-  }
+  const invalid = uploadValidationError(file);
+  if (invalid) return apiError(invalid.message, invalid.code, 400);
 
   // Upload before creating any DB row, so a failed upload never leaves a
   // partial/orphaned document record behind.

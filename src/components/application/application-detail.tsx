@@ -54,6 +54,8 @@ import {
   deleteContact,
   createDocument,
   uploadDocument,
+  updateDocument,
+  replaceDocumentFile,
   deleteDocument,
   type ContactInput,
   type DocumentInput,
@@ -142,6 +144,7 @@ export function ApplicationDetail({
   const [addingContact, setAddingContact] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [addingDoc, setAddingDoc] = useState(false);
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
   const { jobTypes, mutate: mutateTypes } = useJobTypes();
   const { sources, mutate: mutateSources } = useSources();
@@ -298,6 +301,33 @@ export function ApplicationDetail({
     // decide whether to keep itself open, rather than a fire-and-forget call.
     const real = await uploadDocument(app.id, file, meta);
     patchDetail((a) => ({ ...a, documents: [...a.documents, real] }));
+  }
+
+  async function editDocument(id: string, input: Partial<DocumentInput>) {
+    const snapshot = documents;
+    patchDetail((a) => ({
+      ...a,
+      documents: a.documents.map((d) => (d.id === id ? { ...d, ...input } : d)),
+    }));
+    try {
+      const real = await updateDocument(app.id, id, input);
+      patchDetail((a) => ({
+        ...a,
+        documents: a.documents.map((d) => (d.id === id ? real : d)),
+      }));
+    } catch {
+      patchDetail((a) => ({ ...a, documents: snapshot }));
+      toast.error("Couldn't save document. Changes reverted.");
+    }
+  }
+
+  async function replaceFile(id: string, file: File, meta: DocumentUploadMeta) {
+    // Not optimistic, same as uploadDocumentFile — the form shows the error.
+    const real = await replaceDocumentFile(app.id, id, file, meta);
+    patchDetail((a) => ({
+      ...a,
+      documents: a.documents.map((d) => (d.id === id ? real : d)),
+    }));
   }
 
   async function removeDocument(id: string) {
@@ -829,9 +859,11 @@ export function ApplicationDetail({
               </div>
 
               {addingDoc && (
-                <AddDocumentForm
-                  onCreate={addDocument}
-                  onUpload={uploadDocumentFile}
+                <DocumentForm
+                  onSaveLink={addDocument}
+                  onSaveUpload={(file, meta) =>
+                    file ? uploadDocumentFile(file, meta) : Promise.resolve()
+                  }
                   onDone={() => setAddingDoc(false)}
                 />
               )}
@@ -843,58 +875,84 @@ export function ApplicationDetail({
                 />
               ) : (
                 <div className="flex flex-col gap-2">
-                  {documents.map((d) => (
-                    <div
-                      key={d.id}
-                      className="group flex items-center gap-3 bg-surface-elevated border border-border rounded-card p-3 hover:border-accent transition-colors duration-150"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-accent-soft flex items-center justify-center shrink-0">
-                        <HugeiconsIcon
-                          icon={FileAttachmentIcon}
-                          size={14}
-                          className="text-accent-soft-fg"
-                          strokeWidth={1.5}
-                        />
+                  {documents.map((d) =>
+                    d.id === editingDocId ? (
+                      <DocumentForm
+                        key={d.id}
+                        initial={d}
+                        submitLabel="Save"
+                        onSaveLink={(input) => editDocument(d.id, input)}
+                        onSaveUpload={(file, meta) =>
+                          file
+                            ? replaceFile(d.id, file, meta)
+                            : editDocument(d.id, meta)
+                        }
+                        onDone={() => setEditingDocId(null)}
+                      />
+                    ) : (
+                      <div
+                        key={d.id}
+                        className="group flex items-center gap-3 bg-surface-elevated border border-border rounded-card p-3 hover:border-accent transition-colors duration-150"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-accent-soft flex items-center justify-center shrink-0">
+                          <HugeiconsIcon
+                            icon={FileAttachmentIcon}
+                            size={14}
+                            className="text-accent-soft-fg"
+                            strokeWidth={1.5}
+                          />
+                        </div>
+                        <a
+                          href={d.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-w-0 flex-1"
+                        >
+                          <p className="text-sm font-medium text-text-primary truncate hover:text-accent transition-colors">
+                            {d.name}
+                          </p>
+                          <p className="text-xs text-text-muted capitalize">
+                            {d.type.replace("-", " ")}
+                          </p>
+                        </a>
+                        <a
+                          href={d.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0"
+                        >
+                          <HugeiconsIcon
+                            icon={ArrowUpRight01Icon}
+                            size={13}
+                            className="text-text-muted"
+                            strokeWidth={1.5}
+                          />
+                        </a>
+                        <button
+                          onClick={() => setEditingDocId(d.id)}
+                          title="Edit document"
+                          className="shrink-0 text-text-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-all duration-150"
+                        >
+                          <HugeiconsIcon
+                            icon={Edit02Icon}
+                            size={14}
+                            strokeWidth={1.5}
+                          />
+                        </button>
+                        <button
+                          onClick={() => removeDocument(d.id)}
+                          title="Delete document"
+                          className="shrink-0 text-text-muted hover:text-[var(--status-rejected-fg)] opacity-0 group-hover:opacity-100 transition-all duration-150"
+                        >
+                          <HugeiconsIcon
+                            icon={Delete02Icon}
+                            size={14}
+                            strokeWidth={1.5}
+                          />
+                        </button>
                       </div>
-                      <a
-                        href={d.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-w-0 flex-1"
-                      >
-                        <p className="text-sm font-medium text-text-primary truncate hover:text-accent transition-colors">
-                          {d.name}
-                        </p>
-                        <p className="text-xs text-text-muted capitalize">
-                          {d.type.replace("-", " ")}
-                        </p>
-                      </a>
-                      <a
-                        href={d.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0"
-                      >
-                        <HugeiconsIcon
-                          icon={ArrowUpRight01Icon}
-                          size={13}
-                          className="text-text-muted"
-                          strokeWidth={1.5}
-                        />
-                      </a>
-                      <button
-                        onClick={() => removeDocument(d.id)}
-                        title="Delete document"
-                        className="shrink-0 text-text-muted hover:text-[var(--status-rejected-fg)] opacity-0 group-hover:opacity-100 transition-all duration-150"
-                      >
-                        <HugeiconsIcon
-                          icon={Delete02Icon}
-                          size={14}
-                          strokeWidth={1.5}
-                        />
-                      </button>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               )}
             </TabsContent>
@@ -1115,45 +1173,64 @@ function validateUploadFile(file: File): string | null {
   return null;
 }
 
-function AddDocumentForm({
-  onCreate,
-  onUpload,
+/**
+ * Add or edit a document. With `initial`, the link/upload mode is fixed to
+ * the document's source; an uploaded document's file is optional to replace
+ * (`onSaveUpload` gets `null` when only the label/type changed).
+ */
+function DocumentForm({
+  initial,
+  submitLabel,
+  onSaveLink,
+  onSaveUpload,
   onDone,
 }: {
-  onCreate: (input: DocumentInput) => void;
-  onUpload: (file: File, meta: DocumentUploadMeta) => Promise<void>;
+  initial?: Document;
+  submitLabel?: string;
+  onSaveLink: (input: DocumentInput) => void;
+  onSaveUpload: (file: File | null, meta: DocumentUploadMeta) => Promise<void>;
   onDone: () => void;
 }) {
-  const [mode, setMode] = useState<"link" | "upload">("link");
-  const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
-  const [type, setType] = useState<(typeof DOC_TYPES)[number]["value"]>("cv");
+  const isEdit = !!initial;
+  const [mode, setMode] = useState<"link" | "upload">(
+    initial?.source ?? "link",
+  );
+  const [name, setName] = useState(initial?.name ?? "");
+  const [url, setUrl] = useState(initial?.source === "link" ? initial.url : "");
+  const [type, setType] = useState<(typeof DOC_TYPES)[number]["value"]>(
+    DOC_TYPES.find((t) => t.value === initial?.type)?.value ?? "cv",
+  );
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const isLink = mode === "link";
-  const valid = isLink ? name.trim() && url.trim() : !!file && !uploading;
+  const valid = isLink
+    ? name.trim() && url.trim()
+    : !uploading && (isEdit ? !!name.trim() : !!file);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (isLink) {
       if (!name.trim() || !url.trim()) return;
-      onCreate({ name: name.trim(), url: url.trim(), type });
+      onSaveLink({ name: name.trim(), url: url.trim(), type });
       onDone();
       return;
     }
 
-    if (!file) return;
-    const validationError = validateUploadFile(file);
+    if (!file && !isEdit) return;
+    const validationError = file ? validateUploadFile(file) : null;
     if (validationError) {
       setError(validationError);
       return;
     }
     setUploading(true);
     try {
-      await onUpload(file, { name: name.trim() || file.name, type });
+      await onSaveUpload(file, {
+        name: name.trim() || file?.name || "",
+        type,
+      });
       onDone();
     } catch (err) {
       // Stays open on failure — the user should see why and be able to
@@ -1169,32 +1246,36 @@ function AddDocumentForm({
       onSubmit={submit}
       className="bg-surface-elevated border border-border rounded-card p-3 mb-3 flex flex-col gap-2"
     >
-      <div className="flex gap-1 p-1 bg-surface rounded-input border border-border w-full">
-        {(["link", "upload"] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => {
-              setMode(m);
-              setError(null);
-            }}
-            className={cn(
-              "flex-1 py-1.5 text-xs font-medium rounded transition-colors duration-150",
-              mode === m
-                ? "bg-surface-elevated text-text-primary border border-border"
-                : "text-text-muted hover:text-text-secondary",
-            )}
-          >
-            {m === "link" ? "Link" : "Upload file"}
-          </button>
-        ))}
-      </div>
+      {!isEdit && (
+        <div className="flex gap-1 p-1 bg-surface rounded-input border border-border w-full">
+          {(["link", "upload"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => {
+                setMode(m);
+                setError(null);
+              }}
+              className={cn(
+                "flex-1 py-1.5 text-xs font-medium rounded transition-colors duration-150",
+                mode === m
+                  ? "bg-surface-elevated text-text-primary border border-border"
+                  : "text-text-muted hover:text-text-secondary",
+              )}
+            >
+              {m === "link" ? "Link" : "Upload file"}
+            </button>
+          ))}
+        </div>
+      )}
       <input
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder={
-          isLink ? "Label * (e.g. CV — Sysco)" : "Label (defaults to filename)"
+          isLink || isEdit
+            ? "Label * (e.g. CV — Sysco)"
+            : "Label (defaults to filename)"
         }
         className={fieldClass}
       />
@@ -1207,19 +1288,26 @@ function AddDocumentForm({
           className={fieldClass}
         />
       ) : (
-        <input
-          type="file"
-          accept={UPLOAD_ACCEPT}
-          onChange={(e) => {
-            const f = e.target.files?.[0] ?? null;
-            setFile(f);
-            setError(f ? validateUploadFile(f) : null);
-          }}
-          className={cn(
-            fieldClass,
-            "cursor-pointer file:mr-3 file:cursor-pointer file:border-0 file:bg-transparent file:text-text-secondary",
+        <>
+          {isEdit && (
+            <p className="text-[11px] text-text-muted">
+              Replace file (optional) — leave empty to keep the current one.
+            </p>
           )}
-        />
+          <input
+            type="file"
+            accept={UPLOAD_ACCEPT}
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              setFile(f);
+              setError(f ? validateUploadFile(f) : null);
+            }}
+            className={cn(
+              fieldClass,
+              "cursor-pointer file:mr-3 file:cursor-pointer file:border-0 file:bg-transparent file:text-text-secondary",
+            )}
+          />
+        </>
       )}
       {error && (
         <p className="text-[11px] text-[var(--status-rejected-fg)]">{error}</p>
@@ -1240,7 +1328,11 @@ function AddDocumentForm({
           Cancel
         </Button>
         <Button type="submit" size="sm" disabled={!valid}>
-          {uploading ? "Uploading…" : isLink ? "Add document" : "Upload"}
+          {uploading
+            ? file
+              ? "Uploading…"
+              : "Saving…"
+            : (submitLabel ?? (isLink ? "Add document" : "Upload"))}
         </Button>
       </div>
     </form>
